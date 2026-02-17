@@ -1,0 +1,12 @@
+{
+  "name": "Velo",
+  "short_name": "Velo",
+  "description": "High-performance AI Task Management with real-time strategic orchestration.",
+  "theme_color": "#4f46e5",
+  "background_color": "#f8fafc",
+  "display": "standalone",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}

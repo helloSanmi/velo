@@ -1,0 +1,33 @@
+name: Backend Data CI
+
+on:
+  push:
+    branches:
+      - main
+      - master
+      - develop
+    paths:
+      - 'backend/**'
+      - '.github/workflows/backend-ci.yml'
+  pull_request:
+    paths:
+      - 'backend/**'
+      - '.github/workflows/backend-ci.yml'
+  workflow_dispatch:
+
+jobs:
+  validate-backend-data:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Validate backend JSON files
+        run: |
+          node -e "const fs=require('fs');const path=require('path');const root='backend';const files=[];const walk=(dir)=>{for(const entry of fs.readdirSync(dir,{withFileTypes:true})){const full=path.join(dir,entry.name);if(entry.isDirectory()) walk(full); else if(entry.isFile() && entry.name.endsWith('.json')) files.push(full);}};walk(root);if(files.length===0){console.error('No JSON files found under backend/.');process.exit(1);}for(const file of files){try{JSON.parse(fs.readFileSync(file,'utf8'));console.log('OK',file);}catch(err){console.error('Invalid JSON:',file);console.error(err.message);process.exit(1);}}"

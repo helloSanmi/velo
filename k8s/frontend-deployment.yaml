@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+        - name: frontend
+          # REPLACE with your actual image path from Cloud Build
+          image: gcr.io/YOUR_PROJECT_ID/frontend-image:latest
+          ports:
+            - containerPort: 80

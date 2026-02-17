@@ -1,0 +1,24 @@
+[
+  {
+    "id": "team-platform",
+    "orgId": "org-ent-001",
+    "name": "Platform Team",
+    "description": "Core platform, reliability, and API operations.",
+    "leadId": "u-1",
+    "memberIds": ["u-1", "u-3", "demo-admin"],
+    "createdBy": "demo-admin",
+    "createdAt": 1758711600000,
+    "updatedAt": 1758711600000
+  },
+  {
+    "id": "team-product",
+    "orgId": "org-ent-001",
+    "name": "Product Team",
+    "description": "Roadmap, design quality, and delivery planning.",
+    "leadId": "u-2",
+    "memberIds": ["u-2", "u-1", "demo-admin"],
+    "createdBy": "demo-admin",
+    "createdAt": 1759143600000,
+    "updatedAt": 1759143600000
+  }
+]

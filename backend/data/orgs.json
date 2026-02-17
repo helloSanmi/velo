@@ -1,0 +1,12 @@
+[
+  {
+    "id": "org-ent-001",
+    "name": "Acme Global Enterprise",
+    "totalSeats": 50,
+    "plan": "pro",
+    "seatPrice": 7,
+    "billingCurrency": "USD",
+    "ownerId": "demo-admin",
+    "createdAt": 1740175200000
+  }
+]

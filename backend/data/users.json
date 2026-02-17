@@ -1,0 +1,38 @@
+[
+  {
+    "id": "u-1",
+    "orgId": "org-ent-001",
+    "username": "alex",
+    "displayName": "Alex Rivera",
+    "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=Alex",
+    "email": "alex@velo.ai",
+    "role": "member"
+  },
+  {
+    "id": "u-2",
+    "orgId": "org-ent-001",
+    "username": "sarah",
+    "displayName": "Sarah Chen",
+    "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=Sarah",
+    "email": "sarah@velo.ai",
+    "role": "member"
+  },
+  {
+    "id": "u-3",
+    "orgId": "org-ent-001",
+    "username": "mike",
+    "displayName": "Michael Scott",
+    "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=Mike",
+    "email": "mike@velo.ai",
+    "role": "member"
+  },
+  {
+    "id": "demo-admin",
+    "orgId": "org-ent-001",
+    "username": "admin",
+    "displayName": "System Admin",
+    "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=Admin",
+    "email": "admin@velo.ai",
+    "role": "admin"
+  }
+]

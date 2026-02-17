@@ -1,0 +1,64 @@
+[
+  {
+    "id": "p1",
+    "orgId": "org-ent-001",
+    "createdBy": "u-1",
+    "name": "Product Roadmap 2025",
+    "description": "Core product strategy and high-level feature development.",
+    "color": "bg-indigo-600",
+    "members": [
+      "u-1",
+      "u-2",
+      "u-3",
+      "demo-admin"
+    ],
+    "isPublic": false,
+    "publicToken": "roadmap25"
+  },
+  {
+    "id": "p2",
+    "orgId": "org-ent-001",
+    "createdBy": "u-3",
+    "name": "Infrastructure Scaling",
+    "description": "Kubernetes cluster expansion and global load balancing strategy.",
+    "color": "bg-emerald-600",
+    "members": [
+      "u-1",
+      "u-3",
+      "demo-admin"
+    ],
+    "isPublic": false,
+    "publicToken": "infra-scale"
+  },
+  {
+    "id": "p3",
+    "orgId": "org-ent-001",
+    "createdBy": "u-2",
+    "name": "Z-Core Security",
+    "description": "Zero-trust protocol implementation and hardware security key integration.",
+    "color": "bg-rose-500",
+    "members": [
+      "u-2",
+      "u-1",
+      "demo-admin"
+    ],
+    "isPublic": true,
+    "publicToken": "z-core-sec"
+  },
+  {
+    "id": "p4",
+    "orgId": "org-ent-001",
+    "createdBy": "u-2",
+    "name": "UX Pulse UI",
+    "description": "Next-generation design system and accessibility compliance audit.",
+    "color": "bg-amber-500",
+    "members": [
+      "u-2",
+      "u-3",
+      "u-1",
+      "demo-admin"
+    ],
+    "isPublic": false,
+    "publicToken": "ux-pulse"
+  }
+]

@@ -1,0 +1,23 @@
+[
+  {
+    "id": "grp-global-eng",
+    "orgId": "org-ent-001",
+    "name": "Engineering Core",
+    "scope": "global",
+    "memberIds": ["u-1", "u-3", "demo-admin"],
+    "createdBy": "demo-admin",
+    "createdAt": 1759143600000,
+    "updatedAt": 1759143600000
+  },
+  {
+    "id": "grp-p1-delivery",
+    "orgId": "org-ent-001",
+    "name": "Roadmap Delivery",
+    "scope": "project",
+    "projectId": "p1",
+    "memberIds": ["u-1", "u-2"],
+    "createdBy": "u-1",
+    "createdAt": 1759575600000,
+    "updatedAt": 1759575600000
+  }
+]

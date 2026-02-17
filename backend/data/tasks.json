@@ -1,0 +1,367 @@
+[
+  {
+    "id": "task-1",
+    "orgId": "org-ent-001",
+    "userId": "u-3",
+    "assigneeId": "u-1",
+    "projectId": "p1",
+    "title": "Define Core AI Engine Architecture",
+    "description": "Design the orchestration layer between Velo AI and the UI state. Focus on sub-100ms latency for streaming tokens.",
+    "status": "in-progress",
+    "priority": "High",
+    "createdAt": 1770396165307,
+    "dueDate": 1771087365307,
+    "order": 0,
+    "tags": [
+      "Architecture",
+      "AI"
+    ],
+    "subtasks": [
+      {
+        "id": "st-1",
+        "title": "Draft SDK orchestration schema",
+        "isCompleted": true
+      },
+      {
+        "id": "st-2",
+        "title": "Select primary Gemini models",
+        "isCompleted": true
+      },
+      {
+        "id": "st-3",
+        "title": "Implement streaming buffer logic",
+        "isCompleted": false
+      }
+    ],
+    "comments": [],
+    "auditLog": [
+      {
+        "id": "a1",
+        "userId": "u-3",
+        "displayName": "Michael Scott",
+        "action": "Node initialized",
+        "timestamp": 1770396165307
+      }
+    ],
+    "timeLogged": 14400000
+  },
+  {
+    "id": "task-2",
+    "orgId": "org-ent-001",
+    "userId": "demo-admin",
+    "assigneeId": "u-2",
+    "projectId": "p1",
+    "title": "Cloud Scale Performance Audit",
+    "description": "Stress test the real-time websocket synchronization under high concurrency loads.",
+    "status": "todo",
+    "priority": "Medium",
+    "createdAt": 1770568965307,
+    "dueDate": 1771605765307,
+    "order": 1,
+    "tags": [
+      "DevOps",
+      "Infrastructure"
+    ],
+    "subtasks": [],
+    "comments": [],
+    "auditLog": [],
+    "timeLogged": 0
+  },
+  {
+    "id": "task-3",
+    "orgId": "org-ent-001",
+    "userId": "u-3",
+    "assigneeId": "u-3",
+    "projectId": "p2",
+    "title": "K8s Multi-Region Cluster Deployment",
+    "description": "Deploying the Velo Core nodes across EU-West and US-East regions for redundancy.",
+    "status": "in-progress",
+    "priority": "High",
+    "createdAt": 1770828165307,
+    "dueDate": 1771260165307,
+    "order": 0,
+    "tags": [
+      "Cloud",
+      "Deployment"
+    ],
+    "subtasks": [
+      {
+        "id": "st-k1",
+        "title": "Configure Terraform variables",
+        "isCompleted": true
+      },
+      {
+        "id": "st-k2",
+        "title": "Initialize US-East VPC",
+        "isCompleted": false
+      }
+    ],
+    "comments": [],
+    "auditLog": [],
+    "timeLogged": 7200000
+  },
+  {
+    "id": "task-4",
+    "orgId": "org-ent-001",
+    "userId": "u-2",
+    "assigneeId": "u-2",
+    "projectId": "p3",
+    "title": "FIDO2 Hardware Key Protocol",
+    "description": "Implementation of hardware-based authentication for administrative access nodes.",
+    "status": "todo",
+    "priority": "High",
+    "createdAt": 1770914565307,
+    "dueDate": 1771864965307,
+    "order": 0,
+    "tags": [
+      "Security",
+      "Hardening"
+    ],
+    "subtasks": [],
+    "comments": [],
+    "auditLog": [],
+    "timeLogged": 0,
+    "blockedByIds": [
+      "task-3"
+    ]
+  },
+  {
+    "id": "task-5",
+    "orgId": "org-ent-001",
+    "userId": "u-2",
+    "assigneeId": "u-2",
+    "projectId": "p4",
+    "title": "Accessibility WCAG 2.1 Audit",
+    "description": "Deep scan of the Velo dashboard for screen reader compliance and keyboard navigation focus traps.",
+    "status": "in-progress",
+    "priority": "Medium",
+    "createdAt": 1770655365307,
+    "dueDate": 1771173765307,
+    "order": 0,
+    "tags": [
+      "Compliance",
+      "Design"
+    ],
+    "subtasks": [
+      {
+        "id": "st-a1",
+        "title": "Audit modal focus traps",
+        "isCompleted": true
+      },
+      {
+        "id": "st-a2",
+        "title": "Check color contrast in Dark Mode",
+        "isCompleted": true
+      }
+    ],
+    "comments": [],
+    "auditLog": [],
+    "timeLogged": 21600000
+  },
+  {
+    "id": "task-6",
+    "orgId": "org-ent-001",
+    "userId": "u-1",
+    "assigneeId": "u-1",
+    "projectId": "p1",
+    "title": "Project Health Scoring Algorithm",
+    "description": "Developing the logic for 'At Risk' node detection based on audit log frequency and velocity trends.",
+    "status": "done",
+    "priority": "Low",
+    "createdAt": 1769791365307,
+    "dueDate": 1770914565307,
+    "order": 2,
+    "tags": [
+      "Algorithms",
+      "AI"
+    ],
+    "subtasks": [
+      {
+        "id": "st-h1",
+        "title": "Research baseline velocity metrics",
+        "isCompleted": true
+      },
+      {
+        "id": "st-h2",
+        "title": "Implement risk weighting",
+        "isCompleted": true
+      }
+    ],
+    "comments": [
+      {
+        "id": "c-h1",
+        "userId": "demo-admin",
+        "displayName": "System Admin",
+        "text": "This algorithm is now powering the Strategy Audit. Excellent work.",
+        "timestamp": 1770828165307
+      }
+    ],
+    "auditLog": [],
+    "timeLogged": 43200000
+  },
+  {
+    "id": "task-7",
+    "orgId": "org-ent-001",
+    "userId": "u-2",
+    "assigneeId": "u-2",
+    "projectId": "p4",
+    "title": "Identity Node Avatar System",
+    "description": "Switching to high-performance SVG generation for identity nodes.",
+    "status": "todo",
+    "priority": "Low",
+    "createdAt": 1770914565307,
+    "dueDate": 1772210565307,
+    "order": 1,
+    "tags": [
+      "Frontend",
+      "UX"
+    ],
+    "subtasks": [],
+    "comments": [],
+    "auditLog": [],
+    "timeLogged": 0
+  },
+  {
+    "id": "task-8",
+    "orgId": "org-ent-001",
+    "userId": "u-3",
+    "assigneeId": "u-3",
+    "projectId": "p2",
+    "title": "Global Edge Caching Layer",
+    "description": "Implementing Cloudflare Workers for metadata acceleration across the distributed fabric.",
+    "status": "todo",
+    "priority": "Medium",
+    "createdAt": 1770828165307,
+    "dueDate": 1771432965307,
+    "order": 1,
+    "tags": [
+      "Infrastructure",
+      "Speed"
+    ],
+    "subtasks": [],
+    "comments": [],
+    "auditLog": [],
+    "timeLogged": 0
+  },
+  {
+    "id": "task-9",
+    "orgId": "org-ent-001",
+    "userId": "u-2",
+    "assigneeId": "u-2",
+    "projectId": "p3",
+    "title": "Velo Shield Encryption Upgrade",
+    "description": "Upgrading current AES-256 implementation to post-quantum resistant standards.",
+    "status": "in-progress",
+    "priority": "High",
+    "createdAt": 1770741765307,
+    "dueDate": 1771087365307,
+    "order": 1,
+    "tags": [
+      "Security",
+      "Encryption"
+    ],
+    "subtasks": [
+      {
+        "id": "st-s1",
+        "title": "Library benchmarking",
+        "isCompleted": true
+      },
+      {
+        "id": "st-s2",
+        "title": "Integration test in sandbox",
+        "isCompleted": false
+      }
+    ],
+    "comments": [],
+    "auditLog": [],
+    "timeLogged": 10800000
+  },
+  {
+    "id": "task-10",
+    "orgId": "org-ent-001",
+    "userId": "demo-admin",
+    "assigneeId": "u-3",
+    "projectId": "p1",
+    "title": "Leadership Q3 Strategy Sync",
+    "description": "Align the Velo product roadmap with the broader Acme Global Enterprise mission.",
+    "status": "done",
+    "priority": "Medium",
+    "createdAt": 1768408965307,
+    "dueDate": 1769272965307,
+    "order": 3,
+    "tags": [
+      "Executive",
+      "Planning"
+    ],
+    "subtasks": [
+      {
+        "id": "st-p1",
+        "title": "Draft mission slides",
+        "isCompleted": true
+      },
+      {
+        "id": "st-p2",
+        "title": "Confirm budget allocation",
+        "isCompleted": true
+      }
+    ],
+    "comments": [],
+    "auditLog": [],
+    "timeLogged": 18000000
+  },
+  {
+    "id": "task-11",
+    "orgId": "org-ent-001",
+    "userId": "u-2",
+    "assigneeId": "u-1",
+    "projectId": "p1",
+    "title": "Telemetry Visualization Core",
+    "description": "Building the high-frequency charts for the Velocity Center dashboard.",
+    "status": "in-progress",
+    "priority": "Medium",
+    "createdAt": 1770568965307,
+    "dueDate": 1771087365307,
+    "order": 4,
+    "tags": [
+      "Frontend",
+      "Analytics"
+    ],
+    "subtasks": [],
+    "comments": [],
+    "auditLog": [],
+    "timeLogged": 32400000
+  },
+  {
+    "id": "task-12",
+    "orgId": "org-ent-001",
+    "userId": "u-1",
+    "assigneeId": "u-3",
+    "projectId": "p2",
+    "title": "PostgreSQL Migration Node 4",
+    "description": "Shifting heavy audit logs to a dedicated high-performance partition.",
+    "status": "done",
+    "priority": "High",
+    "createdAt": 1770136965307,
+    "dueDate": 1770568965307,
+    "order": 2,
+    "tags": [
+      "Database",
+      "Operations"
+    ],
+    "subtasks": [
+      {
+        "id": "st-db1",
+        "title": "Backup primary cluster",
+        "isCompleted": true
+      },
+      {
+        "id": "st-db2",
+        "title": "Execute migration script",
+        "isCompleted": true
+      }
+    ],
+    "comments": [],
+    "auditLog": [],
+    "timeLogged": 54000000
+  }
+]
