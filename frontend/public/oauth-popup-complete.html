@@ -1,0 +1,48 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Velo OAuth</title>
+  </head>
+  <body>
+    <script>
+      (function () {
+        var STORAGE_KEY = 'velo_oauth_popup_result';
+        var hash = window.location.hash ? window.location.hash.slice(1) : '';
+        var params = new URLSearchParams(hash);
+        var type = params.get('type') || 'velo-oauth-result';
+        var payloadRaw = params.get('payload') || '{}';
+        var tsRaw = params.get('ts') || '';
+        var ts = Number(tsRaw);
+        if (!Number.isFinite(ts)) ts = Date.now();
+
+        var payload;
+        try {
+          payload = JSON.parse(payloadRaw);
+        } catch (_) {
+          payload = { ok: false, error: 'Invalid OAuth payload.' };
+        }
+
+        var envelope = { type: type, payload: payload, ts: ts };
+
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(envelope));
+        } catch (_) {}
+
+        try {
+          if (window.opener) {
+            window.opener.postMessage({ type: type, payload: payload }, window.location.origin);
+            try {
+              window.opener.postMessage({ type: type, payload: payload }, '*');
+            } catch (_) {}
+          }
+        } catch (_) {}
+
+        setTimeout(function () {
+          window.close();
+        }, 250);
+      })();
+    </script>
+    Finalizing sign-in...
+  </body>
+</html>

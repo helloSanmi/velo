@@ -30,6 +30,23 @@ export type TaskPatch = Partial<{
 export const parseStringArray = (value: unknown): string[] =>
   Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
 
+export const parseStageDefs = (value: unknown): { id: string; name: string }[] =>
+  Array.isArray(value)
+    ? value
+        .filter((item): item is Record<string, unknown> => Boolean(item && typeof item === 'object'))
+        .map((item) => ({
+          id: typeof item.id === 'string' ? item.id.trim() : '',
+          name: typeof item.name === 'string' ? item.name.trim() : ''
+        }))
+        .filter((stage) => stage.id.length > 0 && stage.name.length > 0)
+    : [];
+
+export const getFinalStageForProject = (project: { stageDefs: unknown }) => {
+  const stages = parseStageDefs(project.stageDefs);
+  if (stages.length > 0) return stages[stages.length - 1];
+  return { id: 'done', name: 'Done' };
+};
+
 export const parseProjectOwnerIds = (project: { ownerId: string; metadata: unknown }): string[] => {
   const metadata = project.metadata && typeof project.metadata === 'object' ? (project.metadata as Record<string, unknown>) : {};
   const ownerIds = Array.isArray(metadata.ownerIds)

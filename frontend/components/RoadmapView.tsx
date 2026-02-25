@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { AlertTriangle, CalendarDays, Clock3, Search, CircleDot } from 'lucide-react';
 import { Project, Task, TaskStatus } from '../types';
+import AppSelect from './ui/AppSelect';
 
 interface RoadmapViewProps {
   tasks: Task[];
@@ -163,38 +164,37 @@ const RoadmapView: React.FC<RoadmapViewProps> = ({ tasks, projects }) => {
               </button>
             </div>
             <div className={`${mobileFiltersOpen ? 'grid' : 'hidden'} md:hidden grid-cols-1 gap-2 mt-2`}>
-              <select
+              <AppSelect
                 value={projectFilter}
-                onChange={(event) => setProjectFilter(event.target.value)}
-                className="h-10 rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-700 outline-none"
-              >
-                <option value="All">All projects</option>
-                {projects.map((project) => (
-                  <option key={project.id} value={project.id}>
-                    {project.name}
-                  </option>
-                ))}
-              </select>
-              <select
+                onChange={setProjectFilter}
+                className="h-10 rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-700"
+                options={[
+                  { value: 'All', label: 'All projects' },
+                  ...projects.map((project) => ({ value: project.id, label: project.name }))
+                ]}
+              />
+              <AppSelect
                 value={statusFilter}
-                onChange={(event) => setStatusFilter(event.target.value as StatusFilter)}
-                className="h-10 rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-700 outline-none"
-              >
-                <option value="All">All status</option>
-                <option value="On Track">On track</option>
-                <option value="At Risk">At risk</option>
-                <option value="Completed">Completed</option>
-              </select>
-              <select
+                onChange={(value) => setStatusFilter(value as StatusFilter)}
+                className="h-10 rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-700"
+                options={[
+                  { value: 'All', label: 'All status' },
+                  { value: 'On Track', label: 'On track' },
+                  { value: 'At Risk', label: 'At risk' },
+                  { value: 'Completed', label: 'Completed' }
+                ]}
+              />
+              <AppSelect
                 value={horizonFilter}
-                onChange={(event) => setHorizonFilter(event.target.value as HorizonFilter)}
-                className="h-10 rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-700 outline-none"
-              >
-                <option value="All">All horizon</option>
-                <option value="30">30 days</option>
-                <option value="90">90 days</option>
-                <option value="180">180 days</option>
-              </select>
+                onChange={(value) => setHorizonFilter(value as HorizonFilter)}
+                className="h-10 rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-700"
+                options={[
+                  { value: 'All', label: 'All horizon' },
+                  { value: '30', label: '30 days' },
+                  { value: '90', label: '90 days' },
+                  { value: '180', label: '180 days' }
+                ]}
+              />
             </div>
             <div className="hidden md:grid grid-cols-[1.5fr_0.8fr_0.5fr_0.5fr] gap-2">
               <label className="h-10 rounded-lg border border-slate-300 bg-white px-3 flex items-center gap-2">
@@ -206,38 +206,37 @@ const RoadmapView: React.FC<RoadmapViewProps> = ({ tasks, projects }) => {
                   className="w-full bg-transparent text-sm text-slate-700 placeholder:text-slate-400 outline-none"
                 />
               </label>
-              <select
+              <AppSelect
                 value={projectFilter}
-                onChange={(event) => setProjectFilter(event.target.value)}
-                className="h-10 rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-700 outline-none"
-              >
-                <option value="All">All projects</option>
-                {projects.map((project) => (
-                  <option key={project.id} value={project.id}>
-                    {project.name}
-                  </option>
-                ))}
-              </select>
-              <select
+                onChange={setProjectFilter}
+                className="h-10 rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-700"
+                options={[
+                  { value: 'All', label: 'All projects' },
+                  ...projects.map((project) => ({ value: project.id, label: project.name }))
+                ]}
+              />
+              <AppSelect
                 value={statusFilter}
-                onChange={(event) => setStatusFilter(event.target.value as StatusFilter)}
-                className="h-10 rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-700 outline-none"
-              >
-                <option value="All">All status</option>
-                <option value="On Track">On track</option>
-                <option value="At Risk">At risk</option>
-                <option value="Completed">Completed</option>
-              </select>
-              <select
+                onChange={(value) => setStatusFilter(value as StatusFilter)}
+                className="h-10 rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-700"
+                options={[
+                  { value: 'All', label: 'All status' },
+                  { value: 'On Track', label: 'On track' },
+                  { value: 'At Risk', label: 'At risk' },
+                  { value: 'Completed', label: 'Completed' }
+                ]}
+              />
+              <AppSelect
                 value={horizonFilter}
-                onChange={(event) => setHorizonFilter(event.target.value as HorizonFilter)}
-                className="h-10 rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-700 outline-none"
-              >
-                <option value="All">All horizon</option>
-                <option value="30">30 days</option>
-                <option value="90">90 days</option>
-                <option value="180">180 days</option>
-              </select>
+                onChange={(value) => setHorizonFilter(value as HorizonFilter)}
+                className="h-10 rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-700"
+                options={[
+                  { value: 'All', label: 'All horizon' },
+                  { value: '30', label: '30 days' },
+                  { value: '90', label: '90 days' },
+                  { value: '180', label: '180 days' }
+                ]}
+              />
             </div>
           </div>
 

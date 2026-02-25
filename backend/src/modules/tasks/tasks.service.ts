@@ -1,11 +1,14 @@
 import { prisma } from '../../lib/prisma.js';
 import { createId } from '../../lib/ids.js';
+import { HttpError } from '../../lib/httpError.js';
 import { writeAudit } from '../audit/audit.service.js';
 import { realtimeGateway } from '../realtime/realtime.gateway.js';
+import { sendSlackTaskEvent } from '../integrations/slack.service.js';
 import {
   TaskActor,
   TaskPatch,
   enforceTaskPolicy,
+  getFinalStageForProject,
   getProjectOrThrow,
   getTaskOrThrow,
   mergeTaskMetadata,
@@ -37,6 +40,10 @@ export const tasksService = {
   }) {
     const project = await getProjectOrThrow(input.orgId, input.projectId);
     enforceTaskPolicy('task:edit', { actor: input.actor, project });
+    const finalStage = getFinalStageForProject(project);
+    if (input.status === finalStage.id && !input.dueDate) {
+      throw new HttpError(400, `Due date is required before moving task to "${finalStage.name}".`);
+    }
 
     const task = await prisma.task.create({
       data: {
@@ -67,6 +74,13 @@ export const tasksService = {
     });
 
     realtimeGateway.publish(input.orgId, 'TASKS_UPDATED', { taskId: task.id, action: 'created', projectId: input.projectId });
+    const actor = await prisma.user.findUnique({ where: { id: input.actor.userId }, select: { displayName: true } });
+    void sendSlackTaskEvent({
+      event: 'created',
+      project,
+      task,
+      actorDisplay: actor?.displayName || 'User'
+    });
     return task;
   },
 
@@ -84,6 +98,13 @@ export const tasksService = {
     if (shouldEnforceStatus(input.patch) || shouldEnforceOperate(input.patch))
       enforceTaskPolicy('task:status', { actor: input.actor, project, task });
     if (shouldEnforceEdit(input.patch)) enforceTaskPolicy('task:edit', { actor: input.actor, project, task });
+    const finalStage = getFinalStageForProject(project);
+    const nextStatus = typeof input.patch.status === 'string' ? input.patch.status : task.status;
+    const nextDueDate = input.patch.dueDate !== undefined ? input.patch.dueDate : task.dueDate;
+    const enteringFinalStage = task.status !== finalStage.id && nextStatus === finalStage.id;
+    if (enteringFinalStage && !nextDueDate) {
+      throw new HttpError(400, `Due date is required before moving task to "${finalStage.name}".`);
+    }
 
     const nextMetadata = mergeTaskMetadata(task, input.patch.metadata);
 
@@ -120,6 +141,13 @@ export const tasksService = {
     });
 
     realtimeGateway.publish(input.orgId, 'TASKS_UPDATED', { taskId: updated.id, action: 'updated', projectId: input.projectId });
+    const actor = await prisma.user.findUnique({ where: { id: input.actor.userId }, select: { displayName: true } });
+    void sendSlackTaskEvent({
+      event: 'updated',
+      project,
+      task: updated,
+      actorDisplay: actor?.displayName || 'User'
+    });
     return updated;
   },
 
@@ -140,5 +168,12 @@ export const tasksService = {
     });
 
     realtimeGateway.publish(input.orgId, 'TASKS_UPDATED', { taskId: task.id, action: 'deleted', projectId: input.projectId });
+    const actor = await prisma.user.findUnique({ where: { id: input.actor.userId }, select: { displayName: true } });
+    void sendSlackTaskEvent({
+      event: 'deleted',
+      project,
+      task,
+      actorDisplay: actor?.displayName || 'User'
+    });
   }
 };

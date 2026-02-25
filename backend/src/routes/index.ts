@@ -10,8 +10,11 @@ import { aiRoutes } from '../modules/ai/ai.routes.js';
 import { usageRoutes } from '../modules/usage/usage.routes.js';
 import { auditRoutes } from '../modules/audit/audit.routes.js';
 import { realtimeRoutes } from '../modules/realtime/realtime.routes.js';
+import { workflowsRoutes } from '../modules/workflows/workflows.routes.js';
 import { teamsRoutes } from '../modules/teams/teams.routes.js';
-import { groupsRoutes } from '../modules/groups/groups.routes.js';
+import { githubIntegrationsRoutes } from '../modules/integrations/github.routes.js';
+import { integrationsRoutes } from '../modules/integrations/integrations.routes.js';
+import { ticketsRoutes } from '../modules/tickets/tickets.routes.js';
 
 const router = Router();
 
@@ -27,10 +30,13 @@ router.use(invitesRoutes);
 router.use(projectsRoutes);
 router.use(tasksRoutes);
 router.use(teamsRoutes);
-router.use(groupsRoutes);
 router.use(aiRoutes);
 router.use(usageRoutes);
 router.use('/audit', auditRoutes);
 router.use('/realtime', realtimeRoutes);
+router.use(workflowsRoutes);
+router.use(githubIntegrationsRoutes);
+router.use(integrationsRoutes);
+router.use(ticketsRoutes);
 
 export const apiV1Router = router;

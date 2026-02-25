@@ -1,0 +1,20 @@
+[
+  {
+    "id": "tkt_f625b14d-d8f9-4023-b4ba-f73e485d9240",
+    "orgId": "org-ent-001",
+    "projectId": "32849471-0513-48de-b607-16b96f90dc77",
+    "title": "Getting Item pricing",
+    "description": "",
+    "requesterName": "Global Admin",
+    "requesterEmail": "admin@velo.ai",
+    "requesterUserId": "demo-admin",
+    "assigneeId": "u-1",
+    "status": "new",
+    "priority": "medium",
+    "tags": [],
+    "source": "workspace",
+    "comments": [],
+    "createdAt": 1772057783392,
+    "updatedAt": 1772057783392
+  }
+]

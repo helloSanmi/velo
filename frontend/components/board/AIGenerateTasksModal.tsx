@@ -1,7 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import { Sparkles, X } from 'lucide-react';
 import { aiService } from '../../services/aiService';
-import { TaskPriority } from '../../types';
+import { Task, TaskPriority, TaskStatus, User } from '../../types';
+import { userService } from '../../services/userService';
 import Button from '../ui/Button';
 
 interface GeneratedTaskDraft {
@@ -9,12 +10,15 @@ interface GeneratedTaskDraft {
   description: string;
   priority: TaskPriority;
   tags: string[];
+  assigneeIds?: string[];
 }
 
 interface AIGenerateTasksModalProps {
   isOpen: boolean;
   projectName: string;
   projectDescription?: string;
+  assigneeCandidates: User[];
+  projectTasks: Task[];
   onClose: () => void;
   onGenerate: (tasks: GeneratedTaskDraft[]) => void;
 }
@@ -23,10 +27,13 @@ const AIGenerateTasksModal: React.FC<AIGenerateTasksModalProps> = ({
   isOpen,
   projectName,
   projectDescription,
+  assigneeCandidates,
+  projectTasks,
   onClose,
   onGenerate
 }) => {
   const [brief, setBrief] = useState('');
+  const [assignmentInstruction, setAssignmentInstruction] = useState('');
   const [taskCount, setTaskCount] = useState(6);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -35,15 +42,86 @@ const AIGenerateTasksModal: React.FC<AIGenerateTasksModalProps> = ({
     () => (projectDescription?.trim() ? projectDescription : 'Add a short delivery brief so AI can create focused tasks.'),
     [projectDescription]
   );
+  const currentUser = useMemo(() => userService.getCurrentUser(), []);
+  const currentUserCandidate = useMemo(
+    () => assigneeCandidates.find((candidate) => candidate.id === currentUser?.id),
+    [assigneeCandidates, currentUser?.id]
+  );
 
   if (!isOpen) return null;
 
   const handleClose = () => {
     if (isLoading) return;
     setBrief('');
+    setAssignmentInstruction('');
     setTaskCount(6);
     setError('');
     onClose();
+  };
+
+  const isWorkloadInstruction = (value: string) =>
+    /workload|least busy|lightest|balance|auto[- ]?assign|smart assign/i.test(value);
+
+  const findExplicitAssignees = (value: string): User[] => {
+    const normalized = value.toLowerCase();
+    return assigneeCandidates.filter((candidate) => {
+      const aliases = [candidate.displayName, candidate.username, candidate.email]
+        .filter(Boolean)
+        .map((item) => String(item).trim().toLowerCase())
+        .filter((item) => item.length > 1);
+      return aliases.some((alias) => normalized.includes(alias));
+    });
+  };
+
+  const buildWorkloadOrder = (): User[] => {
+    const loadByUser = new Map<string, number>();
+    assigneeCandidates.forEach((candidate) => loadByUser.set(candidate.id, 0));
+    projectTasks.forEach((task) => {
+      if (task.status === TaskStatus.DONE) return;
+      const ids = Array.isArray(task.assigneeIds) ? task.assigneeIds : task.assigneeId ? [task.assigneeId] : [];
+      ids.forEach((id) => {
+        if (!loadByUser.has(id)) return;
+        loadByUser.set(id, (loadByUser.get(id) || 0) + 1);
+      });
+    });
+    return assigneeCandidates.slice().sort((a, b) => {
+      const aLoad = loadByUser.get(a.id) || 0;
+      const bLoad = loadByUser.get(b.id) || 0;
+      if (aLoad !== bLoad) return aLoad - bLoad;
+      return a.displayName.localeCompare(b.displayName);
+    });
+  };
+
+  const applyAssignmentPlan = (tasks: GeneratedTaskDraft[], instruction: string): GeneratedTaskDraft[] => {
+    const normalized = instruction.trim();
+    if (!normalized) return tasks;
+    if (/leave unassigned|unassigned|no assign/i.test(normalized)) return tasks;
+    if (/assign to me|for me|to me/i.test(normalized)) {
+      if (!currentUserCandidate) return tasks;
+      return tasks.map((task) => ({ ...task, assigneeIds: [currentUserCandidate.id] }));
+    }
+    if (assigneeCandidates.length === 0) return tasks;
+
+    const assignerPool = isWorkloadInstruction(normalized) ? buildWorkloadOrder() : findExplicitAssignees(normalized);
+    if (assignerPool.length === 0) return tasks;
+
+    const rollingLoads = new Map(assignerPool.map((user, index) => [user.id, index]));
+    return tasks.map((task, index) => {
+      const candidate =
+        isWorkloadInstruction(normalized)
+          ? assignerPool
+              .slice()
+              .sort((a, b) => {
+                const aLoad = rollingLoads.get(a.id) || 0;
+                const bLoad = rollingLoads.get(b.id) || 0;
+                if (aLoad !== bLoad) return aLoad - bLoad;
+                return a.displayName.localeCompare(b.displayName);
+              })[0]
+          : assignerPool[index % assignerPool.length];
+      if (!candidate) return task;
+      rollingLoads.set(candidate.id, (rollingLoads.get(candidate.id) || 0) + 1);
+      return { ...task, assigneeIds: [candidate.id] };
+    });
   };
 
   const handleGenerate = async () => {
@@ -64,7 +142,17 @@ const AIGenerateTasksModal: React.FC<AIGenerateTasksModalProps> = ({
         setError('No tasks were generated. Try a more specific brief.');
         return;
       }
-      onGenerate(cleaned);
+      const enriched = applyAssignmentPlan(cleaned, assignmentInstruction);
+      if (
+        assignmentInstruction.trim() &&
+        !isWorkloadInstruction(assignmentInstruction) &&
+        !/leave unassigned|unassigned|no assign/i.test(assignmentInstruction) &&
+        enriched.every((task) => !task.assigneeIds?.length)
+      ) {
+        setError('No assignee matched your instruction. Use display name, username, or write "assign by workload".');
+        return;
+      }
+      onGenerate(enriched);
       handleClose();
     } catch {
       setError('AI task generation failed. Please retry.');
@@ -105,6 +193,45 @@ const AIGenerateTasksModal: React.FC<AIGenerateTasksModalProps> = ({
               className="w-full min-h-[110px] rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-slate-300"
               placeholder="Example: prioritize launch blockers, QA readiness, and owner handoffs."
             />
+          </div>
+
+          <div>
+            <label className="block text-xs text-slate-500 mb-1">Assignment instruction (optional)</label>
+            <input
+              value={assignmentInstruction}
+              onChange={(event) => setAssignmentInstruction(event.target.value)}
+              className="w-full h-10 rounded-lg border border-slate-300 px-3 text-sm outline-none focus:ring-2 focus:ring-slate-300"
+              placeholder='Example: assign to "Sarah Chen" and "Michael Scott", or "assign by workload".'
+            />
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              <button
+                type="button"
+                onClick={() => setAssignmentInstruction('assign by workload')}
+                className="h-7 rounded-full border border-slate-300 bg-white px-3 text-[11px] text-slate-700 hover:bg-slate-50"
+              >
+                Assign by workload
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  setAssignmentInstruction(
+                    currentUserCandidate
+                      ? `assign to ${currentUserCandidate.displayName}`
+                      : 'assign to me'
+                  )
+                }
+                className="h-7 rounded-full border border-slate-300 bg-white px-3 text-[11px] text-slate-700 hover:bg-slate-50"
+              >
+                Assign to me
+              </button>
+              <button
+                type="button"
+                onClick={() => setAssignmentInstruction('leave unassigned')}
+                className="h-7 rounded-full border border-slate-300 bg-white px-3 text-[11px] text-slate-700 hover:bg-slate-50"
+              >
+                Leave unassigned
+              </button>
+            </div>
           </div>
 
           <div className="w-full sm:w-40">

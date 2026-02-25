@@ -1,5 +1,4 @@
 import { Project, Task, User } from '../types';
-import { groupService } from './groupService';
 
 export type TaskRestrictedAction = 'complete' | 'rename' | 'delete' | 'assign';
 
@@ -34,13 +33,7 @@ export const isTaskAssignedToUser = (user: User, task?: Task) => {
     : task.assigneeId
       ? [task.assigneeId]
       : [];
-  if (assigneeIds.includes(user.id)) return true;
-  const groupIds = Array.isArray(task.securityGroupIds) ? task.securityGroupIds : [];
-  if (groupIds.length === 0) return false;
-  const groups = groupService.getAssignableGroupsForProject(user.orgId, task.projectId);
-  return groups
-    .filter((group) => groupIds.includes(group.id))
-    .some((group) => group.memberIds.includes(user.id));
+  return assigneeIds.includes(user.id);
 };
 
 export const canOperateTask = (user: User, projects: Project[], task?: Task) => {

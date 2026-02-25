@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { User as UserIcon, X } from 'lucide-react';
-import { Organization, SecurityGroup, Team, User as UserType } from '../types';
+import { Organization, Team, User as UserType } from '../types';
 import { userService } from '../services/userService';
-import { groupService } from '../services/groupService';
 import { teamService } from '../services/teamService';
 import { toastService } from '../services/toastService';
 import ProfileSettingsPanel from './settings/core/ProfileSettingsPanel';
@@ -22,7 +21,6 @@ const ProfileModal: React.FC<ProfileModalProps> = ({
 }) => {
   const [profileUser, setProfileUser] = useState<UserType | null>(user || null);
   const [org, setOrg] = useState<Organization | null>(null);
-  const [groups, setGroups] = useState<SecurityGroup[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
 
   useEffect(() => {
@@ -35,7 +33,6 @@ const ProfileModal: React.FC<ProfileModalProps> = ({
       }
       setOrg(userService.getOrganization(user.orgId));
     });
-    groupService.fetchGroupsFromBackend(user.orgId).then(setGroups);
     teamService.fetchTeamsFromBackend(user.orgId).then(setTeams);
   }, [isOpen, user]);
 
@@ -104,7 +101,6 @@ const ProfileModal: React.FC<ProfileModalProps> = ({
             user={profileUser}
             org={org}
             teams={teams}
-            groups={groups}
             onAvatarUpdate={handleAvatarUpdate}
             onChangePassword={handleChangePassword}
             onUpdateProfileName={handleUpdateProfileName}

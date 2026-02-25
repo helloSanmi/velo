@@ -1,0 +1,15 @@
+[
+  {
+    "projectId": "32849471-0513-48de-b607-16b96f90dc77",
+    "name": "Auto rule",
+    "trigger": "TASK_CREATED",
+    "triggerValue": "in-progress",
+    "action": "ADD_TAG",
+    "actionValue": "red",
+    "isActive": true,
+    "orgId": "org-ent-001",
+    "id": "wf_6bd6474c-f8bd-4217-94c1-e02583d09feb",
+    "createdAt": 1771443738425,
+    "updatedAt": 1771443738425
+  }
+]

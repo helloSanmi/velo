@@ -16,6 +16,29 @@ import {
   toPublicUser
 } from './auth.shared.js';
 
+const toSubdomainBase = (orgName: string): string => {
+  const normalized = orgName
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 40);
+  return normalized || 'workspace';
+};
+
+const buildUniqueSubdomain = async (orgName: string): Promise<string> => {
+  const base = toSubdomainBase(orgName);
+  for (let attempt = 0; attempt < 1000; attempt += 1) {
+    const candidate = attempt === 0 ? base : `${base}-${attempt + 1}`;
+    const existing = await prisma.organization.findUnique({
+      where: { loginSubdomain: candidate },
+      select: { id: true }
+    });
+    if (!existing) return candidate;
+  }
+  return `${base}-${Date.now().toString().slice(-6)}`;
+};
+
 export const registerAuth = async (input: {
   identifier: string;
   password: string;
@@ -25,18 +48,9 @@ export const registerAuth = async (input: {
   userAgent?: string;
   ipAddress?: string;
 }) => {
-  const { username, email, domain } = normalizeIdentifier(input.identifier);
+  const { username, email } = normalizeIdentifier(input.identifier);
   const orgName = input.orgName.trim();
   if (!username || !orgName) throw new HttpError(400, 'Identifier and organization name are required.');
-  if (!domain) throw new HttpError(400, 'Use a valid email or username format.');
-
-  const existingDomain = await prisma.user.findFirst({
-    where: { email: { endsWith: `@${domain}`, mode: 'insensitive' } },
-    select: { orgId: true, email: true }
-  });
-  if (existingDomain) {
-    throw new HttpError(409, `A workspace already exists for @${domain}. Ask your admin for an invite to join that workspace.`);
-  }
 
   const existing = await prisma.user.findFirst({ where: { OR: [{ username }, { email }] } });
   if (existing) throw new HttpError(409, 'Account already exists.');
@@ -45,11 +59,13 @@ export const registerAuth = async (input: {
   const totalSeats = resolveInitialSeatCapacity(input.plan, input.totalSeats);
   const orgId = createId('org');
   const userId = createId('usr');
+  const loginSubdomain = await buildUniqueSubdomain(orgName);
 
   await prisma.organization.create({
     data: {
       id: orgId,
       name: orgName,
+      loginSubdomain,
       plan: input.plan,
       totalSeats,
       seatPrice: seatPriceByPlan[input.plan],
@@ -66,6 +82,8 @@ export const registerAuth = async (input: {
       displayName: buildDisplayName(username),
       email,
       role: UserRole.admin,
+      licenseActive: true,
+      mustChangePassword: false,
       passwordHash: await hashPassword(input.password),
       avatar: buildAvatarUrl(username)
     }
@@ -121,7 +139,7 @@ export const acceptInviteAuth = async (input: {
 
   const org = await prisma.organization.findUnique({ where: { id: invite.orgId } });
   if (!org) throw new HttpError(404, 'Organization not found.');
-  const userCount = await prisma.user.count({ where: { orgId: org.id } });
+  const userCount = await prisma.user.count({ where: { orgId: org.id, licenseActive: true } });
   if (isSeatLimitedPlan(org.plan) && userCount >= org.totalSeats) {
     throw new HttpError(400, 'No available licenses in this workspace.');
   }
@@ -137,6 +155,8 @@ export const acceptInviteAuth = async (input: {
       displayName: buildDisplayName(username),
       email,
       role: invite.role,
+      licenseActive: true,
+      mustChangePassword: false,
       passwordHash: await hashPassword(input.password),
       avatar: buildAvatarUrl(username)
     }
@@ -171,4 +191,3 @@ export const acceptInviteAuth = async (input: {
 
   return { tokens, user: toPublicUser(user) };
 };
-

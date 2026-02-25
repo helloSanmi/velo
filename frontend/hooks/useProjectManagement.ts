@@ -7,6 +7,7 @@ import { toastService } from '../services/toastService';
 import { userService } from '../services/userService';
 import { mockDataService } from '../services/mockDataService';
 import { notificationService } from '../services/notificationService';
+import { isWorkspaceSubdomainHost } from '../utils/workspaceHost';
 
 interface UseProjectManagementOptions {
   user: User | null;
@@ -20,7 +21,7 @@ interface UseProjectManagementOptions {
   setTaskDetailInitialTab: Dispatch<SetStateAction<TaskDetailTabType | undefined>>;
   setCurrentView: Dispatch<SetStateAction<MainViewType>>;
   setUser: Dispatch<SetStateAction<User | null>>;
-  setAuthView: Dispatch<SetStateAction<'landing' | 'product' | 'solutions' | 'pricing' | 'support' | 'login' | 'register' | 'join'>>;
+  setAuthView: Dispatch<SetStateAction<'landing' | 'product' | 'solutions' | 'pricing' | 'support' | 'contact' | 'login' | 'register' | 'join'>>;
 }
 
 export const useProjectManagement = ({
@@ -41,7 +42,7 @@ export const useProjectManagement = ({
     userService.logout();
     setActiveProjectId(null);
     setUser(null);
-    setAuthView('landing');
+    setAuthView(isWorkspaceSubdomainHost() ? 'login' : 'landing');
   }, [setActiveProjectId, setAuthView, setUser]);
 
   const handleReset = useCallback(() => {

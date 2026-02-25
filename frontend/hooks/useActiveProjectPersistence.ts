@@ -7,7 +7,7 @@ interface UseActiveProjectPersistenceOptions {
   user: User | null;
   projects: Project[];
   activeProjectId: string | null;
-  currentView: 'board' | 'projects' | 'analytics' | 'roadmap' | 'workflows' | 'templates' | 'resources' | 'integrations';
+  currentView: 'board' | 'projects' | 'analytics' | 'roadmap' | 'workflows' | 'templates' | 'resources' | 'integrations' | 'tickets';
   setActiveProjectId: (id: string | null) => void;
 }
 

@@ -8,6 +8,7 @@ interface GeneratedProjectTask {
   description: string;
   priority: TaskPriority;
   tags: string[];
+  assigneeIds?: string[];
 }
 
 interface UseTaskModalActionsOptions {
@@ -134,7 +135,7 @@ export const useTaskModalActions = ({
           item.tags || ['AI'],
           undefined,
           projectId,
-          [],
+          Array.isArray(item.assigneeIds) ? item.assigneeIds : [],
           [],
           undefined,
           undefined,

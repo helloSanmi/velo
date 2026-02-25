@@ -14,71 +14,36 @@ interface NotificationsSettingsPanelProps {
 
 const toggleClass = (active: boolean) => `w-11 h-6 rounded-full p-1 transition-colors ${active ? 'bg-slate-900' : 'bg-slate-300'}`;
 const thumbClass = (active: boolean) => `block w-4 h-4 rounded-full bg-white transition-transform ${active ? 'translate-x-5' : ''}`;
+const notificationOptions = [
+  { key: 'notificationTaskAssignment' as const, title: 'Task assignment', description: "When you're assigned or unassigned." },
+  { key: 'notificationMentionsReplies' as const, title: 'Mentions and replies', description: 'When someone mentions you or comments on your work.' },
+  { key: 'notificationProjectCompletionActions' as const, title: 'Project completion actions', description: 'Completion requests, approvals, and project-complete updates.' },
+  { key: 'notificationDueOverdue' as const, title: 'Due and overdue reminders', description: 'Due soon, overdue, and escalation reminders.' },
+  { key: 'notificationStatusChangesMyWork' as const, title: 'Status changes on my work', description: 'Task completed/moved back changes on tasks tied to you.' },
+  { key: 'notificationSystemSecurity' as const, title: 'System and security alerts', description: 'Workspace/security changes and important system notices.' }
+];
+const buildDraft = (settings: UserSettings) => ({
+  enableNotifications: settings.enableNotifications,
+  notificationTaskAssignment: settings.notificationTaskAssignment,
+  notificationMentionsReplies: settings.notificationMentionsReplies,
+  notificationProjectCompletionActions: settings.notificationProjectCompletionActions,
+  notificationDueOverdue: settings.notificationDueOverdue,
+  notificationStatusChangesMyWork: settings.notificationStatusChangesMyWork,
+  notificationSystemSecurity: settings.notificationSystemSecurity,
+  notificationSound: settings.notificationSound
+});
 
 const NotificationsSettingsPanel: React.FC<NotificationsSettingsPanelProps> = ({
   user,
   settings,
   onUpdateSettings
 }) => {
-  const [draft, setDraft] = useState({
-    enableNotifications: settings.enableNotifications,
-    notificationTaskAssignment: settings.notificationTaskAssignment,
-    notificationMentionsReplies: settings.notificationMentionsReplies,
-    notificationProjectCompletionActions: settings.notificationProjectCompletionActions,
-    notificationDueOverdue: settings.notificationDueOverdue,
-    notificationStatusChangesMyWork: settings.notificationStatusChangesMyWork,
-    notificationSystemSecurity: settings.notificationSystemSecurity,
-    notificationSound: settings.notificationSound
-  });
+  const [draft, setDraft] = useState(buildDraft(settings));
 
   useEffect(() => {
-    setDraft({
-      enableNotifications: settings.enableNotifications,
-      notificationTaskAssignment: settings.notificationTaskAssignment,
-      notificationMentionsReplies: settings.notificationMentionsReplies,
-      notificationProjectCompletionActions: settings.notificationProjectCompletionActions,
-      notificationDueOverdue: settings.notificationDueOverdue,
-      notificationStatusChangesMyWork: settings.notificationStatusChangesMyWork,
-      notificationSystemSecurity: settings.notificationSystemSecurity,
-      notificationSound: settings.notificationSound
-    });
+    setDraft(buildDraft(settings));
   }, [settings]);
-
-  const options = useMemo(
-    () => [
-      {
-        key: 'notificationTaskAssignment' as const,
-        title: 'Task assignment',
-        description: "When you're assigned or unassigned."
-      },
-      {
-        key: 'notificationMentionsReplies' as const,
-        title: 'Mentions and replies',
-        description: 'When someone mentions you or comments on your work.'
-      },
-      {
-        key: 'notificationProjectCompletionActions' as const,
-        title: 'Project completion actions',
-        description: 'Completion requests, approvals, and project-complete updates.'
-      },
-      {
-        key: 'notificationDueOverdue' as const,
-        title: 'Due and overdue reminders',
-        description: 'Due soon, overdue, and escalation reminders.'
-      },
-      {
-        key: 'notificationStatusChangesMyWork' as const,
-        title: 'Status changes on my work',
-        description: 'Task completed/moved back changes on tasks tied to you.'
-      },
-      {
-        key: 'notificationSystemSecurity' as const,
-        title: 'System and security alerts',
-        description: 'Workspace/security changes and important system notices.'
-      }
-    ],
-    []
-  );
+  const options = useMemo(() => notificationOptions, []);
 
   const hasChanges =
     draft.enableNotifications !== settings.enableNotifications ||
@@ -90,18 +55,7 @@ const NotificationsSettingsPanel: React.FC<NotificationsSettingsPanelProps> = ({
     draft.notificationSystemSecurity !== settings.notificationSystemSecurity ||
     draft.notificationSound !== settings.notificationSound;
 
-  const resetDraft = () => {
-    setDraft({
-      enableNotifications: settings.enableNotifications,
-      notificationTaskAssignment: settings.notificationTaskAssignment,
-      notificationMentionsReplies: settings.notificationMentionsReplies,
-      notificationProjectCompletionActions: settings.notificationProjectCompletionActions,
-      notificationDueOverdue: settings.notificationDueOverdue,
-      notificationStatusChangesMyWork: settings.notificationStatusChangesMyWork,
-      notificationSystemSecurity: settings.notificationSystemSecurity,
-      notificationSound: settings.notificationSound
-    });
-  };
+  const resetDraft = () => setDraft(buildDraft(settings));
 
   const applyChanges = () => {
     onUpdateSettings({

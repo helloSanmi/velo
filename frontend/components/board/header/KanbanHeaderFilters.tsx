@@ -6,6 +6,8 @@ type KanbanHeaderFiltersProps = Pick<
   KanbanHeaderProps,
   | 'searchQuery'
   | 'projectFilter'
+  | 'dueStatusFilter'
+  | 'includeUnscheduled'
   | 'projects'
   | 'dueFrom'
   | 'dueTo'
@@ -22,6 +24,8 @@ type KanbanHeaderFiltersProps = Pick<
   | 'setAssigneeFilter'
   | 'setSearchQuery'
   | 'setProjectFilter'
+  | 'setDueStatusFilter'
+  | 'setIncludeUnscheduled'
   | 'setDueFrom'
   | 'setDueTo'
 >;
@@ -29,6 +33,8 @@ type KanbanHeaderFiltersProps = Pick<
 const KanbanHeaderFilters: React.FC<KanbanHeaderFiltersProps> = ({
   searchQuery,
   projectFilter,
+  dueStatusFilter,
+  includeUnscheduled,
   projects,
   dueFrom,
   dueTo,
@@ -45,6 +51,8 @@ const KanbanHeaderFilters: React.FC<KanbanHeaderFiltersProps> = ({
   setAssigneeFilter,
   setSearchQuery,
   setProjectFilter,
+  setDueStatusFilter,
+  setIncludeUnscheduled,
   setDueFrom,
   setDueTo
 }) => {
@@ -55,6 +63,8 @@ const KanbanHeaderFilters: React.FC<KanbanHeaderFiltersProps> = ({
         compact
         searchQuery={searchQuery}
         projectFilter={projectFilter}
+        dueStatusFilter={dueStatusFilter}
+        includeUnscheduled={includeUnscheduled}
         projectOptions={projects.map((project) => ({ id: project.id, name: project.name }))}
         dueFrom={dueFrom}
         dueTo={dueTo}
@@ -71,6 +81,8 @@ const KanbanHeaderFilters: React.FC<KanbanHeaderFiltersProps> = ({
         onAssigneeChange={setAssigneeFilter}
         onSearchChange={setSearchQuery}
         onProjectChange={(value) => setProjectFilter(value as string | 'All')}
+        onDueStatusChange={setDueStatusFilter}
+        onIncludeUnscheduledChange={setIncludeUnscheduled}
         onDueFromChange={setDueFrom}
         onDueToChange={setDueTo}
       />

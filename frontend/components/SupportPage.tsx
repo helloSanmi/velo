@@ -1,99 +1,112 @@
 import React from 'react';
-import { ArrowLeft, Mail } from 'lucide-react';
+import { Clock3, LifeBuoy, Mail, ShieldAlert } from 'lucide-react';
 import Button from './ui/Button';
+import MarketingPageShell from './marketing/MarketingPageShell';
 
 interface SupportPageProps {
   onBackToHome: () => void;
+  onOpenProduct: () => void;
+  onOpenSolutions: () => void;
   onOpenPricing: () => void;
+  onOpenContact: () => void;
   onSignIn: () => void;
   onGetStarted: () => void;
 }
 
 const supportStreams = [
-  ['Onboarding support', 'Workspace setup, initial structure, and team rollout guidance.'],
-  ['Execution support', 'Dependencies, workflows, and delivery reporting recommendations.'],
-  ['Account support', 'Billing, seat management, access, and subscription updates.']
-];
+  ['Onboarding support', 'Workspace setup, role model alignment, and initial rollout guidance.', 'Business day response'],
+  ['Execution support', 'Workflow tuning, dependency handling, and delivery issue resolution.', 'Priority triage'],
+  ['Account support', 'Billing, licensing, seats, and subscription operations.', 'Account ownership routing']
+] as const;
 
-const SupportPage: React.FC<SupportPageProps> = ({ onBackToHome, onOpenPricing, onSignIn, onGetStarted }) => (
-  <div className="min-h-screen bg-[#efefef] text-slate-900">
-    <header className="sticky top-0 z-20 border-b border-slate-300 bg-white">
-      <div className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between px-5 md:px-6">
-        <button onClick={onBackToHome} className="text-3xl font-bold tracking-tight text-[#6f093f]">velo</button>
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" onClick={onBackToHome}><ArrowLeft className="mr-1.5 h-4 w-4" />Home</Button>
-          <Button variant="ghost" size="sm" onClick={onOpenPricing}>Pricing</Button>
-          <Button variant="ghost" size="sm" onClick={onSignIn}>Log in</Button>
-          <Button size="sm" onClick={onGetStarted} className="rounded-full !bg-black px-5 !text-white hover:!bg-slate-900">Get started</Button>
+const supportProcess = [
+  ['1. Intake', 'Submit issue context and expected outcome.'],
+  ['2. Triage', 'We classify severity and assign to the right support stream.'],
+  ['3. Resolution', 'Receive actionable guidance with confirmation and follow-up.']
+] as const;
+
+const resources = [
+  ['Workspace setup and template strategy', 'Get initial project structure right from day one.'],
+  ['Role permissions and access controls', 'Map policy to role behavior across your teams.'],
+  ['Completion approvals and lifecycle states', 'Understand governance for completion and reopen flows.']
+] as const;
+
+const SupportPage: React.FC<SupportPageProps> = (props) => (
+  <MarketingPageShell
+    activeNav="support"
+    heroEyebrow="Support"
+    heroTitle="Support for teams running active delivery cycles"
+    heroDescription="From onboarding to scale, get practical help for operations, governance, and delivery reliability."
+    heroAside={(
+      <article className="rounded-2xl border border-white/20 bg-white/10 p-4 md:p-5">
+        <p className="text-sm font-medium text-white/80">Support channels</p>
+        <div className="mt-3 space-y-2 text-sm text-white/90">
+          <p className="inline-flex items-center gap-2"><Mail className="h-4 w-4" />support@velo.app</p>
+          <p className="inline-flex items-center gap-2"><Clock3 className="h-4 w-4" />Business-day response target</p>
+          <p className="inline-flex items-center gap-2"><LifeBuoy className="h-4 w-4" />Product + admin support</p>
         </div>
-      </div>
-    </header>
+      </article>
+    )}
+    onBackToHome={props.onBackToHome}
+    onOpenProduct={props.onOpenProduct}
+    onOpenSolutions={props.onOpenSolutions}
+    onOpenPricing={props.onOpenPricing}
+    onOpenSupport={props.onBackToHome}
+    onOpenContact={props.onOpenContact}
+    onSignIn={props.onSignIn}
+    onGetStarted={props.onGetStarted}
+  >
+    <section className="grid gap-4 md:grid-cols-3">
+      {supportStreams.map(([title, detail, badge]) => (
+        <article key={title} className="rounded-2xl border border-slate-200 bg-white p-5">
+          <p className="text-[21px] font-semibold text-slate-900">{title}</p>
+          <p className="mt-1.5 text-[14px] text-slate-600">{detail}</p>
+          <p className="mt-3 inline-flex rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-700">{badge}</p>
+        </article>
+      ))}
+    </section>
 
-    <main className="mx-auto w-full max-w-7xl px-5 py-8 md:px-6 md:py-10">
-      <section className="rounded-3xl bg-[#76003f] px-6 py-8 text-white md:px-8 md:py-10">
-        <p className="text-xs uppercase tracking-[0.14em] text-white/70">Support</p>
-        <h1 className="mt-2 text-[36px] font-semibold leading-[0.98] tracking-tight md:text-[52px]">Support for teams running active delivery cycles</h1>
-        <p className="mt-3 max-w-3xl text-[18px] text-white/90 md:text-[22px]">
-          From setup to scale, get practical help for workflow design, execution quality, and account management.
-        </p>
-      </section>
-
-      <section className="mt-5 grid gap-4 md:grid-cols-3">
-        {supportStreams.map(([title, text]) => (
-          <article key={title} className="rounded-2xl border border-slate-300 bg-white p-6 shadow-sm">
-            <p className="text-[24px] font-semibold tracking-tight text-slate-900">{title}</p>
-            <p className="mt-2 text-[16px] leading-relaxed text-slate-600">{text}</p>
+    <section className="rounded-3xl border border-slate-200 bg-white p-7 md:p-8">
+      <h2 className="text-[26px] font-semibold tracking-tight text-slate-900">How support works</h2>
+      <div className="mt-4 grid gap-3 md:grid-cols-3">
+        {supportProcess.map(([step, text]) => (
+          <article key={step} className="rounded-xl border border-slate-200 bg-white p-4">
+            <p className="text-[17px] font-semibold text-slate-900">{step}</p>
+            <p className="mt-1.5 text-[14px] text-slate-600">{text}</p>
           </article>
         ))}
-      </section>
+      </div>
+    </section>
 
-      <section className="mt-5 grid gap-4 md:grid-cols-[1.15fr_0.85fr]">
-        <article className="rounded-2xl border border-slate-300 bg-white p-6 shadow-sm">
-          <h2 className="text-[26px] font-semibold tracking-tight text-slate-900">Common support topics</h2>
-          <ul className="mt-3 space-y-2 text-[16px] text-slate-700">
-            <li>Workspace setup and template strategy</li>
-            <li>Role permissions and access issues</li>
-            <li>Board, roadmap, and status reporting</li>
-            <li>Billing and seat adjustments</li>
-          </ul>
-        </article>
+    <section className="rounded-3xl border border-slate-200 bg-white p-7 md:p-8">
+      <h2 className="text-[26px] font-semibold tracking-tight text-slate-900">Common support areas</h2>
+      <div className="mt-4 space-y-3">
+        {resources.map(([title, text]) => (
+          <article key={title} className="rounded-xl border border-slate-200 bg-white p-4">
+            <p className="text-[16px] font-semibold text-slate-900">{title}</p>
+            <p className="mt-1.5 text-[14px] text-slate-600">{text}</p>
+          </article>
+        ))}
+      </div>
+    </section>
 
-        <article className="rounded-2xl border border-slate-300 bg-white p-6 shadow-sm">
-          <h2 className="text-[26px] font-semibold tracking-tight text-slate-900">Contact and policy</h2>
-          <p className="mt-2 flex items-center gap-2 text-[16px] text-slate-700"><Mail className="h-4 w-4 text-slate-500" />support@velo.app</p>
-          <p className="mt-2 text-[15px] text-slate-600">Most requests receive a response within one business day.</p>
-          <div className="mt-4 flex items-center gap-3 text-[14px]">
-            <a href="/PRIVACY_POLICY.md" target="_blank" rel="noreferrer" className="text-[#76003f] hover:text-[#640035]">Privacy Policy</a>
-            <a href="/TERMS_OF_SERVICE.md" target="_blank" rel="noreferrer" className="text-[#76003f] hover:text-[#640035]">Terms of Service</a>
-          </div>
-        </article>
-      </section>
-    </main>
-
-    <footer className="border-t border-slate-300 bg-[#1b0a14] text-white">
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-6 py-6 md:flex-row md:items-center md:justify-between">
+    <section className="rounded-3xl bg-[#f0dce3] p-6 md:p-7">
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
-          <p className="text-xl font-bold tracking-tight">Velo</p>
-          <p className="mt-1 text-sm text-white/70">Project operations for focused teams.</p>
+          <h2 className="text-[28px] font-semibold tracking-tight text-[#76003f]">Need a guided product walkthrough too?</h2>
+          <p className="mt-1 text-[16px] text-[#76003f]/85">Request a demo for team rollout and workflow design guidance.</p>
         </div>
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-white/75">
-          <button onClick={onBackToHome} className="hover:text-white">Home</button>
-          <button onClick={onOpenPricing} className="hover:text-white">Pricing</button>
-          <button onClick={onSignIn} className="hover:text-white">Log in</button>
-          <button onClick={onGetStarted} className="hover:text-white">Get started</button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={props.onOpenPricing} className="border-[#76003f]/35 !text-[#76003f] hover:bg-[#f6ecf1]">View pricing</Button>
+          <Button onClick={props.onOpenContact} className="!bg-[#76003f] hover:!bg-[#640035] !text-white">Request demo</Button>
         </div>
       </div>
-      <div className="border-t border-white/10">
-        <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-6 py-3 text-xs text-white/60">
-          <p>© {new Date().getFullYear()} Velo</p>
-          <div className="flex items-center gap-3">
-            <a href="/PRIVACY_POLICY.md" target="_blank" rel="noreferrer" className="hover:text-white">Privacy</a>
-            <a href="/TERMS_OF_SERVICE.md" target="_blank" rel="noreferrer" className="hover:text-white">Terms</a>
-          </div>
-        </div>
-      </div>
-    </footer>
-  </div>
+    </section>
+
+    <section className="rounded-2xl border border-slate-200 bg-white p-5 text-slate-800">
+      <p className="inline-flex items-center gap-2 text-sm font-medium"><ShieldAlert className="h-4 w-4 text-[#76003f]" />For account-security incidents, include urgency in subject for immediate triage.</p>
+    </section>
+  </MarketingPageShell>
 );
 
 export default SupportPage;

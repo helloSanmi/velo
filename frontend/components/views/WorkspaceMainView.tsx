@@ -10,6 +10,7 @@ import ProjectsLifecycleView from '../ProjectsLifecycleView';
 
 const IntegrationHub = lazy(() => import('../IntegrationHub'));
 const TemplatesView = lazy(() => import('../templates/TemplatesView'));
+const TicketsView = lazy(() => import('../tickets/TicketsView'));
 
 interface WorkspaceMainViewProps {
   currentView: MainViewType;
@@ -29,6 +30,8 @@ interface WorkspaceMainViewProps {
   templates: ProjectTemplate[];
   searchQuery: string;
   projectFilter: string | 'All';
+  dueStatusFilter: 'All' | 'Scheduled' | 'Unscheduled';
+  includeUnscheduled: boolean;
   dueFrom?: number;
   dueTo?: number;
   statusFilter: string | 'All';
@@ -45,6 +48,8 @@ interface WorkspaceMainViewProps {
   setAssigneeFilter: (a: string) => void;
   setSearchQuery: (value: string) => void;
   setProjectFilter: (value: string | 'All') => void;
+  setDueStatusFilter: (value: 'All' | 'Scheduled' | 'Unscheduled') => void;
+  setIncludeUnscheduled: (value: boolean) => void;
   setDueFrom: (value?: number) => void;
   setDueTo: (value?: number) => void;
   setSelectedTaskIds: (ids: string[]) => void;
@@ -81,6 +86,8 @@ interface WorkspaceMainViewProps {
   ) => void;
   pinnedInsights?: string[];
   onUnpinInsight?: (insight: string) => void;
+  routeTicketId?: string | null;
+  onOpenTicketRoute?: (ticketId: string | null) => void;
 }
 
 const WorkspaceMainView: React.FC<WorkspaceMainViewProps> = ({
@@ -101,6 +108,8 @@ const WorkspaceMainView: React.FC<WorkspaceMainViewProps> = ({
   templates,
   searchQuery,
   projectFilter,
+  dueStatusFilter,
+  includeUnscheduled,
   dueFrom,
   dueTo,
   statusFilter,
@@ -117,6 +126,8 @@ const WorkspaceMainView: React.FC<WorkspaceMainViewProps> = ({
   setAssigneeFilter,
   setSearchQuery,
   setProjectFilter,
+  setDueStatusFilter,
+  setIncludeUnscheduled,
   setDueFrom,
   setDueTo,
   setSelectedTaskIds,
@@ -149,7 +160,9 @@ const WorkspaceMainView: React.FC<WorkspaceMainViewProps> = ({
   planFeatures,
   onGenerateProjectTasksWithAI,
   pinnedInsights = [],
-  onUnpinInsight
+  onUnpinInsight,
+  routeTicketId,
+  onOpenTicketRoute
 }) => {
   const withLazy = (node: React.ReactNode) => (
     <Suspense fallback={<div className="flex-1 p-6 text-sm text-slate-500">Loading view...</div>}>{node}</Suspense>
@@ -249,6 +262,18 @@ const WorkspaceMainView: React.FC<WorkspaceMainViewProps> = ({
           onReassign={(taskId, userId) => handleUpdateTaskWithPolicy(taskId, { assigneeId: userId, assigneeIds: [userId] })}
         />
       );
+    case 'tickets':
+      return withLazy(
+        <TicketsView
+          orgId={user.orgId}
+          currentUser={user}
+          projects={crossProjectProjects}
+          allUsers={scopedUsers}
+          onRefreshTasks={refreshTasks}
+          routeTicketId={routeTicketId}
+          onOpenTicketRoute={onOpenTicketRoute}
+        />
+      );
     case 'integrations':
       if (!planFeatures.integrations) return upgradeView('Integrations unavailable', 'Upgrade to Basic or Pro to unlock integrations.');
       return withLazy(<IntegrationHub projects={projects} onUpdateProject={handleUpdateProject} />);
@@ -269,6 +294,8 @@ const WorkspaceMainView: React.FC<WorkspaceMainViewProps> = ({
         <KanbanView
           searchQuery={searchQuery}
           projectFilter={projectFilter}
+          dueStatusFilter={dueStatusFilter}
+          includeUnscheduled={includeUnscheduled}
           projects={activeVisibleProjects}
           dueFrom={dueFrom}
           dueTo={dueTo}
@@ -293,6 +320,8 @@ const WorkspaceMainView: React.FC<WorkspaceMainViewProps> = ({
           setSearchQuery={setSearchQuery}
           setDueFrom={setDueFrom}
           setDueTo={setDueTo}
+          setDueStatusFilter={setDueStatusFilter}
+          setIncludeUnscheduled={setIncludeUnscheduled}
           setSelectedTaskIds={setSelectedTaskIds}
           toggleTaskSelection={toggleTaskSelection}
           deleteTask={handleDeleteTaskWithPolicy}
@@ -310,6 +339,7 @@ const WorkspaceMainView: React.FC<WorkspaceMainViewProps> = ({
           assistWithAI={assistWithAI}
           setSelectedTask={setSelectedTask}
           setIsModalOpen={setIsModalOpen}
+          onUpdateTask={handleUpdateTaskWithPolicy}
           refreshTasks={refreshTasks}
           onUpdateProjectStages={(projectId, stages: ProjectStage[]) => handleUpdateProject(projectId, { stages })}
           onGenerateProjectTasksWithAI={onGenerateProjectTasksWithAI}

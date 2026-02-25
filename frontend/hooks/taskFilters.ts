@@ -28,6 +28,8 @@ export const filterTasks = ({
   projectFilter,
   currentUser,
   searchQuery,
+  dueStatusFilter,
+  includeUnscheduled,
   dueFrom,
   dueTo
 }: {
@@ -39,6 +41,8 @@ export const filterTasks = ({
   projectFilter: string | 'All';
   currentUser: User | null;
   searchQuery: string;
+  dueStatusFilter: 'All' | 'Scheduled' | 'Unscheduled';
+  includeUnscheduled: boolean;
   dueFrom?: number;
   dueTo?: number;
 }) => {
@@ -59,9 +63,14 @@ export const filterTasks = ({
       (assigneeFilter === 'Me' && assigneeIds.includes(currentUser?.id || '')) ||
       assigneeIds.includes(assigneeFilter);
     const due = task.dueDate;
+    const matchesIncludeUnscheduled = includeUnscheduled ? true : Boolean(due);
+    const matchesDueStatus =
+      dueStatusFilter === 'All' ||
+      (dueStatusFilter === 'Scheduled' && Boolean(due)) ||
+      (dueStatusFilter === 'Unscheduled' && !due);
     const matchesFrom = dueFrom ? Boolean(due && due >= dueFrom) : true;
     const matchesTo = dueTo ? Boolean(due && due <= dueTo) : true;
-    return matchesPriority && matchesTag && matchesProject && matchesAssignee && matchesSearch && matchesFrom && matchesTo;
+    return matchesPriority && matchesTag && matchesProject && matchesAssignee && matchesSearch && matchesIncludeUnscheduled && matchesDueStatus && matchesFrom && matchesTo;
   });
 };
 

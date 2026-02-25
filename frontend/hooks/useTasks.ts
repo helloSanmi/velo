@@ -23,6 +23,8 @@ export const useTasks = (user: User | null, activeProjectId?: string) => {
   const [assigneeFilter, setAssigneeFilter] = useState<string | 'All'>('All');
   const [projectFilter, setProjectFilter] = useState<string | 'All'>('All');
   const [searchQuery, setSearchQuery] = useState('');
+  const [dueStatusFilter, setDueStatusFilter] = useState<'All' | 'Scheduled' | 'Unscheduled'>('All');
+  const [includeUnscheduled, setIncludeUnscheduled] = useState(true);
   const [dueFrom, setDueFrom] = useState<number | undefined>(undefined);
   const [dueTo, setDueTo] = useState<number | undefined>(undefined);
 
@@ -336,10 +338,12 @@ export const useTasks = (user: User | null, activeProjectId?: string) => {
         projectFilter,
         currentUser: user,
         searchQuery,
+        dueStatusFilter,
+        includeUnscheduled,
         dueFrom,
         dueTo
       }),
-    [tasks, priorityFilter, tagFilter, activeProjectId, assigneeFilter, projectFilter, user, searchQuery, dueFrom, dueTo]
+    [tasks, priorityFilter, tagFilter, activeProjectId, assigneeFilter, projectFilter, user, searchQuery, dueStatusFilter, includeUnscheduled, dueFrom, dueTo]
   );
 
   const categorizedTasks = useMemo(() => categorizeTasks(filteredTasks), [filteredTasks]);
@@ -356,6 +360,8 @@ export const useTasks = (user: User | null, activeProjectId?: string) => {
     assigneeFilter,
     projectFilter,
     searchQuery,
+    dueStatusFilter,
+    includeUnscheduled,
     dueFrom,
     dueTo,
     uniqueTags,
@@ -367,6 +373,8 @@ export const useTasks = (user: User | null, activeProjectId?: string) => {
     setAssigneeFilter,
     setProjectFilter,
     setSearchQuery,
+    setDueStatusFilter,
+    setIncludeUnscheduled,
     setDueFrom,
     setDueTo,
     setAiSuggestions,

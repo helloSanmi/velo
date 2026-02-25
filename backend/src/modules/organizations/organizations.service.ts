@@ -72,5 +72,79 @@ export const organizationsService = {
     });
 
     return { orgId: org.id, deletedAt, retentionDays: 30 };
+  },
+
+  async updateSettings(input: {
+    orgId: string;
+    actor: { userId: string; role: UserRole };
+    patch: {
+      loginSubdomain?: string;
+      allowGoogleAuth?: boolean;
+      allowMicrosoftAuth?: boolean;
+      googleWorkspaceConnected?: boolean;
+      microsoftWorkspaceConnected?: boolean;
+    };
+  }) {
+    enforce('org:usage-read', {
+      role: input.actor.role,
+      userId: input.actor.userId,
+      isProjectMember: true
+    });
+
+    const org = await prisma.organization.findUnique({ where: { id: input.orgId } });
+    if (!org) throw new HttpError(404, 'Organization not found.');
+
+    const nextSubdomain = typeof input.patch.loginSubdomain === 'string'
+      ? input.patch.loginSubdomain.trim().toLowerCase().replace(/\.velo\.ai$/, '')
+      : undefined;
+    if (typeof nextSubdomain === 'string' && !/^[a-z0-9][a-z0-9-]{1,39}$/.test(nextSubdomain)) {
+      throw new HttpError(400, 'Workspace domain must be 2-40 chars: lowercase letters, numbers, hyphen.');
+    }
+
+    if (nextSubdomain && nextSubdomain !== org.loginSubdomain) {
+      const conflict = await prisma.organization.findUnique({
+        where: { loginSubdomain: nextSubdomain },
+        select: { id: true }
+      });
+      if (conflict) throw new HttpError(409, 'Workspace domain already in use.');
+    }
+
+    const updated = await prisma.organization.update({
+      where: { id: input.orgId },
+      data: {
+        loginSubdomain: nextSubdomain,
+        allowGoogleAuth: input.patch.allowGoogleAuth,
+        allowMicrosoftAuth: input.patch.allowMicrosoftAuth,
+        googleWorkspaceConnected: input.patch.googleWorkspaceConnected,
+        microsoftWorkspaceConnected: input.patch.microsoftWorkspaceConnected
+      }
+    });
+
+    await writeAudit({
+      orgId: input.orgId,
+      userId: input.actor.userId,
+      actionType: 'role_changed',
+      action: 'Updated organization auth/domain settings',
+      entityType: 'organization',
+      entityId: input.orgId,
+      metadata: {
+        before: {
+          loginSubdomain: org.loginSubdomain,
+          allowGoogleAuth: org.allowGoogleAuth,
+          allowMicrosoftAuth: org.allowMicrosoftAuth,
+          googleWorkspaceConnected: org.googleWorkspaceConnected,
+          microsoftWorkspaceConnected: org.microsoftWorkspaceConnected
+        },
+        after: {
+          loginSubdomain: updated.loginSubdomain,
+          allowGoogleAuth: updated.allowGoogleAuth,
+          allowMicrosoftAuth: updated.allowMicrosoftAuth,
+          googleWorkspaceConnected: updated.googleWorkspaceConnected,
+          microsoftWorkspaceConnected: updated.microsoftWorkspaceConnected
+        }
+      }
+    });
+
+    return updated;
   }
 };

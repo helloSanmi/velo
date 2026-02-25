@@ -74,6 +74,18 @@ const normalizeAudit = (raw: any, fallbackUserId: string, index: number) => ({
 
 const mapProject = (project: BackendProject): Project => {
   const metadata = project.metadata || {};
+  const integrationMeta =
+    metadata.integrations && typeof metadata.integrations === 'object'
+      ? (metadata.integrations as Record<string, unknown>)
+      : {};
+  const slackMeta =
+    integrationMeta.slack && typeof integrationMeta.slack === 'object'
+      ? (integrationMeta.slack as Record<string, unknown>)
+      : null;
+  const githubMeta =
+    integrationMeta.github && typeof integrationMeta.github === 'object'
+      ? (integrationMeta.github as Record<string, unknown>)
+      : null;
   const metadataOwnerIds = Array.isArray(metadata.ownerIds)
     ? (metadata.ownerIds as unknown[]).filter((value): value is string => typeof value === 'string')
     : [];
@@ -112,6 +124,23 @@ const mapProject = (project: BackendProject): Project => {
     completedById: typeof metadata.completedById === 'string' ? metadata.completedById : undefined,
     deletedAt: typeof metadata.deletedAt === 'number' ? metadata.deletedAt : undefined,
     deletedById: typeof metadata.deletedById === 'string' ? metadata.deletedById : undefined,
+    integrations:
+      slackMeta || githubMeta
+        ? {
+            slack: slackMeta
+              ? {
+                  enabled: Boolean(slackMeta.enabled),
+                  channel: typeof slackMeta.channel === 'string' ? slackMeta.channel : 'general'
+                }
+              : undefined,
+            github: githubMeta
+              ? {
+                  enabled: Boolean(githubMeta.enabled),
+                  repo: typeof githubMeta.repo === 'string' ? githubMeta.repo : ''
+                }
+              : undefined
+          }
+        : undefined,
     version: 1,
     updatedAt: toMs(project.updatedAt) || Date.now()
   };
@@ -173,45 +202,74 @@ const persistWorkspaceSnapshot = (org: Organization, users: User[], projects: Pr
   writeStoredTasks(tasks);
 };
 
+type WorkspaceSnapshot = { org: Organization; users: User[]; projects: Project[]; tasks: Task[] };
+const HYDRATE_DEDUP_WINDOW_MS = 1500;
+const hydrateInFlightByOrg = new Map<string, Promise<WorkspaceSnapshot>>();
+const hydrateCacheByOrg = new Map<string, { at: number; snapshot: WorkspaceSnapshot }>();
+
 export const backendSyncService = {
-  async hydrateWorkspace(orgId: string): Promise<{ org: Organization; users: User[]; projects: Project[]; tasks: Task[] }> {
-    const [orgRaw, usersRaw, projectsRaw, tasksRaw] = await Promise.all([
-      apiRequest<any>(`/orgs/${orgId}`),
-      apiRequest<any[]>(`/orgs/${orgId}/users`),
-      apiRequest<BackendProject[]>(`/orgs/${orgId}/projects`),
-      apiRequest<BackendTask[]>(`/orgs/${orgId}/tasks`)
-    ]);
+  async hydrateWorkspace(orgId: string): Promise<WorkspaceSnapshot> {
+    const cached = hydrateCacheByOrg.get(orgId);
+    if (cached && Date.now() - cached.at < HYDRATE_DEDUP_WINDOW_MS) {
+      return cached.snapshot;
+    }
+    const inFlight = hydrateInFlightByOrg.get(orgId);
+    if (inFlight) return inFlight;
 
-    const org: Organization = {
-      id: orgRaw.id,
-      name: orgRaw.name,
-      totalSeats: orgRaw.totalSeats,
-      ownerId: orgRaw.ownerId,
-      createdAt: toMs(orgRaw.createdAt) || Date.now(),
-      plan: orgRaw.plan,
-      seatPrice: orgRaw.seatPrice,
-      billingCurrency: orgRaw.billingCurrency,
-      aiDailyRequestLimit: typeof orgRaw.aiDailyRequestLimit === 'number' ? orgRaw.aiDailyRequestLimit : undefined,
-      aiDailyTokenLimit: typeof orgRaw.aiDailyTokenLimit === 'number' ? orgRaw.aiDailyTokenLimit : undefined
-    };
+    const hydrationPromise = (async () => {
+      const [orgRaw, usersRaw, projectsRaw, tasksRaw] = await Promise.all([
+        apiRequest<any>(`/orgs/${orgId}`),
+        apiRequest<any[]>(`/orgs/${orgId}/users`),
+        apiRequest<BackendProject[]>(`/orgs/${orgId}/projects`),
+        apiRequest<BackendTask[]>(`/orgs/${orgId}/tasks`)
+      ]);
 
-    const users: User[] = usersRaw.map((u) => ({
-      id: u.id,
-      orgId: u.orgId,
-      username: u.username,
-      displayName: u.displayName,
-      firstName: u.firstName,
-      lastName: u.lastName,
-      email: u.email,
-      avatar: u.avatar,
-      role: u.role
-    }));
+      const org: Organization = {
+        id: orgRaw.id,
+        name: orgRaw.name,
+        loginSubdomain: orgRaw.loginSubdomain,
+        totalSeats: orgRaw.totalSeats,
+        ownerId: orgRaw.ownerId,
+        createdAt: toMs(orgRaw.createdAt) || Date.now(),
+        plan: orgRaw.plan,
+        seatPrice: orgRaw.seatPrice,
+        billingCurrency: orgRaw.billingCurrency,
+        aiDailyRequestLimit: typeof orgRaw.aiDailyRequestLimit === 'number' ? orgRaw.aiDailyRequestLimit : undefined,
+        aiDailyTokenLimit: typeof orgRaw.aiDailyTokenLimit === 'number' ? orgRaw.aiDailyTokenLimit : undefined,
+        allowGoogleAuth: Boolean(orgRaw.allowGoogleAuth),
+        allowMicrosoftAuth: Boolean(orgRaw.allowMicrosoftAuth),
+        googleWorkspaceConnected: Boolean(orgRaw.googleWorkspaceConnected),
+        microsoftWorkspaceConnected: Boolean(orgRaw.microsoftWorkspaceConnected)
+      };
 
-    const projects = projectsRaw.map(mapProject);
-    const tasks = tasksRaw.map(mapTask);
+      const users: User[] = usersRaw.map((u) => ({
+        id: u.id,
+        orgId: u.orgId,
+        username: u.username,
+        displayName: u.displayName,
+        firstName: u.firstName,
+        lastName: u.lastName,
+        email: u.email,
+        avatar: u.avatar,
+        role: u.role,
+        licenseActive: u.licenseActive !== false,
+        mustChangePassword: Boolean(u.mustChangePassword)
+      }));
 
-    persistWorkspaceSnapshot(org, users, projects, tasks);
-    return { org, users, projects, tasks };
+      const projects = projectsRaw.map(mapProject);
+      const tasks = tasksRaw.map(mapTask);
+      const snapshot: WorkspaceSnapshot = { org, users, projects, tasks };
+      persistWorkspaceSnapshot(org, users, projects, tasks);
+      hydrateCacheByOrg.set(orgId, { at: Date.now(), snapshot });
+      return snapshot;
+    })();
+
+    hydrateInFlightByOrg.set(orgId, hydrationPromise);
+    try {
+      return await hydrationPromise;
+    } finally {
+      hydrateInFlightByOrg.delete(orgId);
+    }
   },
 
   clearAuthSession() {

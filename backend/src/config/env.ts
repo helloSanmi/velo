@@ -24,7 +24,23 @@ const EnvSchema = z.object({
   RETENTION_CLEANUP_ENABLED: z.coerce.boolean().default(true),
   RETENTION_CLEANUP_INTERVAL_MINUTES: z.coerce.number().default(1440),
   RETENTION_ORG_DELETE_DAYS: z.coerce.number().default(30),
-  RETENTION_PROJECT_DELETE_AUDIT_DAYS: z.coerce.number().default(30)
+  RETENTION_PROJECT_DELETE_AUDIT_DAYS: z.coerce.number().default(30),
+  APP_BASE_URL: z.string().default('http://localhost:4000'),
+  FRONTEND_BASE_URL: z.string().default('http://localhost:3000'),
+  GOOGLE_OAUTH_CLIENT_ID: z.string().optional(),
+  GOOGLE_OAUTH_CLIENT_SECRET: z.string().optional(),
+  GOOGLE_OAUTH_REDIRECT_URI: z.string().optional(),
+  MICROSOFT_OAUTH_CLIENT_ID: z.string().optional(),
+  MICROSOFT_OAUTH_CLIENT_SECRET: z.string().optional(),
+  MICROSOFT_OAUTH_REDIRECT_URI: z.string().optional(),
+  SLACK_CLIENT_ID: z.string().optional(),
+  SLACK_CLIENT_SECRET: z.string().optional(),
+  SLACK_OAUTH_REDIRECT_URI: z.string().optional(),
+  GITHUB_CLIENT_ID: z.string().optional(),
+  GITHUB_CLIENT_SECRET: z.string().optional(),
+  GITHUB_OAUTH_REDIRECT_URI: z.string().optional(),
+  SLACK_BOT_TOKEN: z.string().optional(),
+  GITHUB_WEBHOOK_SECRET: z.string().optional()
 });
 
 const parsed = EnvSchema.safeParse(process.env);

@@ -108,10 +108,6 @@ export const buildUpdateAuditActions = (
     const names = nextAssigneeIds.map((id) => usersById.get(id) || 'Unknown');
     actions.push(names.length > 0 ? `updated assignees: ${names.join(', ')}` : 'cleared assignees');
   }
-  if (Array.isArray(updates.securityGroupIds) && JSON.stringify(updates.securityGroupIds) !== JSON.stringify(task.securityGroupIds || [])) {
-    actions.push(updates.securityGroupIds.length > 0 ? `updated security groups (${updates.securityGroupIds.length})` : 'cleared security groups');
-  }
-
   return actions;
 };
 
@@ -119,4 +115,3 @@ export const isAdminOrLeadMention = (orgId: string, userId: string) => {
   const actor = userService.getUsers(orgId).find((candidate) => candidate.id === userId);
   return actor?.role === 'admin';
 };
-

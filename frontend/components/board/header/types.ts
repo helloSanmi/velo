@@ -2,6 +2,8 @@ import { Project, ProjectStage, TaskPriority, User } from '../../../types';
 import { SavedBoardView } from '../../../services/savedViewService';
 
 export interface KanbanHeaderProps {
+  boardView: 'kanban' | 'table' | 'timeline' | 'calendar' | 'gantt' | 'workload';
+  onChangeBoardView: (view: 'kanban' | 'table' | 'timeline' | 'calendar' | 'gantt' | 'workload') => void;
   compactMode: boolean;
   activeProject?: Project;
   currentUserId: string;
@@ -26,6 +28,8 @@ export interface KanbanHeaderProps {
   selectedTaskIds: string[];
   searchQuery: string;
   projectFilter: string | 'All';
+  dueStatusFilter: 'All' | 'Scheduled' | 'Unscheduled';
+  includeUnscheduled: boolean;
   dueFrom?: number;
   dueTo?: number;
   statusFilter: string | 'All';
@@ -60,6 +64,8 @@ export interface KanbanHeaderProps {
   setAssigneeFilter: (a: string) => void;
   setSearchQuery: (value: string) => void;
   setProjectFilter: (value: string | 'All') => void;
+  setDueStatusFilter: (value: 'All' | 'Scheduled' | 'Unscheduled') => void;
+  setIncludeUnscheduled: (value: boolean) => void;
   setDueFrom: (value?: number) => void;
   setDueTo: (value?: number) => void;
 }

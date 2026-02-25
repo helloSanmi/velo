@@ -1,325 +1,145 @@
 import React from 'react';
-import { OrgInvite, Organization, Project, SecurityGroup, Team, User as UserType } from '../../types';
 import WorkflowBuilder from '../WorkflowBuilder';
 import SettingsProjectsTab from './SettingsProjectsTab';
 import SettingsTeamsTab from './SettingsTeamsTab';
 import SettingsCoreTabs from './SettingsCoreTabs';
-import { settingsService, UserSettings } from '../../services/settingsService';
 import SettingsAdminTab from './SettingsAdminTab';
 import SettingsDangerTab from './SettingsDangerTab';
 import IntegrationHub from '../IntegrationHub';
-import { SettingsTabType } from '../SettingsModal';
-
-interface SettingsModalContentProps {
-  activeTab: SettingsTabType;
-  canManageWorkflowAutomation: boolean;
-  user: UserType;
-  profileUser: UserType | null;
-  org: Organization | null;
-  allUsers: UserType[];
-  groups: SecurityGroup[];
-  teams: Team[];
-  settings: UserSettings;
-  setTeams: (teams: Team[]) => void;
-  setGroups: (groups: SecurityGroup[]) => void;
-  projects: Project[];
-  projectQuery: string;
-  setProjectQuery: (value: string) => void;
-  activeProjects: Project[];
-  archivedProjects: Project[];
-  completedProjects: Project[];
-  deletedProjects: Project[];
-  focusedProjectId: string | null;
-  setFocusedProjectId: (id: string | null) => void;
-  focusedProject: Project | null;
-  focusedProjectTasks: Task[];
-  editingProjectId: string | null;
-  editingProjectName: string;
-  setEditingProjectId: (id: string | null) => void;
-  setEditingProjectName: (value: string) => void;
-  submitProjectRename: () => void;
-  onCompleteProject?: (id: string) => void;
-  onReopenProject?: (id: string) => void;
-  onArchiveProject?: (id: string) => void;
-  onRestoreProject?: (id: string) => void;
-  onDeleteProject?: (id: string) => void;
-  onPurgeProject?: (id: string) => void;
-  onUpdateProject?: (id: string, updates: Partial<Project>) => void;
-  onChangeProjectOwner?: (id: string, ownerId: string) => void;
-  onDeleteOrganization: () => Promise<void>;
-  onToggle: (key: keyof UserSettings) => void;
-  onThemeChange: (theme: UserSettings['theme']) => void;
-  onUpdateSettings: (updates: Partial<UserSettings>) => void;
-  onThresholdChange: (value: number) => void;
-  onAvatarUpdate: (avatar: string) => Promise<void>;
-  onChangePassword: (currentPassword: string, newPassword: string, confirmPassword: string) => Promise<{ success: boolean; error?: string }>;
-  onUpdateProfileName: (firstName: string, lastName: string) => Promise<{ success: boolean; error?: string }>;
-  isProvisioning: boolean;
-  setIsProvisioning: (value: boolean) => void;
-  newUserName: string;
-  setNewUserName: (value: string) => void;
-  newUserFirstName: string;
-  setNewUserFirstName: (value: string) => void;
-  newUserLastName: string;
-  setNewUserLastName: (value: string) => void;
-  newUserEmail: string;
-  setNewUserEmail: (value: string) => void;
-  newUserRole: 'member' | 'admin';
-  setNewUserRole: (value: 'member' | 'admin') => void;
-  provisionError: string;
-  handleProvision: (e: React.FormEvent) => Promise<void>;
-  seatPurchaseCount: number;
-  setSeatPurchaseCount: (value: number) => void;
-  handleBuyMoreSeats: () => Promise<void>;
-  editingUserId: string | null;
-  editFirstNameValue: string;
-  setEditFirstNameValue: (value: string) => void;
-  editLastNameValue: string;
-  setEditLastNameValue: (value: string) => void;
-  editEmailValue: string;
-  setEditEmailValue: (value: string) => void;
-  handleCommitEdit: () => Promise<void>;
-  handleStartEdit: (targetUser: UserType) => void;
-  handleUpdateUserRole: (userId: string, role: 'admin' | 'member') => Promise<void>;
-  handlePurgeUser: (userId: string) => Promise<void>;
-  invites: OrgInvite[];
-  newInviteIdentifier: string;
-  setNewInviteIdentifier: (value: string) => void;
-  newInviteRole: 'member' | 'admin';
-  setNewInviteRole: (value: 'member' | 'admin') => void;
-  handleCreateInvite: () => Promise<void>;
-  handleRevokeInvite: (inviteId: string) => Promise<void>;
-  aiUsageRows: Array<{
-    id: string;
-    orgId: string;
-    dayKey: string;
-    requestsUsed: number;
-    tokensUsed: number;
-    warningIssuedAt?: string | null;
-    blockedAt?: string | null;
-  }>;
-  refreshAiUsage: () => Promise<void>;
-}
+import { SettingsModalContentProps } from './SettingsModalContent.types';
 
 const SettingsModalContent: React.FC<SettingsModalContentProps> = (props) => {
-  const {
-    activeTab,
-    canManageWorkflowAutomation,
-    user,
-    profileUser,
-    org,
-    allUsers,
-    groups,
-    teams,
-    setTeams,
-    setGroups,
-    settings,
-    projects,
-    projectQuery,
-    setProjectQuery,
-    activeProjects,
-    archivedProjects,
-    completedProjects,
-    deletedProjects,
-    focusedProjectId,
-    setFocusedProjectId,
-    focusedProject,
-    focusedProjectTasks,
-    editingProjectId,
-    editingProjectName,
-    setEditingProjectId,
-    setEditingProjectName,
-    submitProjectRename,
-    onCompleteProject,
-    onReopenProject,
-    onArchiveProject,
-    onRestoreProject,
-    onDeleteProject,
-    onPurgeProject,
-    onUpdateProject,
-    onChangeProjectOwner,
-    onDeleteOrganization,
-    onToggle,
-    onThemeChange,
-    onUpdateSettings,
-    onThresholdChange,
-    onAvatarUpdate,
-    onChangePassword,
-    onUpdateProfileName,
-    isProvisioning,
-    setIsProvisioning,
-    newUserName,
-    setNewUserName,
-    newUserFirstName,
-    setNewUserFirstName,
-    newUserLastName,
-    setNewUserLastName,
-    newUserEmail,
-    setNewUserEmail,
-    newUserRole,
-    setNewUserRole,
-    provisionError,
-    handleProvision,
-    seatPurchaseCount,
-    setSeatPurchaseCount,
-    handleBuyMoreSeats,
-    editingUserId,
-    editFirstNameValue,
-    setEditFirstNameValue,
-    editLastNameValue,
-    setEditLastNameValue,
-    editEmailValue,
-    setEditEmailValue,
-    handleCommitEdit,
-    handleStartEdit,
-    handleUpdateUserRole,
-    handlePurgeUser,
-    invites,
-    newInviteIdentifier,
-    setNewInviteIdentifier,
-    newInviteRole,
-    setNewInviteRole,
-    handleCreateInvite,
-    handleRevokeInvite,
-    aiUsageRows,
-    refreshAiUsage
-  } = props;
+  const coreTabUser = props.profileUser || props.user;
+  const coreTab = (activeTab: 'profile' | 'general' | 'notifications' | 'security' | 'appearance') => (
+    <SettingsCoreTabs
+      activeTab={activeTab}
+      user={coreTabUser}
+      org={props.org}
+      allUsers={props.allUsers}
+      projects={props.projects}
+      teams={props.teams}
+      settings={props.settings}
+      onToggle={props.onToggle}
+      onThemeChange={props.onThemeChange}
+      onUpdateSettings={props.onUpdateSettings}
+      onThresholdChange={props.onThresholdChange}
+      onUpdateProject={props.onUpdateProject}
+      onAvatarUpdate={props.onAvatarUpdate}
+      onChangePassword={props.onChangePassword}
+      onUpdateProfileName={props.onUpdateProfileName}
+    />
+  );
 
-  switch (activeTab) {
+  switch (props.activeTab) {
     case 'automation':
-      if (!canManageWorkflowAutomation) {
-        return <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-600">Only admins and project owners can access workflow automation.</div>;
-      }
-      return <WorkflowBuilder orgId={user.orgId} allUsers={allUsers} projects={projects} currentUser={user} />;
+      return props.canAccessWorkflowAutomation
+        ? <WorkflowBuilder orgId={props.user.orgId} allUsers={props.allUsers} projects={props.workflowProjects} projectTasks={props.projectTasks} currentUser={props.user} />
+        : <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">You can only view workflows for projects you are involved in.</div>;
     case 'integrations':
-      if (user.role !== 'admin') {
-        return <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-600">Only admins can manage workspace integrations.</div>;
-      }
-      return (
-        <div className="rounded-xl border border-slate-200 overflow-hidden">
-          <IntegrationHub projects={projects} compact onUpdateProject={(id, updates) => onUpdateProject?.(id, updates)} />
+      return props.user.role === 'admin' ? (
+        <div className="overflow-hidden rounded-xl border border-slate-200">
+          <IntegrationHub
+            projects={props.projects}
+            org={props.org}
+            compact
+            onUpdateProject={(id, updates) => props.onUpdateProject?.(id, updates)}
+            onUpdateOrganizationSettings={props.onUpdateOrganizationSettings}
+          />
         </div>
-      );
+      ) : <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">Only admins can manage workspace integrations.</div>;
     case 'projects':
       return (
         <SettingsProjectsTab
-          currentUserRole={user.role}
-          currentUserId={user.id}
-          allUsers={allUsers}
-          projectQuery={projectQuery}
-          setProjectQuery={setProjectQuery}
-          activeProjects={activeProjects}
-          archivedProjects={archivedProjects}
-          completedProjects={completedProjects}
-          deletedProjects={deletedProjects}
-          focusedProjectId={focusedProjectId}
-          setFocusedProjectId={setFocusedProjectId}
-          focusedProject={focusedProject}
-          focusedProjectTasks={focusedProjectTasks}
-          editingProjectId={editingProjectId}
-          editingProjectName={editingProjectName}
-          setEditingProjectId={setEditingProjectId}
-          setEditingProjectName={setEditingProjectName}
-          submitProjectRename={submitProjectRename}
-          onCompleteProject={onCompleteProject}
-          onReopenProject={onReopenProject}
-          onArchiveProject={onArchiveProject}
-          onRestoreProject={onRestoreProject}
-          onDeleteProject={onDeleteProject}
-          onPurgeProject={onPurgeProject}
-          onChangeProjectOwner={onChangeProjectOwner}
+          currentUserRole={props.user.role}
+          currentUserId={props.user.id}
+          allUsers={props.allUsers}
+          projectQuery={props.projectQuery}
+          setProjectQuery={props.setProjectQuery}
+          activeProjects={props.activeProjects}
+          archivedProjects={props.archivedProjects}
+          completedProjects={props.completedProjects}
+          deletedProjects={props.deletedProjects}
+          focusedProjectId={props.focusedProjectId}
+          setFocusedProjectId={props.setFocusedProjectId}
+          focusedProject={props.focusedProject}
+          focusedProjectTasks={props.focusedProjectTasks}
+          editingProjectId={props.editingProjectId}
+          editingProjectName={props.editingProjectName}
+          setEditingProjectId={props.setEditingProjectId}
+          setEditingProjectName={props.setEditingProjectName}
+          submitProjectRename={props.submitProjectRename}
+          onCompleteProject={props.onCompleteProject}
+          onReopenProject={props.onReopenProject}
+          onArchiveProject={props.onArchiveProject}
+          onRestoreProject={props.onRestoreProject}
+          onDeleteProject={props.onDeleteProject}
+          onPurgeProject={props.onPurgeProject}
+          onChangeProjectOwner={props.onChangeProjectOwner}
         />
       );
     case 'teams':
-    case 'groups':
-      return <SettingsTeamsTab currentUser={user} allUsers={allUsers} teams={teams} groups={groups} projects={projects} onTeamsChanged={setTeams} onGroupsChanged={setGroups} />;
+      return <SettingsTeamsTab currentUser={props.user} allUsers={props.allUsers} teams={props.teams} groups={props.groups} projects={props.projects} onTeamsChanged={props.setTeams} onGroupsChanged={props.setGroups} />;
     case 'profile':
     case 'general':
     case 'notifications':
     case 'security':
     case 'appearance':
-      return (
-        <SettingsCoreTabs
-          activeTab={activeTab}
-          user={profileUser || user}
-          org={org}
-          teams={teams}
-          groups={groups}
-          settings={settings}
-          onToggle={onToggle}
-          onThemeChange={onThemeChange}
-          onUpdateSettings={onUpdateSettings}
-          onThresholdChange={onThresholdChange}
-          onAvatarUpdate={onAvatarUpdate}
-          onChangePassword={onChangePassword}
-          onUpdateProfileName={onUpdateProfileName}
-        />
-      );
+      return coreTab(props.activeTab);
     case 'licenses':
       return (
         <SettingsAdminTab
-          user={user}
-          org={org}
-          allUsers={allUsers}
-          isProvisioning={isProvisioning}
-          setIsProvisioning={setIsProvisioning}
-          newUserName={newUserName}
-          setNewUserName={setNewUserName}
-          newUserFirstName={newUserFirstName}
-          setNewUserFirstName={setNewUserFirstName}
-          newUserLastName={newUserLastName}
-          setNewUserLastName={setNewUserLastName}
-          newUserEmail={newUserEmail}
-          setNewUserEmail={setNewUserEmail}
-          newUserRole={newUserRole}
-          setNewUserRole={setNewUserRole}
-          provisionError={provisionError}
-          handleProvision={handleProvision}
-          seatPurchaseCount={seatPurchaseCount}
-          setSeatPurchaseCount={setSeatPurchaseCount}
-          handleBuyMoreSeats={handleBuyMoreSeats}
-          editingUserId={editingUserId}
-          editFirstNameValue={editFirstNameValue}
-          setEditFirstNameValue={setEditFirstNameValue}
-          editLastNameValue={editLastNameValue}
-          setEditLastNameValue={setEditLastNameValue}
-          editEmailValue={editEmailValue}
-          setEditEmailValue={setEditEmailValue}
-          handleCommitEdit={handleCommitEdit}
-          handleStartEdit={handleStartEdit}
-          handleUpdateUserRole={handleUpdateUserRole}
-          handlePurgeUser={handlePurgeUser}
-          invites={invites}
-          newInviteIdentifier={newInviteIdentifier}
-          setNewInviteIdentifier={setNewInviteIdentifier}
-          newInviteRole={newInviteRole}
-          setNewInviteRole={setNewInviteRole}
-          handleCreateInvite={handleCreateInvite}
-          handleRevokeInvite={handleRevokeInvite}
-          aiUsageRows={aiUsageRows}
-          onRefreshAiUsage={refreshAiUsage}
+          user={props.user}
+          org={props.org}
+          allUsers={props.allUsers}
+          isProvisioning={props.isProvisioning}
+          setIsProvisioning={props.setIsProvisioning}
+          newUserName={props.newUserName}
+          setNewUserName={props.setNewUserName}
+          newUserFirstName={props.newUserFirstName}
+          setNewUserFirstName={props.setNewUserFirstName}
+          newUserLastName={props.newUserLastName}
+          setNewUserLastName={props.setNewUserLastName}
+          newUserEmail={props.newUserEmail}
+          setNewUserEmail={props.setNewUserEmail}
+          newUserRole={props.newUserRole}
+          setNewUserRole={props.setNewUserRole}
+          newUserTempPassword={props.newUserTempPassword}
+          setNewUserTempPassword={props.setNewUserTempPassword}
+          provisionError={props.provisionError}
+          handleProvision={props.handleProvision}
+          seatPurchaseCount={props.seatPurchaseCount}
+          setSeatPurchaseCount={props.setSeatPurchaseCount}
+          handleBuyMoreSeats={props.handleBuyMoreSeats}
+          editingUserId={props.editingUserId}
+          editFirstNameValue={props.editFirstNameValue}
+          setEditFirstNameValue={props.setEditFirstNameValue}
+          editLastNameValue={props.editLastNameValue}
+          setEditLastNameValue={props.setEditLastNameValue}
+          editEmailValue={props.editEmailValue}
+          setEditEmailValue={props.setEditEmailValue}
+          handleCommitEdit={props.handleCommitEdit}
+          handleStartEdit={props.handleStartEdit}
+          handleUpdateUserRole={props.handleUpdateUserRole}
+          handlePurgeUser={props.handlePurgeUser}
+          invites={props.invites}
+          newInviteIdentifier={props.newInviteIdentifier}
+          setNewInviteIdentifier={props.setNewInviteIdentifier}
+          newInviteRole={props.newInviteRole}
+          setNewInviteRole={props.setNewInviteRole}
+          handleCreateInvite={props.handleCreateInvite}
+          handleRevokeInvite={props.handleRevokeInvite}
+          onRefreshWorkspaceUsers={props.refreshWorkspaceUsers}
+          aiUsageRows={props.aiUsageRows}
+          onRefreshAiUsage={props.refreshAiUsage}
+          onUpdateOrganizationSettings={props.onUpdateOrganizationSettings}
+          settings={props.settings}
+          onUpdateSettings={props.onUpdateSettings}
         />
       );
     case 'danger':
-      return <SettingsDangerTab user={user} org={org} onDeleteOrganization={onDeleteOrganization} />;
+      return <SettingsDangerTab user={props.user} org={props.org} onDeleteOrganization={props.onDeleteOrganization} />;
     default:
-      return (
-        <SettingsCoreTabs
-          activeTab="general"
-          user={profileUser || user}
-          org={org}
-          teams={teams}
-          groups={groups}
-          settings={settings}
-          onToggle={onToggle}
-          onThemeChange={onThemeChange}
-          onUpdateSettings={onUpdateSettings}
-          onThresholdChange={onThresholdChange}
-          onAvatarUpdate={onAvatarUpdate}
-          onChangePassword={onChangePassword}
-          onUpdateProfileName={onUpdateProfileName}
-        />
-      );
+      return coreTab('general');
   }
 };
 

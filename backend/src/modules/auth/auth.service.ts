@@ -4,7 +4,7 @@ import { HttpError } from '../../lib/httpError.js';
 import { JwtUser } from './auth.types.js';
 import { RegisterPlan, toPublicUser } from './auth.shared.js';
 import { registerAuth, acceptInviteAuth } from './auth.registration.js';
-import { changePasswordAuth, loginAuth, logoutAuth, refreshAuth } from './auth.sessions.js';
+import { changePasswordAuth, loginAuth, logoutAuth, refreshAuth, resetPasswordAuth } from './auth.sessions.js';
 
 export const authService = {
   register(input: {
@@ -23,7 +23,7 @@ export const authService = {
     return acceptInviteAuth(input);
   },
 
-  login(input: { identifier: string; password: string; userAgent?: string; ipAddress?: string }) {
+  login(input: { identifier: string; password: string; workspaceDomain?: string; userAgent?: string; ipAddress?: string }) {
     return loginAuth(input);
   },
 
@@ -37,6 +37,10 @@ export const authService = {
 
   changePassword(input: { orgId: string; userId: string; sessionId: string; currentPassword: string; newPassword: string }) {
     return changePasswordAuth(input);
+  },
+
+  resetPassword(input: { identifier: string; workspaceDomain?: string; newPassword: string }) {
+    return resetPasswordAuth(input);
   },
 
   async me(auth: JwtUser) {

@@ -1,8 +1,9 @@
 import React from 'react';
 import { Cloud, Monitor, Sparkles, User } from 'lucide-react';
 import SettingsToggleRow from './SettingsToggleRow';
-import { Organization, SecurityGroup, Team, User as UserType } from '../../types';
+import { Organization, Project, Team, User as UserType } from '../../types';
 import { UserSettings } from '../../services/settingsService';
+import AppSelect from '../ui/AppSelect';
 import ProfileSettingsPanel from './core/ProfileSettingsPanel';
 import NotificationsSettingsPanel from './core/NotificationsSettingsPanel';
 import SecuritySettingsPanel from './core/SecuritySettingsPanel';
@@ -11,20 +12,22 @@ interface SettingsCoreTabsProps {
   activeTab: 'profile' | 'general' | 'notifications' | 'security' | 'appearance';
   user: UserType;
   org: Organization | null;
+  allUsers: UserType[];
+  projects: Project[];
   teams: Team[];
-  groups: SecurityGroup[];
   settings: UserSettings;
   onToggle: (key: keyof UserSettings) => void;
   onThemeChange: (theme: UserSettings['theme']) => void;
   onUpdateSettings: (updates: Partial<UserSettings>) => void;
   onThresholdChange: (value: number) => void;
+  onUpdateProject?: (id: string, updates: Partial<Project>) => void;
   onAvatarUpdate: (avatar: string) => Promise<void>;
   onChangePassword: (currentPassword: string, newPassword: string, confirmPassword: string) => Promise<{ success: boolean; error?: string }>;
   onUpdateProfileName: (firstName: string, lastName: string) => Promise<{ success: boolean; error?: string }>;
 }
 
 const SettingsCoreTabs: React.FC<SettingsCoreTabsProps> = (props) => {
-  const { activeTab, user, org, teams, groups, settings, onToggle, onThemeChange, onUpdateSettings, onThresholdChange, onAvatarUpdate, onChangePassword, onUpdateProfileName } = props;
+  const { activeTab, user, org, allUsers, projects, teams, settings, onToggle, onThemeChange, onUpdateSettings, onThresholdChange, onUpdateProject, onAvatarUpdate, onChangePassword, onUpdateProfileName } = props;
 
   if (activeTab === 'profile') {
     return (
@@ -32,7 +35,6 @@ const SettingsCoreTabs: React.FC<SettingsCoreTabsProps> = (props) => {
         user={user}
         org={org}
         teams={teams}
-        groups={groups}
         onAvatarUpdate={onAvatarUpdate}
         onChangePassword={onChangePassword}
         onUpdateProfileName={onUpdateProfileName}
@@ -46,19 +48,22 @@ const SettingsCoreTabs: React.FC<SettingsCoreTabsProps> = (props) => {
         <div className="p-4 border border-slate-200 rounded-xl bg-white">
           <p className="text-sm font-medium text-slate-900">Copilot response style</p>
           <p className="text-xs text-slate-600 mt-1">Choose how Copilot structures answers across project and workspace prompts.</p>
-          <select
-            value={settings.copilotResponseStyle}
-            onChange={(event) =>
-              onUpdateSettings({
-                copilotResponseStyle: event.target.value as UserSettings['copilotResponseStyle']
-              })
-            }
-            className="mt-3 h-9 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm outline-none focus:ring-2 focus:ring-slate-300"
-          >
-            <option value="action_plan">Action plan (recommended)</option>
-            <option value="concise">Concise</option>
-            <option value="executive">Executive summary</option>
-          </select>
+          <div className="mt-3">
+            <AppSelect
+              value={settings.copilotResponseStyle}
+              onChange={(value) =>
+                onUpdateSettings({
+                  copilotResponseStyle: value as UserSettings['copilotResponseStyle']
+                })
+              }
+              className="h-9 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm"
+              options={[
+                { value: 'action_plan', label: 'Action plan (recommended)' },
+                { value: 'concise', label: 'Concise' },
+                { value: 'executive', label: 'Executive summary' }
+              ]}
+            />
+          </div>
         </div>
         <SettingsToggleRow
           icon={<Sparkles className="w-4 h-4" />}
@@ -97,7 +102,18 @@ const SettingsCoreTabs: React.FC<SettingsCoreTabsProps> = (props) => {
   }
 
   if (activeTab === 'security') {
-    return <SecuritySettingsPanel user={user} org={org} settings={settings} onToggle={onToggle} onThresholdChange={onThresholdChange} />;
+    return (
+      <SecuritySettingsPanel
+        user={user}
+        org={org}
+        allUsers={allUsers}
+        teams={teams}
+        projects={projects}
+        settings={settings}
+        onUpdateSettings={onUpdateSettings}
+        onUpdateProject={onUpdateProject}
+      />
+    );
   }
 
   return (

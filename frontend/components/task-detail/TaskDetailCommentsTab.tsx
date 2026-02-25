@@ -139,19 +139,25 @@ const TaskDetailCommentsTab: React.FC<TaskDetailCommentsTabProps> = ({
           onClick={(e) => setCaretIndex((e.target as HTMLInputElement).selectionStart ?? commentText.length)}
           onKeyUp={(e) => setCaretIndex((e.target as HTMLInputElement).selectionStart ?? commentText.length)}
           onKeyDown={(e) => {
-            if (!mentionState || mentionSuggestions.length === 0) return;
-            if (e.key === 'ArrowDown') {
+            if (mentionState && mentionSuggestions.length > 0) {
+              if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                setActiveMentionIndex((prev) => (prev + 1) % mentionSuggestions.length);
+              } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                setActiveMentionIndex((prev) => (prev - 1 + mentionSuggestions.length) % mentionSuggestions.length);
+              } else if (e.key === 'Enter') {
+                e.preventDefault();
+                insertMention(mentionSuggestions[activeMentionIndex] || mentionSuggestions[0]);
+              } else if (e.key === 'Escape') {
+                e.preventDefault();
+                setCaretIndex(commentText.length);
+              }
+              return;
+            }
+            if (e.key === 'Enter') {
               e.preventDefault();
-              setActiveMentionIndex((prev) => (prev + 1) % mentionSuggestions.length);
-            } else if (e.key === 'ArrowUp') {
-              e.preventDefault();
-              setActiveMentionIndex((prev) => (prev - 1 + mentionSuggestions.length) % mentionSuggestions.length);
-            } else if (e.key === 'Enter') {
-              e.preventDefault();
-              insertMention(mentionSuggestions[activeMentionIndex] || mentionSuggestions[0]);
-            } else if (e.key === 'Escape') {
-              e.preventDefault();
-              setCaretIndex(commentText.length);
+              e.currentTarget.form?.requestSubmit();
             }
           }}
           placeholder="Write a comment..."

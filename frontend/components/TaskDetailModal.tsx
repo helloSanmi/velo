@@ -157,22 +157,12 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
           canDelete={canDelete}
           allUsers={state.allUsers}
           assigneeIds={state.assigneeIds}
-          securityGroupIds={state.securityGroupIds}
           canManageTask={canManageTask}
           onAssigneesChange={(nextIds) => {
             state.setAssigneeIds(nextIds);
             onUpdate(task.id, {
               assigneeIds: nextIds,
-              assigneeId: nextIds[0] || undefined,
-              securityGroupIds: state.securityGroupIds
-            });
-          }}
-          onSecurityGroupIdsChange={(nextGroupIds) => {
-            state.setSecurityGroupIds(nextGroupIds);
-            onUpdate(task.id, {
-              assigneeIds: state.assigneeIds,
-              assigneeId: state.assigneeIds[0] || undefined,
-              securityGroupIds: nextGroupIds
+              assigneeId: nextIds[0] || undefined
             });
           }}
           onPriorityChange={(priority) => {

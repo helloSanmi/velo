@@ -16,6 +16,7 @@ interface ApiResponse<T> {
   success: boolean;
   data: T;
   message?: string;
+  details?: any;
 }
 
 const getAccessToken = (): string | null => localStorage.getItem(ACCESS_TOKEN_KEY);
@@ -76,7 +77,10 @@ export const apiRequest = async <T>(path: string, options: RequestOptions = {}):
   const json = (await response.json().catch(() => ({ success: false, message: 'Invalid response' }))) as ApiResponse<T>;
 
   if (!response.ok || !json.success) {
-    throw new Error(json.message || `Request failed (${response.status})`);
+    const error: any = new Error(json.message || `Request failed (${response.status})`);
+    error.details = json.details;
+    error.status = response.status;
+    throw error;
   }
 
   return json.data;

@@ -12,16 +12,22 @@ interface UseSavedBoardViewsOptions {
   priorityFilter: TaskPriority | 'All';
   tagFilter: string | 'All';
   assigneeFilter: string | 'All';
+  dueStatusFilter: 'All' | 'Scheduled' | 'Unscheduled';
+  includeUnscheduled: boolean;
   dueFrom?: number;
   dueTo?: number;
+  boardView: 'kanban' | 'table' | 'timeline' | 'calendar' | 'gantt' | 'workload';
   setSearchQuery: (value: string) => void;
   setProjectFilter: (value: string | 'All') => void;
   setStatusFilter: (status: string | 'All') => void;
   setPriorityFilter: (priority: TaskPriority | 'All') => void;
   setTagFilter: (tag: string) => void;
   setAssigneeFilter: (assignee: string) => void;
+  setDueStatusFilter: (value: 'All' | 'Scheduled' | 'Unscheduled') => void;
+  setIncludeUnscheduled: (value: boolean) => void;
   setDueFrom: (value?: number) => void;
   setDueTo: (value?: number) => void;
+  setBoardView: (view: 'kanban' | 'table' | 'timeline' | 'calendar' | 'gantt' | 'workload') => void;
 }
 
 export const useSavedBoardViews = ({
@@ -32,22 +38,29 @@ export const useSavedBoardViews = ({
   priorityFilter,
   tagFilter,
   assigneeFilter,
+  dueStatusFilter,
+  includeUnscheduled,
   dueFrom,
   dueTo,
+  boardView,
   setSearchQuery,
   setProjectFilter,
   setStatusFilter,
   setPriorityFilter,
   setTagFilter,
   setAssigneeFilter,
+  setDueStatusFilter,
+  setIncludeUnscheduled,
   setDueFrom,
-  setDueTo
+  setDueTo,
+  setBoardView
 }: UseSavedBoardViewsOptions) => {
   const [savedViews, setSavedViews] = useState<SavedBoardView[]>(() => savedViewService.list(currentUser.id, currentUser.orgId));
   const [appliedViewId, setAppliedViewId] = useState<string | null>(null);
   const [isSavedViewsOpen, setIsSavedViewsOpen] = useState(false);
   const [isSaveViewOpen, setIsSaveViewOpen] = useState(false);
   const [saveViewName, setSaveViewName] = useState('');
+  const [shareViewWithWorkspace, setShareViewWithWorkspace] = useState(false);
 
   const openSavedViews = () => setIsSavedViewsOpen(true);
   const closeSavedViews = () => setIsSavedViewsOpen(false);
@@ -55,6 +68,7 @@ export const useSavedBoardViews = ({
   const closeSaveView = () => {
     setIsSaveViewOpen(false);
     setSaveViewName('');
+    setShareViewWithWorkspace(false);
   };
 
   const saveCurrentView = () => {
@@ -74,14 +88,19 @@ export const useSavedBoardViews = ({
       priorityFilter,
       tagFilter,
       assigneeFilter,
+      dueStatusFilter,
+      includeUnscheduled,
       dueFrom,
-      dueTo
+      dueTo,
+      boardView,
+      visibility: shareViewWithWorkspace ? 'shared' : 'personal'
     });
 
     setSavedViews((prev) => [view, ...prev]);
     toastService.success('View saved', `"${view.name}" created.`);
     setAppliedViewId(view.id);
     setSaveViewName('');
+    setShareViewWithWorkspace(false);
     setIsSaveViewOpen(false);
   };
 
@@ -95,8 +114,23 @@ export const useSavedBoardViews = ({
     setPriorityFilter(view.priorityFilter);
     setTagFilter(view.tagFilter);
     setAssigneeFilter(view.assigneeFilter);
+    setDueStatusFilter(view.dueStatusFilter || 'All');
+    setIncludeUnscheduled(view.includeUnscheduled !== false);
     setDueFrom(view.dueFrom);
     setDueTo(view.dueTo);
+    setBoardView(
+      view.boardView === 'table'
+        ? 'table'
+        : view.boardView === 'timeline'
+          ? 'timeline'
+          : view.boardView === 'calendar'
+            ? 'calendar'
+            : view.boardView === 'gantt'
+              ? 'gantt'
+            : view.boardView === 'workload'
+              ? 'workload'
+              : 'kanban'
+    );
     setAppliedViewId(view.id);
   };
 
@@ -143,6 +177,8 @@ export const useSavedBoardViews = ({
     closeSaveView,
     saveViewName,
     setSaveViewName,
+    shareViewWithWorkspace,
+    setShareViewWithWorkspace,
     saveCurrentView,
     applySavedView,
     deleteAppliedView,

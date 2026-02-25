@@ -196,7 +196,7 @@ export const useWorkspaceConnection = ({
 
   useEffect(() => {
     if (!user) return;
-    if (!settings.realTimeUpdates) return;
+    if (settings.realTimeUpdates) return;
     const id = window.setInterval(() => {
       if (!navigator.onLine) return;
       userService.hydrateWorkspaceFromBackend(user.orgId).then((result) => {
@@ -209,7 +209,7 @@ export const useWorkspaceConnection = ({
         setProjects(result.projects);
         refreshTasks();
       });
-    }, 4000);
+    }, 20000);
     return () => window.clearInterval(id);
   }, [refreshTasks, setAllUsers, setProjects, settings.realTimeUpdates, user]);
 };

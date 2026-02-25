@@ -12,8 +12,12 @@ export interface SavedBoardView {
   priorityFilter: TaskPriority | 'All';
   tagFilter: string | 'All';
   assigneeFilter: string | 'All';
+  dueStatusFilter?: 'All' | 'Scheduled' | 'Unscheduled';
+  includeUnscheduled?: boolean;
   dueFrom?: number;
   dueTo?: number;
+  boardView?: 'kanban' | 'table' | 'timeline' | 'calendar' | 'gantt' | 'workload';
+  visibility?: 'personal' | 'shared';
   createdAt: number;
   sortOrder?: number;
 }
@@ -33,11 +37,11 @@ const write = (views: SavedBoardView[]) => localStorage.setItem(KEY, JSON.string
 export const savedViewService = {
   list: (userId: string, orgId: string) =>
     read()
-      .filter((v) => v.userId === userId && v.orgId === orgId)
+      .filter((v) => v.orgId === orgId && (v.userId === userId || v.visibility === 'shared'))
       .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || b.createdAt - a.createdAt),
   create: (view: Omit<SavedBoardView, 'id' | 'createdAt'>): SavedBoardView => {
     const current = read();
-    const next: SavedBoardView = { ...view, id: createId(), createdAt: Date.now(), sortOrder: 0 };
+    const next: SavedBoardView = { ...view, visibility: view.visibility || 'personal', id: createId(), createdAt: Date.now(), sortOrder: 0 };
     const shifted = current.map((item) => ({ ...item, sortOrder: (item.sortOrder ?? 0) + 1 }));
     write([next, ...shifted]);
     return next;

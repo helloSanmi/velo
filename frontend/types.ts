@@ -19,6 +19,7 @@ export enum TaskPriority {
 export interface Organization {
   id: string;
   name: string;
+  loginSubdomain?: string;
   totalSeats: number;
   ownerId: string;
   createdAt: number;
@@ -27,6 +28,10 @@ export interface Organization {
   billingCurrency?: string;
   aiDailyRequestLimit?: number;
   aiDailyTokenLimit?: number;
+  allowGoogleAuth?: boolean;
+  allowMicrosoftAuth?: boolean;
+  googleWorkspaceConnected?: boolean;
+  microsoftWorkspaceConnected?: boolean;
 }
 
 export interface OrgInvite {
@@ -53,6 +58,8 @@ export interface User {
   avatar?: string;
   email?: string;
   role?: 'admin' | 'member' | 'guest';
+  licenseActive?: boolean;
+  mustChangePassword?: boolean;
 }
 
 export type SecurityGroupScope = 'global' | 'project';
@@ -121,7 +128,6 @@ export interface Project {
   integrations?: {
     slack?: { enabled: boolean; channel: string };
     github?: { enabled: boolean; repo: string };
-    jira?: { enabled: boolean; projectKey: string };
   };
 }
 
@@ -261,4 +267,67 @@ export interface ProjectTemplate {
   }>;
 }
 
-export type MainViewType = 'board' | 'projects' | 'analytics' | 'roadmap' | 'workflows' | 'templates' | 'resources' | 'integrations';
+export type IntakeTicketStatus = 'new' | 'triaged' | 'planned' | 'in-progress' | 'resolved' | 'closed' | 'converted';
+export type IntakeTicketPriority = 'low' | 'medium' | 'high' | 'urgent';
+
+export interface IntakeTicket {
+  id: string;
+  orgId: string;
+  projectId?: string;
+  title: string;
+  description: string;
+  requesterName: string;
+  requesterEmail?: string;
+  requesterUserId?: string;
+  status: IntakeTicketStatus;
+  priority: IntakeTicketPriority;
+  assigneeId?: string;
+  tags: string[];
+  source: 'workspace' | 'email' | 'form' | 'api';
+  convertedTaskId?: string;
+  convertedProjectId?: string;
+  convertedAt?: number;
+  convertedBy?: string;
+  startedAt?: number;
+  slaDueAt?: number;
+  firstResponseAt?: number;
+  resolvedAt?: number;
+  comments?: Array<{
+    id: string;
+    userId: string;
+    userName: string;
+    text: string;
+    createdAt: number;
+  }>;
+  metadata?: Record<string, unknown>;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export type TicketAssignmentMode = 'manual' | 'round_robin' | 'least_load';
+
+export interface TicketPolicy {
+  orgId: string;
+  projectId?: string;
+  assignmentMode: TicketAssignmentMode;
+  assigneePoolIds: string[];
+  slaHours: {
+    low: number;
+    medium: number;
+    high: number;
+    urgent: number;
+  };
+  roundRobinCursor: number;
+  updatedAt: number;
+}
+
+export type MainViewType =
+  | 'board'
+  | 'projects'
+  | 'analytics'
+  | 'roadmap'
+  | 'workflows'
+  | 'templates'
+  | 'resources'
+  | 'integrations'
+  | 'tickets';

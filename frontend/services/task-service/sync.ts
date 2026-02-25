@@ -9,7 +9,8 @@ const isPermissionError = (error: unknown) =>
   error instanceof Error && (error.message.includes('403') || /permission denied/i.test(error.message));
 const isAuthError = (error: unknown) =>
   error instanceof Error &&
-  (error.message.includes('401') || /unauthori[sz]ed|authentication required|missing or invalid authorization/i.test(error.message));
+  (error.message.includes('401') ||
+    /unauthori[sz]ed|authentication required|missing or invalid authorization|invalid access token/i.test(error.message));
 
 const wait = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
 

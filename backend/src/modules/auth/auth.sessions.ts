@@ -10,17 +10,79 @@ import {
   hashPassword,
   hashToken,
   normalizeIdentifier,
+  normalizeWorkspaceDomain,
   sessionExpiresAt,
   toPublicUser
 } from './auth.shared.js';
 
-export const loginAuth = async (input: { identifier: string; password: string; userAgent?: string; ipAddress?: string }) => {
-  const { normalized } = normalizeIdentifier(input.identifier);
-  const user = await prisma.user.findFirst({ where: { OR: [{ username: normalized }, { email: normalized }] } });
+const resolveLoginUser = async (identifier: string, workspaceDomain?: string) => {
+  const { normalized } = normalizeIdentifier(identifier);
+  const domainHint = normalizeWorkspaceDomain(workspaceDomain);
+
+  const emailLike = normalized.includes('@');
+  const [localPartRaw, identifierDomainRaw] = emailLike ? normalized.split('@') : [normalized, ''];
+  const localPart = (localPartRaw || '').trim();
+  const identifierDomain = (identifierDomainRaw || '').trim();
+
+  const subdomainFromIdentifier = normalizeWorkspaceDomain(identifierDomain);
+
+  const effectiveSubdomain = domainHint || subdomainFromIdentifier;
+  if (effectiveSubdomain) {
+    const org = await prisma.organization.findUnique({
+      where: { loginSubdomain: effectiveSubdomain },
+      select: { id: true }
+    });
+    if (!org) throw new HttpError(404, 'Workspace domain not found.');
+    if (emailLike && !identifierDomain.endsWith('.velo.ai')) {
+      return prisma.user.findFirst({ where: { orgId: org.id, email: normalized } });
+    }
+    return prisma.user.findFirst({ where: { orgId: org.id, username: localPart || normalized } });
+  }
+
+  if (emailLike && !identifierDomain.endsWith('.velo.ai')) {
+    return prisma.user.findFirst({ where: { email: normalized } });
+  }
+
+  const byUsername = await prisma.user.findMany({
+    where: { username: localPart || normalized },
+    take: 2,
+    select: {
+      id: true,
+      orgId: true,
+      username: true,
+      displayName: true,
+      firstName: true,
+      lastName: true,
+      email: true,
+      avatar: true,
+      role: true,
+      licenseActive: true,
+      mustChangePassword: true,
+      passwordHash: true
+    }
+  });
+  if (byUsername.length > 1) {
+    throw new HttpError(400, 'Multiple workspaces found for this username. Open your workspace URL (e.g. acme.localhost or acme.velo.ai) and sign in there.');
+  }
+  return byUsername[0] || null;
+};
+
+export const loginAuth = async (input: { identifier: string; password: string; workspaceDomain?: string; userAgent?: string; ipAddress?: string }) => {
+  const user = await resolveLoginUser(input.identifier, input.workspaceDomain);
   if (!user) throw new HttpError(401, 'Invalid credentials.');
 
   const ok = await comparePassword(input.password, user.passwordHash);
   if (!ok) throw new HttpError(401, 'Invalid credentials.');
+  if (!user.licenseActive) {
+    throw new HttpError(403, 'No active license assigned for this account. Contact your workspace admin.', {
+      code: 'LICENSE_REQUIRED'
+    });
+  }
+  if (user.mustChangePassword) {
+    throw new HttpError(403, 'Temporary password must be changed before sign in.', {
+      code: 'PASSWORD_CHANGE_REQUIRED'
+    });
+  }
 
   const sessionId = createId('sess');
   const payload = buildJwtPayload({ userId: user.id, orgId: user.orgId, role: user.role, sessionId });
@@ -150,7 +212,7 @@ export const changePasswordAuth = async (input: {
   await prisma.$transaction([
     prisma.user.update({
       where: { id: user.id },
-      data: { passwordHash: await hashPassword(input.newPassword) }
+      data: { passwordHash: await hashPassword(input.newPassword), mustChangePassword: false }
     }),
     prisma.session.updateMany({
       where: {
@@ -158,6 +220,30 @@ export const changePasswordAuth = async (input: {
         userId: input.userId,
         isRevoked: false,
         id: { not: input.sessionId }
+      },
+      data: { isRevoked: true }
+    })
+  ]);
+};
+
+export const resetPasswordAuth = async (input: {
+  identifier: string;
+  workspaceDomain?: string;
+  newPassword: string;
+}) => {
+  const user = await resolveLoginUser(input.identifier, input.workspaceDomain);
+  if (!user) throw new HttpError(404, 'Account not found.');
+
+  await prisma.$transaction([
+    prisma.user.update({
+      where: { id: user.id },
+      data: { passwordHash: await hashPassword(input.newPassword), mustChangePassword: false }
+    }),
+    prisma.session.updateMany({
+      where: {
+        orgId: user.orgId,
+        userId: user.id,
+        isRevoked: false
       },
       data: { isRevoked: true }
     })

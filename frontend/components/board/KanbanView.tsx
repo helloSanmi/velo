@@ -2,6 +2,11 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Project, ProjectStage, Task, TaskPriority, User } from '../../types';
 import KanbanHeader from './KanbanHeader';
 import KanbanBoard from './KanbanBoard';
+import BoardTableView from './BoardTableView';
+import BoardTimelineView from './BoardTimelineView';
+import BoardCalendarView from './BoardCalendarView';
+import BoardGanttView from './BoardGanttView';
+import BoardWorkloadView from './BoardWorkloadView';
 import KanbanModals from './KanbanModals';
 import ProjectOwnerChatModal from './ProjectOwnerChatModal';
 import { computeKanbanTotals } from './kanbanUtils';
@@ -12,10 +17,13 @@ import { projectChatService } from '../../services/projectChatService';
 import { realtimeService } from '../../services/realtimeService';
 import { estimationService } from '../../services/estimationService';
 import { canManageProject } from '../../services/permissionService';
+import { BOARD_CONTENT_GUTTER_CLASS, BOARD_INNER_WRAP_CLASS, BOARD_OUTER_WRAP_CLASS } from './layout';
 
 interface KanbanViewProps {
   searchQuery: string;
   projectFilter: string | 'All';
+  dueStatusFilter: 'All' | 'Scheduled' | 'Unscheduled';
+  includeUnscheduled: boolean;
   projects: Project[];
   dueFrom?: number;
   dueTo?: number;
@@ -38,6 +46,8 @@ interface KanbanViewProps {
   setAssigneeFilter: (a: string) => void;
   setSearchQuery: (value: string) => void;
   setProjectFilter: (value: string | 'All') => void;
+  setDueStatusFilter: (value: 'All' | 'Scheduled' | 'Unscheduled') => void;
+  setIncludeUnscheduled: (value: boolean) => void;
   setDueFrom: (value?: number) => void;
   setDueTo: (value?: number) => void;
   setSelectedTaskIds: (ids: string[]) => void;
@@ -48,6 +58,7 @@ interface KanbanViewProps {
   assistWithAI: (task: Task) => void;
   setSelectedTask: (task: Task) => void;
   setIsModalOpen: (open: boolean) => void;
+  onUpdateTask: (id: string, updates: Partial<Omit<Task, 'id' | 'userId' | 'createdAt' | 'order'>>) => void;
   onToggleTimer?: (id: string) => void;
   canDeleteTask?: (taskId: string) => boolean;
   canUseTaskAI?: (taskId: string) => boolean;
@@ -61,7 +72,7 @@ interface KanbanViewProps {
   allowSavedViews?: boolean;
   onGenerateProjectTasksWithAI?: (
     projectId: string,
-    tasks: Array<{ title: string; description: string; priority: TaskPriority; tags: string[] }>
+    tasks: Array<{ title: string; description: string; priority: TaskPriority; tags: string[]; assigneeIds?: string[] }>
   ) => void;
   pinnedInsights?: string[];
   onUnpinInsight?: (insight: string) => void;
@@ -70,6 +81,8 @@ interface KanbanViewProps {
 const KanbanView: React.FC<KanbanViewProps> = ({
   searchQuery,
   projectFilter,
+  dueStatusFilter,
+  includeUnscheduled,
   projects,
   dueFrom,
   dueTo,
@@ -92,6 +105,8 @@ const KanbanView: React.FC<KanbanViewProps> = ({
   setAssigneeFilter,
   setSearchQuery,
   setProjectFilter,
+  setDueStatusFilter,
+  setIncludeUnscheduled,
   setDueFrom,
   setDueTo,
   setSelectedTaskIds,
@@ -102,6 +117,7 @@ const KanbanView: React.FC<KanbanViewProps> = ({
   assistWithAI,
   setSelectedTask,
   setIsModalOpen,
+  onUpdateTask,
   onToggleTimer,
   canDeleteTask,
   canUseTaskAI,
@@ -120,6 +136,24 @@ const KanbanView: React.FC<KanbanViewProps> = ({
   const [isOwnerChatOpen, setIsOwnerChatOpen] = useState(false);
   const [ownerChatUnreadCount, setOwnerChatUnreadCount] = useState(0);
   const [isGenerateTasksOpen, setIsGenerateTasksOpen] = useState(false);
+  const [showBoardOnboarding, setShowBoardOnboarding] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    return window.localStorage.getItem('velo_board_views_onboarding_v1') !== 'seen';
+  });
+  const [boardView, setBoardView] = useState<'kanban' | 'table' | 'timeline' | 'calendar' | 'gantt' | 'workload'>(() => {
+    const saved = typeof window !== 'undefined' ? window.localStorage.getItem('velo_board_view') : null;
+    return saved === 'table'
+      ? 'table'
+      : saved === 'timeline'
+        ? 'timeline'
+        : saved === 'calendar'
+          ? 'calendar'
+          : saved === 'gantt'
+            ? 'gantt'
+          : saved === 'workload'
+            ? 'workload'
+            : 'kanban';
+  });
 
   const {
     projectStages,
@@ -156,6 +190,8 @@ const KanbanView: React.FC<KanbanViewProps> = ({
     closeSaveView,
     saveViewName,
     setSaveViewName,
+    shareViewWithWorkspace,
+    setShareViewWithWorkspace,
     saveCurrentView,
     applySavedView,
     deleteAppliedView,
@@ -168,16 +204,22 @@ const KanbanView: React.FC<KanbanViewProps> = ({
     priorityFilter,
     tagFilter,
     assigneeFilter,
+    dueStatusFilter,
+    includeUnscheduled,
     dueFrom,
     dueTo,
+    boardView,
     setSearchQuery,
     setProjectFilter,
     setStatusFilter,
     setPriorityFilter,
     setTagFilter,
     setAssigneeFilter,
+    setDueStatusFilter,
+    setIncludeUnscheduled,
     setDueFrom,
-    setDueTo
+    setDueTo,
+    setBoardView
   });
 
   const totals = useMemo(() => computeKanbanTotals(categorizedTasks, projectStages), [categorizedTasks, projectStages]);
@@ -207,6 +249,16 @@ const KanbanView: React.FC<KanbanViewProps> = ({
   const canGenerateTasksWithAI = Boolean(
     activeProject && onGenerateProjectTasksWithAI && canManageProject(currentUser, activeProject)
   );
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem('velo_board_view', boardView);
+  }, [boardView]);
+
+  useEffect(() => {
+    if (!showBoardOnboarding || typeof window === 'undefined') return;
+    window.localStorage.setItem('velo_board_views_onboarding_v1', 'seen');
+  }, [showBoardOnboarding]);
 
   useEffect(() => {
     if (!activeProject) {
@@ -289,7 +341,28 @@ const KanbanView: React.FC<KanbanViewProps> = ({
 
   return (
     <div className="flex-1 flex flex-col min-h-0 w-full overflow-hidden">
+      {showBoardOnboarding ? (
+        <div className={`${BOARD_OUTER_WRAP_CLASS} pt-2`}>
+          <div className={`${BOARD_INNER_WRAP_CLASS} ${BOARD_CONTENT_GUTTER_CLASS}`}>
+            <div className="rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 flex items-start justify-between gap-2">
+            <p className="text-xs text-indigo-800">
+              New board modes available: use <span className="font-semibold">Kanban</span>, <span className="font-semibold">Gantt</span>, <span className="font-semibold">Table</span>, <span className="font-semibold">Calendar</span>, and <span className="font-semibold">Workload</span> from the top switcher.
+            </p>
+            <button
+              type="button"
+              className="text-[11px] rounded border border-indigo-200 bg-white px-2 py-0.5 text-indigo-700 hover:bg-indigo-100"
+              onClick={() => setShowBoardOnboarding(false)}
+            >
+              Dismiss
+            </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       <KanbanHeader
+        boardView={boardView}
+        onChangeBoardView={setBoardView}
         compactMode={compactMode}
         activeProject={activeProject}
         currentUserId={currentUser.id}
@@ -303,6 +376,8 @@ const KanbanView: React.FC<KanbanViewProps> = ({
         selectedTaskIds={selectedTaskIds}
         searchQuery={searchQuery}
         projectFilter={projectFilter}
+        dueStatusFilter={dueStatusFilter}
+        includeUnscheduled={includeUnscheduled}
         dueFrom={dueFrom}
         dueTo={dueTo}
         statusFilter={statusFilter}
@@ -337,29 +412,86 @@ const KanbanView: React.FC<KanbanViewProps> = ({
         setAssigneeFilter={setAssigneeFilter}
         setSearchQuery={setSearchQuery}
         setProjectFilter={setProjectFilter}
+        setDueStatusFilter={setDueStatusFilter}
+        setIncludeUnscheduled={setIncludeUnscheduled}
         setDueFrom={setDueFrom}
         setDueTo={setDueTo}
       />
 
-      <KanbanBoard
-        categorizedTasks={categorizedTasks}
-        statusFilter={statusFilter}
-        statusOptions={projectStages}
-        selectedTaskIds={selectedTaskIds}
-        onToggleTaskSelection={toggleTaskSelection}
-        onDeleteTask={deleteTask}
-        onUpdateStatus={handleStatusUpdate}
-        onMoveTask={moveTask}
-        onAIAssist={assistWithAI}
-        onSelectTask={setSelectedTask}
-        onAddNewTask={() => setIsModalOpen(true)}
-        onToggleTimer={onToggleTimer}
-        canDeleteTask={canDeleteTask}
-        canUseTaskAI={canUseTaskAI}
-        canToggleTaskTimer={canToggleTaskTimer}
-        showProjectNameOnCards={!activeProject}
-      />
+      {boardView === 'kanban' ? (
+        <KanbanBoard
+          categorizedTasks={categorizedTasks}
+          statusFilter={statusFilter}
+          statusOptions={projectStages}
+          selectedTaskIds={selectedTaskIds}
+          onToggleTaskSelection={toggleTaskSelection}
+          onDeleteTask={deleteTask}
+          onUpdateStatus={handleStatusUpdate}
+          onMoveTask={moveTask}
+          onAIAssist={assistWithAI}
+          onSelectTask={setSelectedTask}
+          onAddNewTask={() => setIsModalOpen(true)}
+          onToggleTimer={onToggleTimer}
+          canDeleteTask={canDeleteTask}
+          canUseTaskAI={canUseTaskAI}
+          canToggleTaskTimer={canToggleTaskTimer}
+          showProjectNameOnCards={!activeProject}
+        />
+      ) : boardView === 'table' ? (
+        <BoardTableView
+          categorizedTasks={categorizedTasks}
+          statusFilter={statusFilter}
+          statusOptions={projectStages}
+          projects={projects}
+          allUsers={allUsers}
+          activeProject={activeProject}
+          onSelectTask={setSelectedTask}
+          onUpdateStatus={handleStatusUpdate}
+          onUpdateTask={onUpdateTask}
+          onToggleTimer={onToggleTimer}
+          canToggleTaskTimer={canToggleTaskTimer}
+        />
+      ) : (
+        boardView === 'timeline' ? (
+          <BoardTimelineView
+            categorizedTasks={categorizedTasks}
+            statusFilter={statusFilter}
+            statusOptions={projectStages}
+            includeUnscheduled={includeUnscheduled}
+            onSelectTask={setSelectedTask}
+            onUpdateTask={onUpdateTask}
+          />
+        ) : boardView === 'calendar' ? (
+          <BoardCalendarView
+            categorizedTasks={categorizedTasks}
+            statusFilter={statusFilter}
+            statusOptions={projectStages}
+            includeUnscheduled={includeUnscheduled}
+            onSelectTask={setSelectedTask}
+            onUpdateTask={onUpdateTask}
+          />
+        ) : boardView === 'gantt' ? (
+          <BoardGanttView
+            categorizedTasks={categorizedTasks}
+            statusFilter={statusFilter}
+            statusOptions={projectStages}
+            includeUnscheduled={includeUnscheduled}
+            onSelectTask={setSelectedTask}
+            onUpdateTask={onUpdateTask}
+          />
+        ) : (
+          <BoardWorkloadView
+            categorizedTasks={categorizedTasks}
+            statusFilter={statusFilter}
+            statusOptions={projectStages}
+            allUsers={allUsers}
+            onSelectTask={setSelectedTask}
+            onReassign={(taskId, userId) => onUpdateTask(taskId, { assigneeId: userId, assigneeIds: [userId] })}
+          />
+        )
+      )}
       <KanbanModals
+        currentUserId={currentUser.id}
         isSavedViewsOpen={isSavedViewsOpen}
         savedViews={savedViews}
         onCloseSavedViews={closeSavedViews}
@@ -377,12 +509,16 @@ const KanbanView: React.FC<KanbanViewProps> = ({
         isSaveViewOpen={isSaveViewOpen}
         saveViewName={saveViewName}
         setSaveViewName={setSaveViewName}
+        shareViewWithWorkspace={shareViewWithWorkspace}
+        setShareViewWithWorkspace={setShareViewWithWorkspace}
         onCloseSaveView={closeSaveView}
         onSaveView={saveCurrentView}
         isGenerateTasksOpen={isGenerateTasksOpen}
         onCloseGenerateTasks={() => setIsGenerateTasksOpen(false)}
         activeProjectName={activeProject?.name}
         activeProjectDescription={activeProject?.description}
+        assigneeCandidates={activeProject ? allUsers.filter((user) => activeProject.members.includes(user.id)) : []}
+        projectTasks={activeProjectTasks}
         onGenerateTasks={(generatedTasks) => {
           if (!activeProject || !onGenerateProjectTasksWithAI) return;
           onGenerateProjectTasksWithAI(activeProject.id, generatedTasks);

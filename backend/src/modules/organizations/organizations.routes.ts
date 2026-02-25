@@ -10,6 +10,13 @@ const router = Router();
 const paramsSchema = z.object({ orgId: z.string().min(1) });
 const roleSchema = z.object({ userId: z.string().min(1), role: z.nativeEnum(UserRole) });
 const deleteSchema = z.object({ confirmation: z.string().min(1) });
+const settingsSchema = z.object({
+  loginSubdomain: z.string().min(2).max(40).optional(),
+  allowGoogleAuth: z.boolean().optional(),
+  allowMicrosoftAuth: z.boolean().optional(),
+  googleWorkspaceConnected: z.boolean().optional(),
+  microsoftWorkspaceConnected: z.boolean().optional()
+});
 
 router.get('/orgs/:orgId', authenticate, requireOrgAccess, async (req, res, next) => {
   try {
@@ -30,6 +37,21 @@ router.patch('/orgs/:orgId/users/role', authenticate, requireOrgAccess, async (r
       actor: { userId: req.auth!.userId, role: req.auth!.role },
       userId: body.userId,
       role: body.role
+    });
+    res.json({ success: true, data: row });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.patch('/orgs/:orgId/settings', authenticate, requireOrgAccess, async (req, res, next) => {
+  try {
+    const { orgId } = paramsSchema.parse(req.params);
+    const body = settingsSchema.parse(req.body);
+    const row = await organizationsService.updateSettings({
+      orgId,
+      actor: { userId: req.auth!.userId, role: req.auth!.role },
+      patch: body
     });
     res.json({ success: true, data: row });
   } catch (error) {

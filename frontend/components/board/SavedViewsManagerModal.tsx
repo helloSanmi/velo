@@ -5,13 +5,14 @@ import { dialogService } from '../../services/dialogService';
 
 interface SavedViewsManagerModalProps {
   isOpen: boolean;
+  currentUserId: string;
   views: SavedBoardView[];
   onClose: () => void;
   onSave: (views: SavedBoardView[]) => void;
   onApply: (id: string) => void;
 }
 
-const SavedViewsManagerModal: React.FC<SavedViewsManagerModalProps> = ({ isOpen, views, onClose, onSave, onApply }) => {
+const SavedViewsManagerModal: React.FC<SavedViewsManagerModalProps> = ({ isOpen, currentUserId, views, onClose, onSave, onApply }) => {
   const [draft, setDraft] = useState<SavedBoardView[]>([]);
 
   useEffect(() => {
@@ -21,7 +22,7 @@ const SavedViewsManagerModal: React.FC<SavedViewsManagerModalProps> = ({ isOpen,
 
   const canSave = useMemo(() => {
     if (draft.length !== views.length) return true;
-    return draft.some((view, index) => view.id !== views[index]?.id || view.name !== views[index]?.name);
+    return draft.some((view, index) => view.id !== views[index]?.id || view.name !== views[index]?.name || view.sortOrder !== views[index]?.sortOrder);
   }, [draft, views]);
 
   if (!isOpen) return null;
@@ -56,6 +57,8 @@ const SavedViewsManagerModal: React.FC<SavedViewsManagerModalProps> = ({ isOpen,
       priorityFilter: view.priorityFilter,
       tagFilter: view.tagFilter,
       assigneeFilter: view.assigneeFilter,
+      dueStatusFilter: view.dueStatusFilter,
+      includeUnscheduled: view.includeUnscheduled,
       searchQuery: view.searchQuery,
       dueFrom: view.dueFrom,
       dueTo: view.dueTo
@@ -81,20 +84,27 @@ const SavedViewsManagerModal: React.FC<SavedViewsManagerModalProps> = ({ isOpen,
           {draft.length === 0 ? (
             <div className="h-24 rounded-lg border border-dashed border-slate-200 text-sm text-slate-500 flex items-center justify-center">No saved views.</div>
           ) : (
-            draft.map((view, index) => (
+            draft.map((view, index) => {
+              const isOwner = view.userId === currentUserId;
+              const isShared = view.visibility === 'shared';
+              return (
               <div key={view.id} className="rounded-lg border border-slate-200 bg-white p-3 flex items-center gap-2">
                 <input
                   value={view.name}
                   onChange={(e) => setDraft((prev) => prev.map((item) => (item.id === view.id ? { ...item, name: e.target.value } : item)))}
-                  className="h-9 flex-1 rounded-lg border border-slate-300 px-3 text-sm outline-none"
+                  disabled={!isOwner}
+                  className="h-9 flex-1 rounded-lg border border-slate-300 px-3 text-sm outline-none disabled:bg-slate-100 disabled:text-slate-500"
                 />
+                <span className={`h-9 inline-flex items-center px-2 rounded-lg text-xs ${isShared ? 'bg-indigo-50 text-indigo-700 border border-indigo-200' : 'bg-slate-50 text-slate-600 border border-slate-200'}`}>
+                  {isShared ? 'Shared' : 'Personal'}
+                </span>
                 <button onClick={() => onApply(view.id)} className="h-9 px-2 rounded-lg border border-slate-200 bg-white text-xs text-slate-700">Apply</button>
                 <button onClick={() => copyConfig(view)} className="h-9 px-2 rounded-lg border border-slate-200 bg-white text-xs text-slate-700 inline-flex items-center gap-1"><Copy className="w-3.5 h-3.5" /> Share</button>
-                <button onClick={() => move(index, -1)} disabled={index === 0} className="w-9 h-9 rounded-lg border border-slate-200 bg-white text-slate-600 disabled:opacity-40 flex items-center justify-center"><ArrowUp className="w-3.5 h-3.5" /></button>
-                <button onClick={() => move(index, 1)} disabled={index === draft.length - 1} className="w-9 h-9 rounded-lg border border-slate-200 bg-white text-slate-600 disabled:opacity-40 flex items-center justify-center"><ArrowDown className="w-3.5 h-3.5" /></button>
-                <button onClick={() => remove(view.id)} className="w-9 h-9 rounded-lg border border-rose-200 bg-rose-50 text-rose-700 flex items-center justify-center"><Trash2 className="w-3.5 h-3.5" /></button>
+                <button onClick={() => move(index, -1)} disabled={!isOwner || index === 0} className="w-9 h-9 rounded-lg border border-slate-200 bg-white text-slate-600 disabled:opacity-40 flex items-center justify-center"><ArrowUp className="w-3.5 h-3.5" /></button>
+                <button onClick={() => move(index, 1)} disabled={!isOwner || index === draft.length - 1} className="w-9 h-9 rounded-lg border border-slate-200 bg-white text-slate-600 disabled:opacity-40 flex items-center justify-center"><ArrowDown className="w-3.5 h-3.5" /></button>
+                <button onClick={() => remove(view.id)} disabled={!isOwner} className="w-9 h-9 rounded-lg border border-rose-200 bg-rose-50 text-rose-700 disabled:opacity-40 flex items-center justify-center"><Trash2 className="w-3.5 h-3.5" /></button>
               </div>
-            ))
+            )})
           )}
         </div>
 

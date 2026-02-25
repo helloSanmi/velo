@@ -1,12 +1,11 @@
 import { useEffect, useState } from 'react';
-import { SecurityGroup, Team, User } from '../types';
+import { Team, User } from '../types';
 
 const SETUP_MARKER_KEY = 'velo_post_signup_setup';
 
 export const usePostSignupAdminSetup = (
   user: User | null,
   teams: Team[],
-  groups: SecurityGroup[],
   isSettingsOpen: boolean
 ) => {
   const [isAdminSetupOpen, setIsAdminSetupOpen] = useState(false);
@@ -19,8 +18,7 @@ export const usePostSignupAdminSetup = (
       const marker = JSON.parse(raw) as { orgId?: string; userId?: string };
       if (marker.orgId !== user.orgId || marker.userId !== user.id) return;
       const orgTeams = teams.filter((team) => team.orgId === user.orgId);
-      const orgGroups = groups.filter((group) => group.orgId === user.orgId);
-      const isComplete = orgTeams.length > 0 && orgGroups.length > 0;
+      const isComplete = orgTeams.length > 0;
       if (isComplete) {
         sessionStorage.removeItem(SETUP_MARKER_KEY);
         setIsAdminSetupOpen(false);
@@ -30,7 +28,7 @@ export const usePostSignupAdminSetup = (
     } catch {
       // Ignore malformed marker.
     }
-  }, [user, teams, groups, isSettingsOpen]);
+  }, [user, teams, isSettingsOpen]);
 
   const completeSetup = () => {
     sessionStorage.removeItem(SETUP_MARKER_KEY);

@@ -39,7 +39,23 @@ const createSchema = z.object({
       completedAt: z.number().optional(),
       completedById: z.string().optional(),
       deletedAt: z.number().optional(),
-      deletedById: z.string().optional()
+      deletedById: z.string().optional(),
+      integrations: z
+        .object({
+          slack: z
+            .object({
+              enabled: z.boolean().optional(),
+              channel: z.string().optional()
+            })
+            .optional(),
+          github: z
+            .object({
+              enabled: z.boolean().optional(),
+              repo: z.string().optional()
+            })
+            .optional()
+        })
+        .optional()
     })
     .optional()
 });
@@ -74,7 +90,23 @@ const updateSchema = z.object({
       completedAt: z.number().optional(),
       completedById: z.string().optional(),
       deletedAt: z.number().optional(),
-      deletedById: z.string().optional()
+      deletedById: z.string().optional(),
+      integrations: z
+        .object({
+          slack: z
+            .object({
+              enabled: z.boolean().optional(),
+              channel: z.string().optional()
+            })
+            .optional(),
+          github: z
+            .object({
+              enabled: z.boolean().optional(),
+              repo: z.string().optional()
+            })
+            .optional()
+        })
+        .optional()
     })
     .optional()
 });

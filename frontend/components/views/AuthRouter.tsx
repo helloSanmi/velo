@@ -5,15 +5,32 @@ import PricingPage from '../PricingPage';
 import SupportPage from '../SupportPage';
 import ProductPage from '../ProductPage';
 import SolutionsPage from '../SolutionsPage';
+import ContactPage from '../ContactPage';
 import { User } from '../../types';
+import { getMainSiteUrlFromHost, isWorkspaceSubdomainHost } from '../../utils/workspaceHost';
 
 interface AuthRouterProps {
-  authView: 'landing' | 'product' | 'solutions' | 'pricing' | 'support' | 'login' | 'register' | 'join';
-  setAuthView: (view: 'landing' | 'product' | 'solutions' | 'pricing' | 'support' | 'login' | 'register' | 'join') => void;
+  authView: 'landing' | 'product' | 'solutions' | 'pricing' | 'support' | 'contact' | 'login' | 'register' | 'join';
+  setAuthView: (view: 'landing' | 'product' | 'solutions' | 'pricing' | 'support' | 'contact' | 'login' | 'register' | 'join') => void;
   onAuthSuccess: (user: User | null) => void;
 }
 
 const AuthRouter: React.FC<AuthRouterProps> = ({ authView, setAuthView, onAuthSuccess }) => {
+  const workspaceScoped = isWorkspaceSubdomainHost();
+
+  if (workspaceScoped) {
+    return (
+      <AuthView
+        onAuthSuccess={onAuthSuccess}
+        initialMode="login"
+        workspaceScoped
+        onBackToHome={() => window.location.assign(getMainSiteUrlFromHost())}
+        onOpenPricing={() => setAuthView('pricing')}
+        onOpenSupport={() => setAuthView('support')}
+      />
+    );
+  }
+
   if (authView === 'landing') {
     return (
       <LandingPage
@@ -23,6 +40,7 @@ const AuthRouter: React.FC<AuthRouterProps> = ({ authView, setAuthView, onAuthSu
         onOpenSolutions={() => setAuthView('solutions')}
         onOpenPricing={() => setAuthView('pricing')}
         onOpenSupport={() => setAuthView('support')}
+        onOpenContact={() => setAuthView('contact')}
       />
     );
   }
@@ -34,6 +52,7 @@ const AuthRouter: React.FC<AuthRouterProps> = ({ authView, setAuthView, onAuthSu
         onOpenSolutions={() => setAuthView('solutions')}
         onOpenPricing={() => setAuthView('pricing')}
         onOpenSupport={() => setAuthView('support')}
+        onOpenContact={() => setAuthView('contact')}
         onSignIn={() => setAuthView('login')}
         onGetStarted={() => setAuthView('register')}
       />
@@ -47,6 +66,7 @@ const AuthRouter: React.FC<AuthRouterProps> = ({ authView, setAuthView, onAuthSu
         onOpenProduct={() => setAuthView('product')}
         onOpenPricing={() => setAuthView('pricing')}
         onOpenSupport={() => setAuthView('support')}
+        onOpenContact={() => setAuthView('contact')}
         onSignIn={() => setAuthView('login')}
         onGetStarted={() => setAuthView('register')}
       />
@@ -57,7 +77,10 @@ const AuthRouter: React.FC<AuthRouterProps> = ({ authView, setAuthView, onAuthSu
     return (
       <PricingPage
         onBackToHome={() => setAuthView('landing')}
+        onOpenProduct={() => setAuthView('product')}
+        onOpenSolutions={() => setAuthView('solutions')}
         onOpenSupport={() => setAuthView('support')}
+        onOpenContact={() => setAuthView('contact')}
         onSignIn={() => setAuthView('login')}
         onGetStarted={() => setAuthView('register')}
       />
@@ -68,7 +91,24 @@ const AuthRouter: React.FC<AuthRouterProps> = ({ authView, setAuthView, onAuthSu
     return (
       <SupportPage
         onBackToHome={() => setAuthView('landing')}
+        onOpenProduct={() => setAuthView('product')}
+        onOpenSolutions={() => setAuthView('solutions')}
         onOpenPricing={() => setAuthView('pricing')}
+        onOpenContact={() => setAuthView('contact')}
+        onSignIn={() => setAuthView('login')}
+        onGetStarted={() => setAuthView('register')}
+      />
+    );
+  }
+
+  if (authView === 'contact') {
+    return (
+      <ContactPage
+        onBackToHome={() => setAuthView('landing')}
+        onOpenProduct={() => setAuthView('product')}
+        onOpenSolutions={() => setAuthView('solutions')}
+        onOpenPricing={() => setAuthView('pricing')}
+        onOpenSupport={() => setAuthView('support')}
         onSignIn={() => setAuthView('login')}
         onGetStarted={() => setAuthView('register')}
       />

@@ -1,9 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Pencil, Search, Trash2, Users, X } from 'lucide-react';
-import { SecurityGroup, Task, TaskPriority, User } from '../../types';
+import { Pencil, Search, Trash2, X } from 'lucide-react';
+import { Task, TaskPriority, User } from '../../types';
 import Badge from '../ui/Badge';
 import { dialogService } from '../../services/dialogService';
-import { groupService } from '../../services/groupService';
 import { getUserFullName } from '../../utils/userDisplay';
 
 interface TaskDetailHeaderProps {
@@ -13,10 +12,8 @@ interface TaskDetailHeaderProps {
   canDelete?: boolean;
   allUsers: User[];
   assigneeIds: string[];
-  securityGroupIds: string[];
   canManageTask?: boolean;
   onAssigneesChange: (ids: string[]) => void;
-  onSecurityGroupIdsChange: (ids: string[]) => void;
   onPriorityChange: (priority: TaskPriority) => void;
 }
 
@@ -27,10 +24,8 @@ const TaskDetailHeader: React.FC<TaskDetailHeaderProps> = ({
   canDelete = true,
   allUsers,
   assigneeIds,
-  securityGroupIds,
   canManageTask = false,
   onAssigneesChange,
-  onSecurityGroupIdsChange,
   onPriorityChange
 }) => {
   const [isAssigneeEditorOpen, setIsAssigneeEditorOpen] = useState(false);
@@ -54,25 +49,6 @@ const TaskDetailHeader: React.FC<TaskDetailHeaderProps> = ({
       })
       .slice(0, 8);
   }, [allUsers, assigneeIds, query]);
-  const assignableGroups = useMemo(
-    () => groupService.getAssignableGroupsForProject(task.orgId, task.projectId),
-    [task.orgId, task.projectId]
-  );
-  const filteredGroups = useMemo(() => {
-    const normalized = query.trim().toLowerCase();
-    return assignableGroups
-      .filter((group) => !securityGroupIds.includes(group.id))
-      .filter((group) => {
-        if (!normalized) return true;
-        const scopeLabel = group.scope === 'global' ? 'global' : 'project';
-        return `${group.name} ${scopeLabel}`.toLowerCase().includes(normalized);
-      })
-      .slice(0, 6);
-  }, [assignableGroups, query, securityGroupIds]);
-  const selectedGroups = useMemo(
-    () => assignableGroups.filter((group) => securityGroupIds.includes(group.id)),
-    [assignableGroups, securityGroupIds]
-  );
   const initialsFor = (name: string) =>
     name
       .split(' ')
@@ -114,16 +90,6 @@ const TaskDetailHeader: React.FC<TaskDetailHeaderProps> = ({
     if (!canManageTask) return;
     onAssigneesChange(assigneeIds.filter((id) => id !== userId));
   };
-  const addGroup = (groupId: string) => {
-    if (!canManageTask || securityGroupIds.includes(groupId)) return;
-    onSecurityGroupIdsChange([...securityGroupIds, groupId]);
-    setQuery('');
-  };
-  const removeGroup = (groupId: string) => {
-    if (!canManageTask) return;
-    onSecurityGroupIdsChange(securityGroupIds.filter((id) => id !== groupId));
-  };
-  const scopeLabel = (group: SecurityGroup) => (group.scope === 'global' ? 'Global' : 'Project');
 
   return (
     <div className="px-3 py-3 md:px-5 md:py-4 flex flex-col gap-3 md:gap-0 md:flex-row md:items-start md:justify-between border-b border-slate-200 flex-shrink-0 bg-white">
@@ -234,36 +200,6 @@ const TaskDetailHeader: React.FC<TaskDetailHeaderProps> = ({
                   className="w-full bg-transparent text-xs text-slate-700 placeholder:text-slate-400 outline-none"
                 />
               </label>
-              {selectedGroups.length > 0 ? (
-                <div className="mb-2 flex flex-wrap gap-1">
-                  {selectedGroups.map((group) => (
-                    <button
-                      key={group.id}
-                      type="button"
-                      onClick={() => removeGroup(group.id)}
-                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] bg-slate-100 text-slate-700 border border-slate-200 hover:bg-slate-200"
-                      title="Remove group"
-                    >
-                      <Users className="w-3 h-3" />
-                      {group.name}
-                      <X className="w-3 h-3" />
-                    </button>
-                  ))}
-                </div>
-              ) : null}
-              <div className="max-h-[72px] overflow-y-auto custom-scrollbar pr-1 space-y-1 mb-2">
-                {filteredGroups.map((group) => (
-                  <button
-                    key={group.id}
-                    type="button"
-                    onClick={() => addGroup(group.id)}
-                    className="w-full h-8 px-2.5 rounded-md text-left text-xs text-slate-700 bg-slate-50 hover:bg-slate-100 inline-flex items-center justify-between gap-2"
-                  >
-                    <span className="truncate">{group.name}</span>
-                    <span className="text-[10px] text-slate-500">{scopeLabel(group)}</span>
-                  </button>
-                ))}
-              </div>
               <div className="max-h-[180px] overflow-y-auto custom-scrollbar pr-1 space-y-1">
                 {unassignedUsers.length === 0 ? (
                   <p className="text-[11px] text-slate-500 px-1 py-1.5">No additional members found.</p>

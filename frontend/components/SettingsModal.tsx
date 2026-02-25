@@ -2,16 +2,21 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { X, Settings } from 'lucide-react';
 import { settingsService, UserSettings } from '../services/settingsService';
 import { userService } from '../services/userService';
-import { OrgInvite, Team, User as UserType, Organization, Project, SecurityGroup, Task } from '../types';
-import { groupService } from '../services/groupService';
+import { OrgInvite, Team, User as UserType, Organization, Project, Task } from '../types';
 import { realtimeService } from '../services/realtimeService';
 import { teamService } from '../services/teamService';
 import { dialogService } from '../services/dialogService';
 import { apiRequest } from '../services/apiClient';
+import {
+  canAccessWorkflowAutomation as canAccessWorkflowAutomationByRole,
+  canManageWorkflowAutomation as canManageWorkflowAutomationByRole,
+  getWorkflowOwnerProjectIds,
+  getWorkflowVisibleProjects
+} from '../services/settingsAccessService';
 import SettingsModalContent from './settings/SettingsModalContent';
 import { buildSettingsNavItems } from './settings/settingsModalNav';
 
-export type SettingsTabType = 'profile' | 'general' | 'notifications' | 'security' | 'appearance' | 'groups' | 'teams' | 'licenses' | 'automation' | 'integrations' | 'projects' | 'danger';
+export type SettingsTabType = 'profile' | 'general' | 'notifications' | 'security' | 'appearance' | 'teams' | 'licenses' | 'automation' | 'integrations' | 'projects' | 'danger';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -66,7 +71,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   const [settings, setSettings] = useState<UserSettings>(settingsService.getSettings());
   const [profileUser, setProfileUser] = useState<UserType | null>(user || null);
   const [allUsers, setAllUsers] = useState<UserType[]>([]);
-  const [groups, setGroups] = useState<SecurityGroup[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [invites, setInvites] = useState<OrgInvite[]>([]);
   const [org, setOrg] = useState<Organization | null>(null);
@@ -77,6 +81,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   const [newUserLastName, setNewUserLastName] = useState('');
   const [newUserEmail, setNewUserEmail] = useState('');
   const [newUserRole, setNewUserRole] = useState<'member' | 'admin'>('member');
+  const [newUserTempPassword, setNewUserTempPassword] = useState('TempPassword123');
   const [newInviteIdentifier, setNewInviteIdentifier] = useState('');
   const [newInviteRole, setNewInviteRole] = useState<'member' | 'admin'>('member');
   const [seatPurchaseCount, setSeatPurchaseCount] = useState(5);
@@ -103,7 +108,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
         setAllUsers(userService.getUsers(user.orgId));
         setOrg(userService.getOrganization(user.orgId));
       });
-      groupService.fetchGroupsFromBackend(user.orgId).then(setGroups);
       teamService.fetchTeamsFromBackend(user.orgId).then(setTeams);
       userService.fetchInvitesFromBackend(user.orgId).then(setInvites);
       if (user.role === 'admin') {
@@ -114,18 +118,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
         setAiUsageRows([]);
       }
       setEditingUserId(null);
+      setNewUserTempPassword('TempPassword123');
     }
   }, [isOpen, initialTab, user]);
-
-  useEffect(() => {
-    if (!isOpen || !user) return undefined;
-    const unsubscribe = realtimeService.subscribe((event) => {
-      if (event.type !== 'GROUPS_UPDATED') return;
-      if (event.orgId && event.orgId !== user.orgId) return;
-      setGroups(groupService.getGroups(user.orgId));
-    });
-    return () => unsubscribe();
-  }, [isOpen, user]);
 
   useEffect(() => {
     if (!isOpen || !user) return undefined;
@@ -149,16 +144,15 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   const deletedProjects = filteredProjects.filter((project) => project.isDeleted);
   const focusedProject = projects.find((project) => project.id === focusedProjectId) || null;
   const workflowOwnerProjectIds = useMemo(
-    () =>
-      projects
-        .filter((project) => {
-          const owners = Array.isArray(project.ownerIds) ? project.ownerIds : [];
-          return owners.includes(user.id) || project.createdBy === user.id;
-        })
-        .map((project) => project.id),
-    [projects, user.id]
+    () => getWorkflowOwnerProjectIds(user, projects),
+    [projects, user]
   );
-  const canManageWorkflowAutomation = user.role === 'admin' || workflowOwnerProjectIds.length > 0;
+  const workflowVisibleProjects = useMemo(
+    () => getWorkflowVisibleProjects(user, projects, projectTasks),
+    [projects, projectTasks, user]
+  );
+  const canAccessWorkflowAutomation = canAccessWorkflowAutomationByRole(user, workflowVisibleProjects);
+  const canManageWorkflowAutomation = canManageWorkflowAutomationByRole(user, workflowOwnerProjectIds);
   const focusedProjectTasks = useMemo(
     () => (focusedProject ? projectTasks.filter((task) => task.projectId === focusedProject.id) : []),
     [projectTasks, focusedProject]
@@ -182,6 +176,13 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     setSettings(updated);
   };
 
+  const refreshWorkspaceUsers = async () => {
+    await userService.hydrateWorkspaceFromBackend(user.orgId);
+    setAllUsers(userService.getUsers(user.orgId));
+    setOrg(userService.getOrganization(user.orgId));
+    setInvites(await userService.fetchInvitesFromBackend(user.orgId));
+  };
+
   const handleProvision = async (e: React.FormEvent) => {
     e.preventDefault();
     setProvisionError('');
@@ -189,20 +190,24 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
       setProvisionError('Username and email are required.');
       return;
     }
+    if ((newUserTempPassword || '').trim().length < 6) {
+      setProvisionError('Temporary password must be at least 6 characters.');
+      return;
+    }
 
     const result = await userService.provisionUserRemote(user.orgId, newUserName, newUserRole, {
       firstName: newUserFirstName,
       lastName: newUserLastName,
       email: newUserEmail
-    });
+    }, newUserTempPassword, true);
     if (result.success) {
-      await userService.hydrateWorkspaceFromBackend(user.orgId);
-      setAllUsers(userService.getUsers(user.orgId));
+      await refreshWorkspaceUsers();
       setNewUserName('');
       setNewUserFirstName('');
       setNewUserLastName('');
       setNewUserEmail('');
       setNewUserRole('member');
+      setNewUserTempPassword('TempPassword123');
       setIsProvisioning(false);
     } else {
       setProvisionError(result.error || 'Could not add seat.');
@@ -215,9 +220,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
         method: 'PATCH',
         body: { userId, role }
       });
-      await userService.hydrateWorkspaceFromBackend(user.orgId);
-      setAllUsers(userService.getUsers(user.orgId));
-      setInvites(await userService.fetchInvitesFromBackend(user.orgId));
+      await refreshWorkspaceUsers();
     } catch {
       const updatedAll = userService.updateUser(userId, { role });
       setAllUsers(updatedAll.filter(u => u.orgId === user.orgId));
@@ -263,7 +266,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
       if (allAfterDelete) {
         setAllUsers(allAfterDelete.filter(u => u.orgId === user.orgId));
       }
-      setInvites(await userService.fetchInvitesFromBackend(user.orgId));
+      await refreshWorkspaceUsers();
     }
   };
 
@@ -346,6 +349,14 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     }
   };
 
+  const handleUpdateOrganizationSettings = async (
+    patch: Partial<Pick<Organization, 'loginSubdomain' | 'allowGoogleAuth' | 'allowMicrosoftAuth' | 'googleWorkspaceConnected' | 'microsoftWorkspaceConnected'>>
+  ) => {
+    if (!user || user.role !== 'admin' || !org) return;
+    const updated = await userService.updateOrganizationSettingsRemote(org.id, patch);
+    if (updated) setOrg(updated);
+  };
+
   const handleRevokeInvite = async (inviteId: string) => {
     const result = await userService.revokeInviteRemote(user.orgId, inviteId);
     if (!result.success) return;
@@ -377,11 +388,11 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     onClose();
   };
 
-  const navItems = buildSettingsNavItems(user, canManageWorkflowAutomation);
+  const navItems = buildSettingsNavItems(user, canAccessWorkflowAutomation);
 
   return (
     <div onClick={(e) => { if (e.target === e.currentTarget) onClose(); }} className="fixed inset-0 z-[110] flex items-end md:items-center justify-center p-0 md:p-4 bg-slate-900/45 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-white w-full max-w-5xl rounded-none md:rounded-xl shadow-2xl overflow-hidden animate-in slide-in-from-bottom-6 md:zoom-in-95 duration-200 h-[100dvh] md:h-[80vh] flex flex-col md:flex-row border-0 md:border border-slate-200">
+      <div className="bg-white w-full max-w-[60rem] rounded-none md:rounded-xl shadow-2xl overflow-hidden animate-in slide-in-from-bottom-6 md:zoom-in-95 duration-200 h-[100dvh] md:h-[80vh] flex flex-col md:flex-row border-0 md:border border-slate-200">
         <button
           onClick={onClose}
           aria-label="Close settings"
@@ -407,20 +418,23 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
         </div>
         <div className="flex-1 flex flex-col overflow-hidden bg-white">
           <div className="flex-1 overflow-y-auto p-3 md:p-6 custom-scrollbar scroll-smooth">
-            <SettingsModalContent
-              activeTab={activeTab}
-              canManageWorkflowAutomation={canManageWorkflowAutomation}
+        <SettingsModalContent
+          activeTab={activeTab}
+          canAccessWorkflowAutomation={canAccessWorkflowAutomation}
+          canManageWorkflowAutomation={canManageWorkflowAutomation}
               user={user}
               profileUser={profileUser}
               org={org}
               allUsers={allUsers}
-              groups={groups}
+              groups={[]}
               teams={teams}
               settings={settings}
               setTeams={setTeams}
-              setGroups={setGroups}
-              projects={projects}
-              projectQuery={projectQuery}
+              setGroups={() => undefined}
+          projects={projects}
+          workflowProjects={workflowVisibleProjects}
+          projectTasks={projectTasks}
+          projectQuery={projectQuery}
               setProjectQuery={setProjectQuery}
               activeProjects={activeProjects}
               archivedProjects={archivedProjects}
@@ -466,6 +480,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
               setNewUserEmail={setNewUserEmail}
               newUserRole={newUserRole}
               setNewUserRole={setNewUserRole}
+              newUserTempPassword={newUserTempPassword}
+              setNewUserTempPassword={setNewUserTempPassword}
               provisionError={provisionError}
               handleProvision={handleProvision}
               seatPurchaseCount={seatPurchaseCount}
@@ -489,8 +505,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
               setNewInviteRole={setNewInviteRole}
               handleCreateInvite={handleCreateInvite}
               handleRevokeInvite={handleRevokeInvite}
+              refreshWorkspaceUsers={refreshWorkspaceUsers}
               aiUsageRows={aiUsageRows}
               refreshAiUsage={refreshAiUsage}
+              onUpdateOrganizationSettings={handleUpdateOrganizationSettings}
             />
           </div>
           <div className="hidden md:flex px-4 py-3 md:px-6 md:py-4 border-t border-slate-200 bg-white flex-col sm:flex-row justify-between items-center gap-3 shrink-0">

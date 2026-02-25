@@ -217,6 +217,16 @@ export const useTaskPolicyActions = ({
     return targetStatus === doneStageId && task.priority === TaskPriority.HIGH && !task.approvedAt;
   };
 
+  const ensureDueDateBeforeDone = (task: Task, targetStatus: string, nextDueDate?: number) => {
+    const doneStageId = getProjectDoneStageId(task.projectId);
+    if (targetStatus !== doneStageId) return true;
+    const dueDate = nextDueDate !== undefined ? nextDueDate : task.dueDate;
+    if (dueDate) return true;
+    const finalStageName = getStageName(task.projectId, doneStageId);
+    toastService.warning('Due date required', `Set a due date before moving this task to "${finalStageName}".`);
+    return false;
+  };
+
   const requiresEstimateApproval = (task: Task, targetStatus: string) => {
     const doneStageId = getProjectDoneStageId(task.projectId);
     if (targetStatus !== doneStageId) return false;
@@ -245,6 +255,7 @@ export const useTaskPolicyActions = ({
     }
     const doneStageIdForPermission = getProjectDoneStageId(task.projectId);
     if ((targetStatus === doneStageIdForPermission || task.status === doneStageIdForPermission) && !ensureTaskPermission(taskId, 'complete')) return;
+    if (!ensureDueDateBeforeDone(task, targetStatus)) return;
     if (requiresApproval(task, targetStatus)) {
       dialogService.notice('This high-priority task requires admin approval before moving to Done.', { title: 'Approval required' });
       return;
@@ -295,6 +306,7 @@ export const useTaskPolicyActions = ({
     }
     const doneStageIdForPermission = getProjectDoneStageId(task.projectId);
     if ((targetStatus === doneStageIdForPermission || task.status === doneStageIdForPermission) && !ensureTaskPermission(taskId, 'complete')) return;
+    if (!ensureDueDateBeforeDone(task, targetStatus)) return;
     if (requiresApproval(task, targetStatus)) {
       dialogService.notice('This high-priority task requires admin approval before moving to Done.', { title: 'Approval required' });
       return;
@@ -419,6 +431,7 @@ export const useTaskPolicyActions = ({
     if (typeof updates.status === 'string' && updates.status !== task.status) {
       const doneStageId = getProjectDoneStageId(task.projectId);
       if ((updates.status === doneStageId || task.status === doneStageId) && !ensureTaskPermission(id, 'complete')) return;
+      if (!ensureDueDateBeforeDone(task, updates.status, updates.dueDate)) return;
       const dependencyBlock = getDependencyBlockMessage(task, updates.status);
       if (dependencyBlock) {
         toastService.warning('Dependency blocked', dependencyBlock);

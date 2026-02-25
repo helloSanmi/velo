@@ -5,7 +5,7 @@ import { User as UserType } from '../../types';
 
 export const buildSettingsNavItems = (
   user: UserType,
-  canManageWorkflowAutomation: boolean
+  canAccessWorkflowAutomation: boolean
 ): Array<{ id: SettingsTabType; label: string; icon: React.ReactNode }> => {
   const navItems: Array<{ id: SettingsTabType; label: string; icon: React.ReactNode }> = [
     { id: 'general', label: 'General', icon: <Sparkles className="w-4 h-4" /> },
@@ -14,13 +14,13 @@ export const buildSettingsNavItems = (
     { id: 'teams', label: 'Teams & Access', icon: <Users className="w-4 h-4" /> }
   ];
 
-  if (canManageWorkflowAutomation) {
+  if (canAccessWorkflowAutomation) {
     navItems.push({ id: 'automation', label: 'Workflows', icon: <Zap className="w-4 h-4" /> });
   }
 
   if (user.role === 'admin') {
     navItems.push({ id: 'security', label: 'Security', icon: <Shield className="w-4 h-4" /> });
-    navItems.push({ id: 'licenses', label: 'Licenses', icon: <Settings className="w-4 h-4" /> });
+    navItems.push({ id: 'licenses', label: 'Users', icon: <Settings className="w-4 h-4" /> });
     navItems.push({ id: 'integrations', label: 'Integrations', icon: <Link2 className="w-4 h-4" /> });
     navItems.push({ id: 'danger', label: 'Danger Zone', icon: <Shield className="w-4 h-4" /> });
   }

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ChevronDown, ChevronRight, Globe, LayoutDashboard, LayoutGrid, MoreHorizontal, Plus } from 'lucide-react';
+import { ChevronDown, ChevronRight, ClipboardList, Globe, LayoutDashboard, LayoutGrid, MoreHorizontal, Plus } from 'lucide-react';
 import { MainViewType, Project, User } from '../../../types';
 import { toastService } from '../../../services/toastService';
 import { getUserFullName } from '../../../utils/userDisplay';
@@ -290,6 +290,17 @@ const SidebarProjectList: React.FC<SidebarProjectListProps> = ({
           {showAllProjects ? `Show fewer (${cappedProjectCount})` : `Show all (${activeProjects.length})`}
         </button>
       )}
+
+      <SidebarNavButton
+        active={currentView === 'tickets'}
+        onClick={() => {
+          onProjectSelect(null);
+          onViewChange('tickets');
+          if (window.innerWidth < 1024) onCloseSidebar();
+        }}
+        icon={ClipboardList}
+        label="Tickets"
+      />
 
       <SidebarNavButton
         active={currentView === 'templates'}

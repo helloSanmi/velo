@@ -3,6 +3,8 @@ import { TaskPriority, User } from '../../../types';
 export interface FilterBarProps {
   searchQuery: string;
   projectFilter: string | 'All';
+  dueStatusFilter: 'All' | 'Scheduled' | 'Unscheduled';
+  includeUnscheduled: boolean;
   projectOptions: Array<{ id: string; name: string }>;
   dueFrom?: number;
   dueTo?: number;
@@ -21,6 +23,8 @@ export interface FilterBarProps {
   onAssigneeChange: (assigneeId: string) => void;
   onSearchChange: (value: string) => void;
   onProjectChange: (value: string) => void;
+  onDueStatusChange: (value: 'All' | 'Scheduled' | 'Unscheduled') => void;
+  onIncludeUnscheduledChange: (value: boolean) => void;
   onDueFromChange: (value?: number) => void;
   onDueToChange: (value?: number) => void;
 }

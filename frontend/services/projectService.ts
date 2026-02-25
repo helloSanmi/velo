@@ -43,6 +43,24 @@ const normalizeProjectMeta = (meta?: Partial<Project>) => {
   const deletedAt = typeof meta?.deletedAt === 'number' ? meta.deletedAt : undefined;
   const deletedById = meta?.deletedById?.trim() || undefined;
 
+  const integrations =
+    meta?.integrations && typeof meta.integrations === 'object'
+      ? {
+          slack: meta.integrations.slack
+            ? {
+                enabled: Boolean(meta.integrations.slack.enabled),
+                channel: String(meta.integrations.slack.channel || 'general')
+              }
+            : undefined,
+          github: meta.integrations.github
+            ? {
+                enabled: Boolean(meta.integrations.github.enabled),
+                repo: String(meta.integrations.github.repo || '').trim()
+              }
+            : undefined
+        }
+      : undefined;
+
   return {
     startDate,
     endDate: endDate && startDate && endDate < startDate ? startDate : endDate,
@@ -62,7 +80,8 @@ const normalizeProjectMeta = (meta?: Partial<Project>) => {
     completedAt,
     completedById,
     deletedAt,
-    deletedById
+    deletedById,
+    integrations
   };
 };
 
@@ -84,7 +103,8 @@ const isPermissionError = (error: unknown) =>
   error instanceof Error && (error.message.includes('403') || /permission denied/i.test(error.message));
 const isAuthError = (error: unknown) =>
   error instanceof Error &&
-  (error.message.includes('401') || /unauthori[sz]ed|authentication required|missing or invalid authorization/i.test(error.message));
+  (error.message.includes('401') ||
+    /unauthori[sz]ed|authentication required|missing or invalid authorization|invalid access token/i.test(error.message));
 const isNotFoundError = (error: unknown) =>
   error instanceof Error && (error.message.includes('404') || /not found/i.test(error.message));
 
@@ -265,7 +285,8 @@ export const projectService = {
         'completedById' in updates ||
         'deletedAt' in updates ||
         'deletedById' in updates ||
-        'ownerIds' in updates;
+        'ownerIds' in updates ||
+        'integrations' in updates;
       const nextOwnerIds = Array.isArray(updates.ownerIds)
         ? Array.from(new Set(updates.ownerIds.filter(Boolean)))
         : undefined;

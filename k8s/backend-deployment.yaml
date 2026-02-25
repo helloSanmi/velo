@@ -18,7 +18,7 @@ spec:
         # ---------------------------------------------------
         - name: backend
           # REPLACE with your actual image path from Cloud Build
-          image: gcr.io/YOUR_PROJECT_ID/backend-image:latest
+          image: gcr.io/$PROJECT_ID/backend-image:latest
           ports:
             - containerPort: 3000 # Match your backend port
           env:
@@ -36,6 +36,6 @@ spec:
           command:
             - "/cloud_sql_proxy"
             # REPLACE with your Connection Name (Project:Region:Instance)
-            - "-instances=YOUR_PROJECT_ID:us-central1:my-postgres-db=tcp:5432"
+            - "-instances=$PROJECT_ID:us-central1:my-postgres-db=tcp:5432"
           securityContext:
             runAsNonRoot: true

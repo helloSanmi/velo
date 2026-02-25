@@ -8,16 +8,27 @@ import { isFreePlan, normalizeWorkspacePlan } from './planFeatureService';
 import {
   acceptInviteWithPasswordRemote,
   addSeatsRemote,
+  beginIntegrationConnectPopupRemote,
+  beginOauthConnectPopupRemote,
+  beginOauthPopupRemote,
   changePasswordRemote,
   createInviteRemote,
   deleteOrganizationRemote,
   deleteUserRemote,
   fetchInvitesFromBackendRemote,
+  getDirectoryUsersRemote,
+  getIntegrationConnectUrlRemote,
+  getOauthProviderAvailabilityRemote,
+  getOauthConnectUrlRemote,
+  listIntegrationConnectionsRemote,
+  importDirectoryUsersRemote,
   loginWithPasswordRemote,
   provisionUserRemote,
   registerWithPasswordRemote,
+  resetPasswordRemote,
   revokeInviteRemote,
   updateUserRemote,
+  updateOrganizationSettingsRemote,
 } from './user-service/remote';
 import {
   INVITES_KEY,
@@ -145,7 +156,8 @@ export const userService = {
     const org = userService.getOrganization(orgId);
     const orgUsers = userService.getUsers(orgId);
     if (!org) return { success: false, error: 'Organization identifier mismatch.' };
-    if (isFreePlan(org.plan) && orgUsers.length >= org.totalSeats) {
+    const activeLicenses = orgUsers.filter((member) => member.licenseActive !== false).length;
+    if (isFreePlan(org.plan) && activeLicenses >= org.totalSeats) {
       return { success: false, error: `License threshold reached (${org.totalSeats} nodes).` };
     }
     const allUsers = userService.getUsers();
@@ -179,7 +191,8 @@ export const userService = {
       lastName: lastName || undefined,
       email: resolvedEmail,
       avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${cleanUsername}`,
-      role
+      role,
+      licenseActive: true
     };
     localStorage.setItem(USERS_KEY, JSON.stringify([...allUsers, newUser]));
     emitUsersUpdated(orgId, newUser.id, newUser.id);
@@ -231,10 +244,89 @@ export const userService = {
     return newUser;
   },
 
-  loginWithPassword: async (identifier: string, password: string): Promise<User | null> =>
-    loginWithPasswordRemote(identifier, password, (nextUser) => {
+  loginWithPassword: async (identifier: string, password: string, workspaceDomain?: string): Promise<{ user?: User; error?: string; code?: string }> =>
+    loginWithPasswordRemote(identifier, password, workspaceDomain, (nextUser) => {
       localStorage.setItem(SESSION_KEY, JSON.stringify(nextUser));
     }),
+
+  getOauthProviderAvailability: async (
+    workspaceDomain: string
+  ): Promise<{ googleEnabled: boolean; microsoftEnabled: boolean; workspaceDomain?: string; orgName?: string; error?: string }> =>
+    getOauthProviderAvailabilityRemote(workspaceDomain),
+
+  loginWithProvider: async (
+    provider: 'google' | 'microsoft',
+    workspaceDomain?: string
+  ): Promise<{ user?: User; error?: string; code?: string }> =>
+    beginOauthPopupRemote(provider, workspaceDomain, (nextUser) => {
+      localStorage.setItem(SESSION_KEY, JSON.stringify(nextUser));
+    }),
+
+  connectWorkspaceProvider: async (
+    provider: 'google' | 'microsoft',
+    workspaceDomain: string
+  ): Promise<{
+    success: boolean;
+    googleConnected?: boolean;
+    microsoftConnected?: boolean;
+    googleAllowed?: boolean;
+    microsoftAllowed?: boolean;
+    error?: string;
+  }> => {
+    const start = await getOauthConnectUrlRemote(provider, workspaceDomain);
+    if (!start.url) return { success: false, error: start.error || 'Could not start provider connection.' };
+    return beginOauthConnectPopupRemote(start.url, provider, workspaceDomain);
+  },
+
+  listIntegrationConnections: async (): Promise<{
+    success: boolean;
+    slackConnected: boolean;
+    githubConnected: boolean;
+    slackLabel?: string;
+    githubLabel?: string;
+    error?: string;
+  }> => listIntegrationConnectionsRemote(),
+
+  connectIntegrationProvider: async (
+    provider: 'slack' | 'github'
+  ): Promise<{ success: boolean; provider?: 'slack' | 'github'; error?: string }> => {
+    const start = await getIntegrationConnectUrlRemote(provider);
+    if (!start.url) return { success: false, error: start.error || 'Could not start integration connection.' };
+    return beginIntegrationConnectPopupRemote(start.url, provider);
+  },
+
+  startDirectoryImport: async (
+    provider: 'google' | 'microsoft'
+  ): Promise<{
+    success: boolean;
+    provider?: 'google' | 'microsoft';
+    users?: Array<{ externalId: string; email: string; displayName: string; firstName?: string; lastName?: string }>;
+    error?: string;
+    code?: string;
+  }> => {
+    const direct = await getDirectoryUsersRemote(provider);
+    if (direct.success) return direct;
+    if (direct.code === 'SSO_RECONNECT_REQUIRED') {
+      return {
+        success: false,
+        code: direct.code,
+        error: `${provider === 'google' ? 'Google' : 'Microsoft'} directory access needs reconnect. Use Integrations > Workspace SSO and click Connect once.`
+      };
+    }
+    return { success: false, code: direct.code, error: direct.error || 'Could not load directory users.' };
+  },
+
+  importDirectoryUsers: async (
+    orgId: string,
+    provider: 'google' | 'microsoft',
+    users: Array<{ email: string; displayName: string; firstName?: string; lastName?: string }>
+  ): Promise<{
+    success: boolean;
+    created?: Array<{ id: string; email: string; displayName: string }>;
+    skipped?: Array<{ email: string; reason: string }>;
+    seats?: { used: number; total: number; limited: boolean };
+    error?: string;
+  }> => importDirectoryUsersRemote(orgId, provider, users),
 
   registerWithPassword: async (
     identifier: string,
@@ -258,6 +350,14 @@ export const userService = {
   ): Promise<{ success: boolean; error?: string }> =>
     changePasswordRemote(currentPassword, newPassword, confirmPassword),
 
+  resetPassword: async (
+    identifier: string,
+    workspaceDomain: string | undefined,
+    newPassword: string,
+    confirmPassword: string
+  ): Promise<{ success: boolean; error?: string }> =>
+    resetPasswordRemote(identifier, workspaceDomain, newPassword, confirmPassword),
+
   fetchInvitesFromBackend: async (orgId: string): Promise<OrgInvite[]> =>
     fetchInvitesFromBackendRemote(orgId, userService.getInvites),
 
@@ -272,17 +372,39 @@ export const userService = {
   addSeatsRemote: async (orgId: string, seatsToAdd: number): Promise<Organization | null> =>
     addSeatsRemote(orgId, seatsToAdd),
 
+  updateOrganizationSettingsRemote: async (
+    orgId: string,
+    patch: Partial<Pick<Organization, 'loginSubdomain' | 'allowGoogleAuth' | 'allowMicrosoftAuth' | 'googleWorkspaceConnected' | 'microsoftWorkspaceConnected'>>
+  ): Promise<Organization | null> => updateOrganizationSettingsRemote(orgId, patch),
+
   provisionUserRemote: async (
     orgId: string,
     username: string,
     role: 'admin' | 'member' = 'member',
     profile?: { firstName?: string; lastName?: string; email?: string },
-    password = 'Password'
+    password = 'Password',
+    mustChangePassword = true
   ): Promise<{ success: boolean; error?: string; user?: User }> =>
-    provisionUserRemote(orgId, username, role, profile, password),
+    provisionUserRemote(orgId, username, role, profile, password, mustChangePassword),
 
   updateUserRemote: async (orgId: string, userId: string, updates: Partial<User>): Promise<User[] | null> =>
     updateUserRemote(orgId, userId, updates, userService.hydrateWorkspaceFromBackend, userService.getUsers),
+
+  updateUserLicenseRemote: async (
+    orgId: string,
+    userId: string,
+    licenseActive: boolean
+  ): Promise<{ success: boolean; error?: string }> => {
+    try {
+      await apiRequest(`/orgs/${orgId}/users/${userId}/license`, {
+        method: 'PATCH',
+        body: { licenseActive }
+      });
+      return { success: true };
+    } catch (error: any) {
+      return { success: false, error: error?.message || 'Could not update license.' };
+    }
+  },
 
   deleteUserRemote: async (orgId: string, userId: string): Promise<User[] | null> =>
     deleteUserRemote(orgId, userId, userService.hydrateWorkspaceFromBackend, userService.getUsers),
@@ -370,7 +492,8 @@ export const userService = {
     const org = userService.getOrganization(invite.orgId);
     if (!org) return { success: false, error: 'Organization no longer exists.' };
     const orgUsers = userService.getUsers(org.id);
-    if (isFreePlan(org.plan) && orgUsers.length >= org.totalSeats) {
+    const activeLicenses = orgUsers.filter((member) => member.licenseActive !== false).length;
+    if (isFreePlan(org.plan) && activeLicenses >= org.totalSeats) {
       return { success: false, error: `No available licenses in ${org.name}. Ask admin to buy more seats.` };
     }
 
@@ -387,7 +510,8 @@ export const userService = {
       displayName: cleanId.includes('@') ? cleanId.split('@')[0].replace(/\b\w/g, (c) => c.toUpperCase()) : cleanId.charAt(0).toUpperCase() + cleanId.slice(1),
       email: cleanId.includes('@') ? cleanId : `${cleanId}@${inferOrgEmailDomain(org.id)}`,
       avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${cleanId}`,
-      role: invite.role
+      role: invite.role,
+      licenseActive: true
     };
     localStorage.setItem(USERS_KEY, JSON.stringify([...allUsers, newUser]));
     const updatedInvites = [...invites];

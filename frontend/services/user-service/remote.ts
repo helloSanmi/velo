@@ -1,6 +1,8 @@
 import { Organization, OrgInvite, User } from '../../types';
-import { apiRequest, setAuthTokens } from '../apiClient';
+import { apiConfig, apiRequest, setAuthTokens } from '../apiClient';
 import { backendSyncService } from '../backendSyncService';
+
+const OAUTH_POPUP_STORAGE_KEY = 'velo_oauth_popup_result';
 
 const mapInviteFromApi = (invite: any): OrgInvite => ({
   id: invite.id,
@@ -19,6 +21,7 @@ const mapInviteFromApi = (invite: any): OrgInvite => ({
 const mapOrganizationFromApi = (org: any): Organization => ({
   id: org.id,
   name: org.name,
+  loginSubdomain: org.loginSubdomain || undefined,
   totalSeats: org.totalSeats,
   ownerId: org.ownerId,
   createdAt: new Date(org.createdAt).getTime(),
@@ -26,7 +29,11 @@ const mapOrganizationFromApi = (org: any): Organization => ({
   seatPrice: org.seatPrice,
   billingCurrency: org.billingCurrency,
   aiDailyRequestLimit: typeof org.aiDailyRequestLimit === 'number' ? org.aiDailyRequestLimit : undefined,
-  aiDailyTokenLimit: typeof org.aiDailyTokenLimit === 'number' ? org.aiDailyTokenLimit : undefined
+  aiDailyTokenLimit: typeof org.aiDailyTokenLimit === 'number' ? org.aiDailyTokenLimit : undefined,
+  allowGoogleAuth: Boolean(org.allowGoogleAuth),
+  allowMicrosoftAuth: Boolean(org.allowMicrosoftAuth),
+  googleWorkspaceConnected: Boolean(org.googleWorkspaceConnected),
+  microsoftWorkspaceConnected: Boolean(org.microsoftWorkspaceConnected)
 });
 
 const mapUserFromApi = (user: any): User => ({
@@ -38,14 +45,17 @@ const mapUserFromApi = (user: any): User => ({
   lastName: user.lastName || undefined,
   email: user.email || undefined,
   avatar: user.avatar || undefined,
-  role: user.role
+  role: user.role,
+  licenseActive: user.licenseActive !== false,
+  mustChangePassword: Boolean(user.mustChangePassword)
 });
 
 export const loginWithPasswordRemote = async (
   identifier: string,
   password: string,
+  workspaceDomain: string | undefined,
   saveSession: (user: User) => void
-): Promise<User | null> => {
+): Promise<{ user?: User; error?: string; code?: string }> => {
   try {
     const response = await apiRequest<{
       tokens: { accessToken: string; refreshToken: string };
@@ -53,14 +63,465 @@ export const loginWithPasswordRemote = async (
     }>('/auth/login', {
       method: 'POST',
       auth: false,
-      body: { identifier, password }
+      body: { identifier, password, workspaceDomain }
     });
     setAuthTokens(response.tokens);
     saveSession(response.user);
-    return response.user;
-  } catch {
-    return null;
+    return { user: response.user };
+  } catch (error: any) {
+    return { error: error?.message || 'Account not found.', code: error?.details?.code };
   }
+};
+
+export const getOauthProviderAvailabilityRemote = async (
+  workspaceDomain: string
+): Promise<{ googleEnabled: boolean; microsoftEnabled: boolean; workspaceDomain?: string; orgName?: string; error?: string }> => {
+  try {
+    const response = await apiRequest<{
+      workspaceDomain: string;
+      orgName?: string;
+      google: { enabled: boolean };
+      microsoft: { enabled: boolean };
+    }>(`/auth/oauth/providers?workspaceDomain=${encodeURIComponent(workspaceDomain)}`, {
+      auth: false
+    });
+    return {
+      googleEnabled: Boolean(response.google?.enabled),
+      microsoftEnabled: Boolean(response.microsoft?.enabled),
+      workspaceDomain: response.workspaceDomain,
+      orgName: response.orgName
+    };
+  } catch (error: any) {
+    return {
+      googleEnabled: false,
+      microsoftEnabled: false,
+      error: error?.message || 'Could not read SSO provider availability.'
+    };
+  }
+};
+
+export const beginOauthPopupRemote = async (
+  provider: 'google' | 'microsoft',
+  workspaceDomain: string | undefined,
+  saveSession: (user: User) => void
+): Promise<{ user?: User; error?: string; code?: string }> => {
+  const apiOrigin = apiConfig.baseUrl.replace(/\/api\/v1$/, '');
+  const params = new URLSearchParams({
+    returnOrigin: window.location.origin
+  });
+  if (workspaceDomain?.trim()) params.set('workspaceDomain', workspaceDomain.trim());
+  const popupUrl = `${apiOrigin}/api/v1/auth/oauth/${provider}/start?${params.toString()}`;
+  const popup = window.open(
+    popupUrl,
+    `velo-oauth-${provider}`,
+    'popup=yes,width=520,height=720,menubar=no,toolbar=no,status=no'
+  );
+
+  if (!popup) {
+    return { error: 'Popup blocked. Allow popups for this site and try again.' };
+  }
+
+  return new Promise((resolve) => {
+    let settled = false;
+    const startedAt = Date.now();
+    try { localStorage.removeItem(OAUTH_POPUP_STORAGE_KEY); } catch { /* noop */ }
+    const timeout = window.setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      resolve({ error: 'Sign-in timed out. Please try again.' });
+    }, 2 * 60 * 1000);
+    const storagePoll = window.setInterval(() => {
+      if (settled) return;
+      let envelope: { type?: string; payload?: any; ts?: number } | null = null;
+      try {
+        const raw = localStorage.getItem(OAUTH_POPUP_STORAGE_KEY);
+        envelope = raw ? JSON.parse(raw) : null;
+      } catch {
+        envelope = null;
+      }
+      if (!envelope || envelope.type !== 'velo-oauth-result' || (envelope.ts || 0) < startedAt) return;
+      const payload = envelope.payload || {};
+      settled = true;
+      cleanup();
+      try { localStorage.removeItem(OAUTH_POPUP_STORAGE_KEY); } catch { /* noop */ }
+      if (payload.ok && payload.tokens && payload.user) {
+        setAuthTokens(payload.tokens);
+        saveSession(payload.user as User);
+        resolve({ user: payload.user as User });
+        return;
+      }
+      resolve({ error: String(payload.error || 'OAuth sign-in failed.'), code: payload.code ? String(payload.code) : undefined });
+    }, 250);
+
+    const handleMessage = (event: MessageEvent) => {
+      const allowedOrigins = new Set([apiOrigin, window.location.origin]);
+      if (!allowedOrigins.has(event.origin)) return;
+      const payloadContainer = event.data as { type?: string; payload?: any };
+      if (!payloadContainer || payloadContainer.type !== 'velo-oauth-result') return;
+      const payload = payloadContainer.payload || {};
+      if (settled) return;
+      settled = true;
+      cleanup();
+      if (payload.ok && payload.tokens && payload.user) {
+        setAuthTokens(payload.tokens);
+        saveSession(payload.user as User);
+        resolve({ user: payload.user as User });
+        return;
+      }
+      resolve({ error: String(payload.error || 'OAuth sign-in failed.'), code: payload.code ? String(payload.code) : undefined });
+    };
+
+    const cleanup = () => {
+      window.clearTimeout(timeout);
+      window.clearInterval(storagePoll);
+      window.removeEventListener('message', handleMessage);
+      try {
+        popup.close();
+      } catch {
+        // ignore
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+  });
+};
+
+export const getOauthConnectUrlRemote = async (
+  provider: 'google' | 'microsoft',
+  workspaceDomain: string
+): Promise<{ url?: string; error?: string }> => {
+  try {
+    const response = await apiRequest<{ url: string }>(
+      `/auth/oauth/${provider}/connect-url?workspaceDomain=${encodeURIComponent(workspaceDomain)}&returnOrigin=${encodeURIComponent(window.location.origin)}`,
+      { auth: true }
+    );
+    return { url: response.url };
+  } catch (error: any) {
+    return { error: error?.message || 'Could not start provider connection.' };
+  }
+};
+
+export const listIntegrationConnectionsRemote = async (): Promise<{
+  success: boolean;
+  slackConnected: boolean;
+  githubConnected: boolean;
+  slackLabel?: string;
+  githubLabel?: string;
+  error?: string;
+}> => {
+  try {
+    const response = await apiRequest<{
+      slack?: { connected?: boolean; accountLabel?: string | null };
+      github?: { connected?: boolean; accountLabel?: string | null };
+    }>('/integrations/connections', { auth: true });
+    return {
+      success: true,
+      slackConnected: Boolean(response.slack?.connected),
+      githubConnected: Boolean(response.github?.connected),
+      slackLabel: response.slack?.accountLabel || undefined,
+      githubLabel: response.github?.accountLabel || undefined
+    };
+  } catch (error: any) {
+    return {
+      success: false,
+      slackConnected: false,
+      githubConnected: false,
+      error: error?.message || 'Could not load integration connections.'
+    };
+  }
+};
+
+export const getIntegrationConnectUrlRemote = async (
+  provider: 'slack' | 'github'
+): Promise<{ url?: string; error?: string }> => {
+  try {
+    const response = await apiRequest<{ url: string }>(
+      `/integrations/${provider}/connect-url?returnOrigin=${encodeURIComponent(window.location.origin)}`,
+      { auth: true }
+    );
+    return { url: response.url };
+  } catch (error: any) {
+    return { error: error?.message || 'Could not start integration connection.' };
+  }
+};
+
+export const getOauthDirectoryUrlRemote = async (
+  provider: 'google' | 'microsoft'
+): Promise<{ url?: string; error?: string }> => {
+  try {
+    const response = await apiRequest<{ url: string }>(
+      `/auth/oauth/${provider}/directory-url?returnOrigin=${encodeURIComponent(window.location.origin)}`,
+      { auth: true }
+    );
+    return { url: response.url };
+  } catch (error: any) {
+    return { error: error?.message || 'Could not start directory import.' };
+  }
+};
+
+export const getDirectoryUsersRemote = async (
+  provider: 'google' | 'microsoft'
+): Promise<{
+  success: boolean;
+  provider?: 'google' | 'microsoft';
+  users?: Array<{ externalId: string; email: string; displayName: string; firstName?: string; lastName?: string }>;
+  error?: string;
+  code?: string;
+}> => {
+  try {
+    const response = await apiRequest<{
+      provider: 'google' | 'microsoft';
+      users: Array<{ externalId: string; email: string; displayName: string; firstName?: string; lastName?: string }>;
+    }>(`/auth/oauth/${provider}/directory`, { auth: true });
+    return { success: true, provider: response.provider, users: response.users };
+  } catch (error: any) {
+    return {
+      success: false,
+      error: error?.message || 'Could not load directory users.',
+      code: error?.details?.code ? String(error.details.code) : undefined
+    };
+  }
+};
+
+export const beginOauthDirectoryPopupRemote = async (
+  startUrl: string
+): Promise<{
+  success: boolean;
+  provider?: 'google' | 'microsoft';
+  users?: Array<{ externalId: string; email: string; displayName: string; firstName?: string; lastName?: string }>;
+  error?: string;
+}> => {
+  const apiOrigin = apiConfig.baseUrl.replace(/\/api\/v1$/, '');
+  const popup = window.open(
+    startUrl,
+    'velo-oauth-directory',
+    'popup=yes,width=620,height=780,menubar=no,toolbar=no,status=no'
+  );
+  if (!popup) return { success: false, error: 'Popup blocked. Allow popups and retry.' };
+
+  return new Promise((resolve) => {
+    let settled = false;
+    const startedAt = Date.now();
+    try { localStorage.removeItem(OAUTH_POPUP_STORAGE_KEY); } catch { /* noop */ }
+    const timeout = window.setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      resolve({ success: false, error: 'Directory import timed out. Please try again.' });
+    }, 2 * 60 * 1000);
+    const storagePoll = window.setInterval(() => {
+      if (settled) return;
+      let envelope: { type?: string; payload?: any; ts?: number } | null = null;
+      try {
+        const raw = localStorage.getItem(OAUTH_POPUP_STORAGE_KEY);
+        envelope = raw ? JSON.parse(raw) : null;
+      } catch {
+        envelope = null;
+      }
+      if (!envelope || envelope.type !== 'velo-oauth-directory-result' || (envelope.ts || 0) < startedAt) return;
+      const payload = envelope.payload || {};
+      settled = true;
+      cleanup();
+      try { localStorage.removeItem(OAUTH_POPUP_STORAGE_KEY); } catch { /* noop */ }
+      if (payload.ok) {
+        resolve({
+          success: true,
+          provider: payload.provider,
+          users: Array.isArray(payload.users) ? payload.users : []
+        });
+        return;
+      }
+      resolve({ success: false, error: String(payload.error || 'Directory import failed.') });
+    }, 250);
+
+    const handleMessage = (event: MessageEvent) => {
+      const allowedOrigins = new Set([apiOrigin, window.location.origin]);
+      if (!allowedOrigins.has(event.origin)) return;
+      const payloadContainer = event.data as { type?: string; payload?: any };
+      if (!payloadContainer || payloadContainer.type !== 'velo-oauth-directory-result') return;
+      const payload = payloadContainer.payload || {};
+      if (settled) return;
+      settled = true;
+      cleanup();
+      if (payload.ok) {
+        resolve({
+          success: true,
+          provider: payload.provider,
+          users: Array.isArray(payload.users) ? payload.users : []
+        });
+        return;
+      }
+      resolve({ success: false, error: String(payload.error || 'Directory import failed.') });
+    };
+
+    const cleanup = () => {
+      window.clearTimeout(timeout);
+      window.clearInterval(storagePoll);
+      window.removeEventListener('message', handleMessage);
+      try { popup.close(); } catch { /* noop */ }
+    };
+
+    window.addEventListener('message', handleMessage);
+  });
+};
+
+export const beginOauthConnectPopupRemote = async (
+  startUrl: string,
+  provider: 'google' | 'microsoft',
+  workspaceDomain: string
+): Promise<{
+  success: boolean;
+  provider?: 'google' | 'microsoft';
+  googleConnected?: boolean;
+  microsoftConnected?: boolean;
+  googleAllowed?: boolean;
+  microsoftAllowed?: boolean;
+  error?: string;
+}> => {
+  const apiOrigin = apiConfig.baseUrl.replace(/\/api\/v1$/, '');
+  const popup = window.open(
+    startUrl,
+    'velo-oauth-connect',
+    'popup=yes,width=520,height=720,menubar=no,toolbar=no,status=no'
+  );
+  if (!popup) {
+    return { success: false, error: 'Popup blocked. Allow popups for this site and try again.' };
+  }
+
+  return new Promise((resolve) => {
+    let settled = false;
+    const timeout = window.setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      resolve({ success: false, error: 'Connection timed out. Please try again.' });
+    }, 2 * 60 * 1000);
+    const statusPoll = window.setInterval(async () => {
+      if (settled) return;
+      const availability = await getOauthProviderAvailabilityRemote(workspaceDomain);
+      const connected = provider === 'google' ? availability.googleEnabled : availability.microsoftEnabled;
+      if (!connected) return;
+      settled = true;
+      cleanup();
+      resolve({
+        success: true,
+        provider,
+        googleConnected: provider === 'google' ? true : undefined,
+        microsoftConnected: provider === 'microsoft' ? true : undefined,
+        googleAllowed: provider === 'google' ? true : undefined,
+        microsoftAllowed: provider === 'microsoft' ? true : undefined
+      });
+    }, 1000);
+
+    const handleMessage = (event: MessageEvent) => {
+      const allowedOrigins = new Set([apiOrigin, window.location.origin]);
+      if (!allowedOrigins.has(event.origin)) return;
+      const payloadContainer = event.data as { type?: string; payload?: any };
+      if (!payloadContainer) return;
+      if (payloadContainer.type !== 'velo-oauth-connect-result' && payloadContainer.type !== 'velo-oauth-result') return;
+      const payload = payloadContainer.payload || {};
+      if (settled) return;
+      settled = true;
+      cleanup();
+      if (payload.ok) {
+        resolve({
+          success: true,
+          provider: payload.provider,
+          googleConnected: Boolean(payload.googleConnected),
+          microsoftConnected: Boolean(payload.microsoftConnected),
+          googleAllowed: Boolean(payload.googleAllowed),
+          microsoftAllowed: Boolean(payload.microsoftAllowed)
+        });
+        return;
+      }
+      resolve({ success: false, error: String(payload.error || 'Provider connection failed.') });
+    };
+
+    const cleanup = () => {
+      window.clearTimeout(timeout);
+      window.clearInterval(statusPoll);
+      window.removeEventListener('message', handleMessage);
+      try {
+        popup.close();
+      } catch {
+        // ignore
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+  });
+};
+
+export const beginIntegrationConnectPopupRemote = async (
+  startUrl: string,
+  provider: 'slack' | 'github'
+): Promise<{ success: boolean; provider?: 'slack' | 'github'; error?: string }> => {
+  const apiOrigin = apiConfig.baseUrl.replace(/\/api\/v1$/, '');
+  const popup = window.open(
+    startUrl,
+    `velo-${provider}-connect`,
+    'popup=yes,width=520,height=720,menubar=no,toolbar=no,status=no'
+  );
+  if (!popup) return { success: false, error: 'Popup blocked. Allow popups for this site and try again.' };
+
+  return new Promise((resolve) => {
+    let settled = false;
+    const startedAt = Date.now();
+    try { localStorage.removeItem(OAUTH_POPUP_STORAGE_KEY); } catch { /* noop */ }
+    const timeout = window.setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      resolve({ success: false, error: 'Connection timed out. Please try again.' });
+    }, 2 * 60 * 1000);
+
+    const storagePoll = window.setInterval(() => {
+      if (settled) return;
+      let envelope: { type?: string; payload?: any; ts?: number } | null = null;
+      try {
+        const raw = localStorage.getItem(OAUTH_POPUP_STORAGE_KEY);
+        envelope = raw ? JSON.parse(raw) : null;
+      } catch {
+        envelope = null;
+      }
+      if (!envelope || envelope.type !== 'velo-integration-connect-result' || (envelope.ts || 0) < startedAt) return;
+      const payload = envelope.payload || {};
+      settled = true;
+      cleanup();
+      try { localStorage.removeItem(OAUTH_POPUP_STORAGE_KEY); } catch { /* noop */ }
+      if (payload.ok) {
+        resolve({ success: true, provider: payload.provider || provider });
+        return;
+      }
+      resolve({ success: false, error: String(payload.error || 'Integration connection failed.') });
+    }, 250);
+
+    const handleMessage = (event: MessageEvent) => {
+      const allowedOrigins = new Set([apiOrigin, window.location.origin]);
+      if (!allowedOrigins.has(event.origin)) return;
+      const payloadContainer = event.data as { type?: string; payload?: any };
+      if (!payloadContainer || payloadContainer.type !== 'velo-integration-connect-result') return;
+      const payload = payloadContainer.payload || {};
+      if (settled) return;
+      settled = true;
+      cleanup();
+      if (payload.ok) {
+        resolve({ success: true, provider: payload.provider || provider });
+        return;
+      }
+      resolve({ success: false, error: String(payload.error || 'Integration connection failed.') });
+    };
+
+    const cleanup = () => {
+      window.clearTimeout(timeout);
+      window.clearInterval(storagePoll);
+      window.removeEventListener('message', handleMessage);
+      try { popup.close(); } catch { /* noop */ }
+    };
+
+    window.addEventListener('message', handleMessage);
+  });
 };
 
 export const registerWithPasswordRemote = async (
@@ -132,6 +593,24 @@ export const changePasswordRemote = async (
   }
 };
 
+export const resetPasswordRemote = async (
+  identifier: string,
+  workspaceDomain: string | undefined,
+  newPassword: string,
+  confirmPassword: string
+): Promise<{ success: boolean; error?: string }> => {
+  try {
+    await apiRequest('/auth/reset-password', {
+      method: 'POST',
+      auth: false,
+      body: { identifier, workspaceDomain, newPassword, confirmPassword }
+    });
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error?.message || 'Could not reset password.' };
+  }
+};
+
 export const fetchInvitesFromBackendRemote = async (
   orgId: string,
   getLocalInvites: (orgId?: string) => OrgInvite[]
@@ -190,7 +669,8 @@ export const provisionUserRemote = async (
   username: string,
   role: 'admin' | 'member' = 'member',
   profile?: { firstName?: string; lastName?: string; email?: string },
-  password = 'Password'
+  password = 'Password',
+  mustChangePassword = true
 ): Promise<{ success: boolean; error?: string; user?: User }> => {
   try {
     const user = await apiRequest<any>(`/orgs/${orgId}/users`, {
@@ -201,12 +681,54 @@ export const provisionUserRemote = async (
         firstName: profile?.firstName,
         lastName: profile?.lastName,
         email: profile?.email,
-        password
+        password,
+        mustChangePassword
       }
     });
     return { success: true, user: mapUserFromApi(user) };
   } catch (error: any) {
     return { success: false, error: error?.message || 'Could not provision user.' };
+  }
+};
+
+export const updateOrganizationSettingsRemote = async (
+  orgId: string,
+  patch: Partial<Pick<Organization, 'loginSubdomain' | 'allowGoogleAuth' | 'allowMicrosoftAuth' | 'googleWorkspaceConnected' | 'microsoftWorkspaceConnected'>>
+): Promise<Organization | null> => {
+  try {
+    const org = await apiRequest<any>(`/orgs/${orgId}/settings`, {
+      method: 'PATCH',
+      body: patch
+    });
+    return mapOrganizationFromApi(org);
+  } catch {
+    return null;
+  }
+};
+
+export const importDirectoryUsersRemote = async (
+  orgId: string,
+  provider: 'google' | 'microsoft',
+  users: Array<{ email: string; displayName: string; firstName?: string; lastName?: string }>
+): Promise<{
+  success: boolean;
+  created?: Array<{ id: string; email: string; displayName: string }>;
+  skipped?: Array<{ email: string; reason: string }>;
+  seats?: { used: number; total: number; limited: boolean };
+  error?: string;
+}> => {
+  try {
+    const response = await apiRequest<{
+      created: Array<{ id: string; email: string; displayName: string }>;
+      skipped: Array<{ email: string; reason: string }>;
+      seats: { used: number; total: number; limited: boolean };
+    }>(`/orgs/${orgId}/users/import`, {
+      method: 'POST',
+      body: { provider, users }
+    });
+    return { success: true, ...response };
+  } catch (error: any) {
+    return { success: false, error: error?.message || 'Could not import users.' };
   }
 };
 

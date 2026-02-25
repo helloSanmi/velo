@@ -24,10 +24,15 @@ export const seedOrganizationsAndUsers = async (prisma: PrismaClient, data: Seed
       data: {
         id: org.id,
         name: org.name,
+        loginSubdomain: `org-${org.id.slice(-6).toLowerCase()}`,
         totalSeats: org.totalSeats,
         plan: org.plan ?? 'basic',
         seatPrice: org.seatPrice ?? 5,
         billingCurrency: org.billingCurrency ?? 'USD',
+        allowGoogleAuth: false,
+        allowMicrosoftAuth: false,
+        googleWorkspaceConnected: false,
+        microsoftWorkspaceConnected: false,
         ownerId: org.ownerId,
         createdAt: org.createdAt ? new Date(org.createdAt) : undefined
       }
@@ -47,6 +52,7 @@ export const seedOrganizationsAndUsers = async (prisma: PrismaClient, data: Seed
         email: user.email ?? `${user.username}@velo.ai`,
         avatar: user.avatar,
         role: (user.role as UserRole | undefined) ?? UserRole.member,
+        mustChangePassword: false,
         passwordHash: defaultHash
       }
     });
@@ -177,4 +183,3 @@ export const seedGroupsTeamsInvites = async (prisma: PrismaClient, data: SeedDat
     });
   }
 };
-

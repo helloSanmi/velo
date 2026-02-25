@@ -49,19 +49,7 @@ export const useWorkspaceBootstrap = ({
     }
 
     const currentUser = userService.getCurrentUser();
-    if (currentUser && !hash.startsWith('#public/')) {
-      setUser(currentUser);
-      userService.hydrateWorkspaceFromBackend(currentUser.orgId).then((result) => {
-        if (result) {
-          syncGuardService.clearPending();
-          setAllUsers(result.users);
-          setProjects(result.projects);
-        } else {
-          setAllUsers(userService.getUsers(currentUser.orgId));
-          setProjects(projectService.getProjects(currentUser.orgId));
-        }
-      });
-    }
+    if (currentUser && !hash.startsWith('#public/')) setUser(currentUser);
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'k' && (event.metaKey || event.ctrlKey)) {

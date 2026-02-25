@@ -13,6 +13,8 @@ export interface PublicUser {
   email: string;
   avatar: string | null;
   role: UserRole;
+  licenseActive: boolean;
+  mustChangePassword: boolean;
 }
 
 export const sessionExpiresAt = (): Date => {
@@ -34,6 +36,35 @@ export const normalizeIdentifier = (identifier: string) => {
   return { normalized, username, email, domain };
 };
 
+export const normalizeWorkspaceDomain = (value?: string | null): string | null => {
+  if (!value) return null;
+  const normalizedInput = value.trim().toLowerCase();
+  if (!normalizedInput) return null;
+
+  let normalized = normalizedInput;
+  if (normalized.includes('://')) {
+    try {
+      normalized = new URL(normalized).hostname.toLowerCase();
+    } catch {
+      normalized = normalizedInput;
+    }
+  }
+  normalized = normalized.split('/')[0]?.split(':')[0]?.trim() || normalized;
+  if (!normalized) return null;
+  if (normalized.endsWith('.velo.ai')) {
+    const rootless = normalized.replace(/\.velo\.ai$/, '').trim();
+    const firstLabel = rootless.split('.')[0]?.trim();
+    return firstLabel || null;
+  }
+  if (normalized.endsWith('.localhost')) {
+    const rootless = normalized.replace(/\.localhost$/, '').trim();
+    const firstLabel = rootless.split('.')[0]?.trim();
+    return firstLabel || null;
+  }
+  if (!normalized.includes('.')) return normalized;
+  return null;
+};
+
 export const buildDisplayName = (username: string) => username.charAt(0).toUpperCase() + username.slice(1);
 export const buildAvatarUrl = (username: string) =>
   `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(username)}`;
@@ -46,6 +77,8 @@ export const toPublicUser = (user: {
   email: string;
   avatar: string | null;
   role: UserRole;
+  licenseActive?: boolean | null;
+  mustChangePassword?: boolean | null;
 }): PublicUser => ({
   id: user.id,
   orgId: user.orgId,
@@ -53,7 +86,9 @@ export const toPublicUser = (user: {
   displayName: user.displayName,
   email: user.email,
   avatar: user.avatar,
-  role: user.role
+  role: user.role,
+  licenseActive: user.licenseActive !== false,
+  mustChangePassword: Boolean(user.mustChangePassword)
 });
 
 export const buildJwtPayload = (input: { userId: string; orgId: string; role: UserRole; sessionId: string }): JwtUser => ({
@@ -62,4 +97,3 @@ export const buildJwtPayload = (input: { userId: string; orgId: string; role: Us
   role: input.role,
   sessionId: input.sessionId
 });
-

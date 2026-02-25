@@ -1,6 +1,6 @@
-
 import { WorkflowRule, WorkflowTrigger, WorkflowAction, Task, ProjectTemplate, TaskPriority, TaskStatus } from '../types';
 import { createId } from '../utils/id';
+import { apiRequest } from './apiClient';
 
 const WORKFLOWS_KEY = 'velo_workflows';
 
@@ -14,9 +14,45 @@ const readAllRules = (): WorkflowRule[] => {
 };
 
 export const workflowService = {
-  getRules: (orgId: string): WorkflowRule[] => {
-    const all = readAllRules();
-    return all.filter(r => r.orgId === orgId);
+  getRules: async (orgId: string): Promise<WorkflowRule[]> => {
+    const localOrgRules = readAllRules().filter((rule) => rule.orgId === orgId);
+    try {
+      const remote = await apiRequest<WorkflowRule[]>(`/orgs/${orgId}/workflows`);
+      if (remote.length === 0 && localOrgRules.length > 0) {
+        for (const localRule of localOrgRules) {
+          try {
+            await apiRequest<WorkflowRule>(`/orgs/${orgId}/workflows`, {
+              method: 'POST',
+              body: {
+                projectId: localRule.projectId,
+                name: localRule.name,
+                trigger: localRule.trigger,
+                triggerValue: localRule.triggerValue,
+                action: localRule.action,
+                actionValue: localRule.actionValue,
+                isActive: localRule.isActive
+              }
+            });
+          } catch {
+            // Ignore backfill failures per rule (permission/network)
+          }
+        }
+        const hydrated = await apiRequest<WorkflowRule[]>(`/orgs/${orgId}/workflows`);
+        localStorage.setItem(WORKFLOWS_KEY, JSON.stringify([
+          ...readAllRules().filter((rule) => rule.orgId !== orgId),
+          ...hydrated
+        ]));
+        return hydrated;
+      }
+      localStorage.setItem(WORKFLOWS_KEY, JSON.stringify([
+        ...readAllRules().filter((rule) => rule.orgId !== orgId),
+        ...remote
+      ]));
+      return remote;
+    } catch {
+      // Fallback for offline/local mode
+    }
+    return localOrgRules;
   },
 
   getRulesForProject: (orgId: string, projectId?: string): WorkflowRule[] => {
@@ -25,24 +61,57 @@ export const workflowService = {
     return all.filter((rule) => !rule.projectId || rule.projectId === projectId);
   },
 
-  saveRule: (rule: Omit<WorkflowRule, 'id'>): WorkflowRule => {
+  saveRule: async (rule: Omit<WorkflowRule, 'id'>): Promise<WorkflowRule> => {
+    try {
+      const created = await apiRequest<WorkflowRule>(`/orgs/${rule.orgId}/workflows`, {
+        method: 'POST',
+        body: rule
+      });
+      const all = readAllRules().filter((entry) => !(entry.orgId === created.orgId && entry.id === created.id));
+      localStorage.setItem(WORKFLOWS_KEY, JSON.stringify([...all, created]));
+      return created;
+    } catch {
+      // Fallback for offline/local mode
+    }
     const all = readAllRules();
     const newRule = { ...rule, id: createId() };
     localStorage.setItem(WORKFLOWS_KEY, JSON.stringify([...all, newRule]));
     return newRule;
   },
 
-  deleteRule: (orgId: string, id: string) => {
+  deleteRule: async (orgId: string, id: string): Promise<void> => {
+    try {
+      await apiRequest(`/orgs/${orgId}/workflows/${id}`, { method: 'DELETE' });
+    } catch {
+      // Fallback for offline/local mode
+    }
     const all = readAllRules();
     localStorage.setItem(WORKFLOWS_KEY, JSON.stringify(all.filter(r => !(r.id === id && r.orgId === orgId))));
   },
 
-  toggleRule: (orgId: string, id: string) => {
+  toggleRule: async (orgId: string, id: string): Promise<WorkflowRule | null> => {
     const all = readAllRules();
+    const existing = all.find((rule) => rule.orgId === orgId && rule.id === id);
+    if (!existing) return null;
+    try {
+      const updated = await apiRequest<WorkflowRule>(`/orgs/${orgId}/workflows/${id}`, {
+        method: 'PATCH',
+        body: { isActive: !existing.isActive }
+      });
+      localStorage.setItem(
+        WORKFLOWS_KEY,
+        JSON.stringify(all.map((rule) => (rule.id === id && rule.orgId === orgId ? updated : rule)))
+      );
+      return updated;
+    } catch {
+      // Fallback for offline/local mode
+    }
     localStorage.setItem(
       WORKFLOWS_KEY,
       JSON.stringify(all.map(r => (r.id === id && r.orgId === orgId ? { ...r, isActive: !r.isActive } : r)))
     );
+    const updatedLocal = readAllRules().find((rule) => rule.orgId === orgId && rule.id === id);
+    return updatedLocal || null;
   },
 
   getTemplates: (): ProjectTemplate[] => [

@@ -54,8 +54,19 @@ import {
   shouldAutoOpenCompletionPrompt,
   shouldShowCompletionPostponed
 } from './services/completionFlowService';
+import { isWorkspaceSubdomainHost } from './utils/workspaceHost';
 
 const App: React.FC = () => {
+  const parseWorkspaceTicketRoute = () => {
+    const pathname = window.location.pathname.replace(/\/+$/, '') || '/';
+    if (pathname === '/tickets') return { view: 'tickets' as MainViewType, ticketId: null as string | null };
+    const ticketMatch = pathname.match(/^\/tickets\/([^/]+)$/);
+    if (ticketMatch) {
+      return { view: 'tickets' as MainViewType, ticketId: decodeURIComponent(ticketMatch[1]) };
+    }
+    return { view: null as MainViewType | null, ticketId: null as string | null };
+  };
+
   const getCurrentViewStorageKey = (scopeUser: User) => `velo_current_view:${scopeUser.orgId}:${scopeUser.id}`;
   const getTaskContextStorageKey = (scopeUser: User) => `velo_task_context:${scopeUser.orgId}:${scopeUser.id}`;
   const isMainViewType = (value: unknown): value is MainViewType =>
@@ -66,10 +77,13 @@ const App: React.FC = () => {
     value === 'workflows' ||
     value === 'templates' ||
     value === 'resources' ||
-    value === 'integrations';
+    value === 'integrations' ||
+    value === 'tickets';
 
   const [user, setUser] = useState<User | null>(() => userService.getCurrentUser());
-  const [authView, setAuthView] = useState<'landing' | 'product' | 'solutions' | 'pricing' | 'support' | 'login' | 'register' | 'join'>('landing');
+  const [authView, setAuthView] = useState<'landing' | 'product' | 'solutions' | 'pricing' | 'support' | 'contact' | 'login' | 'register' | 'join'>(
+    () => (isWorkspaceSubdomainHost() ? 'login' : 'landing')
+  );
   const [allUsers, setAllUsers] = useState<User[]>(() => {
     const current = userService.getCurrentUser();
     return current ? userService.getUsers(current.orgId) : [];
@@ -88,6 +102,7 @@ const App: React.FC = () => {
   });
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
   const [currentView, setCurrentView] = useState<MainViewType>('board');
+  const [routeTicketId, setRouteTicketId] = useState<string | null>(null);
   const hasHydratedCurrentViewRef = useRef(false);
   const hasHydratedTaskContextRef = useRef(false);
   const reopenReleaseAttemptRef = useRef<Record<string, string>>({});
@@ -144,9 +159,9 @@ const App: React.FC = () => {
 
   const {
     tasks, categorizedTasks, aiLoading, aiSuggestions, activeTaskTitle,
-    priorityFilter, statusFilter, tagFilter, assigneeFilter, projectFilter, searchQuery, dueFrom, dueTo, uniqueTags,
+    priorityFilter, statusFilter, tagFilter, assigneeFilter, projectFilter, searchQuery, dueStatusFilter, includeUnscheduled, dueFrom, dueTo, uniqueTags,
     confettiActive, setConfettiActive, setPriorityFilter, setStatusFilter,
-    setTagFilter, setAssigneeFilter, setProjectFilter, setSearchQuery, setDueFrom, setDueTo, setAiSuggestions, refreshTasks,
+    setTagFilter, setAssigneeFilter, setProjectFilter, setSearchQuery, setDueStatusFilter, setIncludeUnscheduled, setDueFrom, setDueTo, setAiSuggestions, refreshTasks,
     createTask, updateStatus, updateTask, addComment, moveTask, deleteTask,
     assistWithAI, applyAISuggestions, bulkUpdateTasks, bulkDeleteTasks, toggleTimer
   } = useTasks(user, activeProjectId || undefined);
@@ -228,6 +243,57 @@ const App: React.FC = () => {
     if (!user) return;
     localStorage.setItem(getCurrentViewStorageKey(user), currentView);
   }, [user, currentView]);
+
+  useEffect(() => {
+    if (!user) return;
+    const applyRoute = () => {
+      const parsed = parseWorkspaceTicketRoute();
+      if (parsed.view === 'tickets') {
+        setCurrentView('tickets');
+        setRouteTicketId(parsed.ticketId);
+      } else {
+        setRouteTicketId(null);
+      }
+    };
+    applyRoute();
+    window.addEventListener('popstate', applyRoute);
+    return () => window.removeEventListener('popstate', applyRoute);
+  }, [user]);
+
+  const pushWorkspaceRoute = useCallback((nextPath: string) => {
+    if (window.location.pathname === nextPath) return;
+    window.history.pushState({}, '', nextPath);
+  }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    const targetPath = currentView === 'tickets'
+      ? routeTicketId
+        ? `/tickets/${encodeURIComponent(routeTicketId)}`
+        : '/tickets'
+      : '/';
+    if (window.location.pathname !== targetPath) {
+      window.history.replaceState({}, '', targetPath);
+    }
+  }, [user, currentView, routeTicketId]);
+
+  const handleWorkspaceViewChange = useCallback((view: MainViewType) => {
+    if (view === 'tickets') {
+      setRouteTicketId(null);
+      setCurrentView('tickets');
+      pushWorkspaceRoute('/tickets');
+      return;
+    }
+    setRouteTicketId(null);
+    setCurrentView(view);
+    pushWorkspaceRoute('/');
+  }, [pushWorkspaceRoute]);
+
+  const handleOpenTicketRoute = useCallback((ticketId: string | null) => {
+    setCurrentView('tickets');
+    setRouteTicketId(ticketId);
+    pushWorkspaceRoute(ticketId ? `/tickets/${encodeURIComponent(ticketId)}` : '/tickets');
+  }, [pushWorkspaceRoute]);
 
   useEffect(() => {
     const handler = (event: Event) => {
@@ -328,7 +394,6 @@ const App: React.FC = () => {
   const { isAdminSetupOpen, setIsAdminSetupOpen, completeSetup } = usePostSignupAdminSetup(
     user,
     teams,
-    groups,
     isSettingsOpen
   );
 
@@ -944,7 +1009,7 @@ const App: React.FC = () => {
     setActiveProjectId(null);
     setCurrentView('board');
     setUser(null);
-    setAuthView('landing');
+    setAuthView(isWorkspaceSubdomainHost() ? 'login' : 'landing');
   }, []);
 
   const getCompletionBlockReason = useCallback((projectId: string): string | null => {
@@ -1062,7 +1127,7 @@ const App: React.FC = () => {
   }
 
   return (
-    <WorkspaceLayout user={user} allUsers={allUsers} isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} projects={visibleProjects} activeProjectId={activeProjectId} currentView={currentView} themeClass={themeClass} compactMode={settings.compactMode} onLogout={handleLogout} onNewTask={() => setIsModalOpen(true)} onReset={handleReset} onRefreshData={refreshWorkspaceData} onOpenProfile={handleOpenProfile} onOpenSettings={handleOpenSettings} onOpenTaskFromNotification={handleOpenTaskFromNotification} onCloseSidebar={() => setIsSidebarOpen(false)} onProjectSelect={setActiveProjectId} onViewChange={setCurrentView} onOpenCommandCenter={() => aiFeaturesEnabled && setIsCommandCenterOpen(true)} onOpenVisionModal={() => aiFeaturesEnabled && setIsVisionModalOpen(true)} onAddProject={() => { setProjectModalTemplateId(null); setIsProjectModalOpen(true); }} onUpdateProject={handleUpdateProject} onCompleteProject={handleCompleteProject} onArchiveProject={handleArchiveProject} onDeleteProject={handleDeleteProject} onlineCount={onlineCount} isOnline={!isOffline} planFeatures={planFeatures} aiFeaturesEnabled={aiFeaturesEnabled}>
+    <WorkspaceLayout user={user} allUsers={allUsers} isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} projects={visibleProjects} activeProjectId={activeProjectId} currentView={currentView} themeClass={themeClass} compactMode={settings.compactMode} onLogout={handleLogout} onNewTask={() => setIsModalOpen(true)} onReset={handleReset} onRefreshData={refreshWorkspaceData} onOpenProfile={handleOpenProfile} onOpenSettings={handleOpenSettings} onOpenTaskFromNotification={handleOpenTaskFromNotification} onCloseSidebar={() => setIsSidebarOpen(false)} onProjectSelect={setActiveProjectId} onViewChange={handleWorkspaceViewChange} onOpenCommandCenter={() => aiFeaturesEnabled && setIsCommandCenterOpen(true)} onOpenVisionModal={() => aiFeaturesEnabled && setIsVisionModalOpen(true)} onAddProject={() => { setProjectModalTemplateId(null); setIsProjectModalOpen(true); }} onUpdateProject={handleUpdateProject} onCompleteProject={handleCompleteProject} onArchiveProject={handleArchiveProject} onDeleteProject={handleDeleteProject} onlineCount={onlineCount} isOnline={!isOffline} planFeatures={planFeatures} aiFeaturesEnabled={aiFeaturesEnabled}>
       <Confetti active={confettiActive} onComplete={() => setConfettiActive(false)} />
       <WorkspaceMainView
         currentView={currentView}
@@ -1082,6 +1147,8 @@ const App: React.FC = () => {
         templates={templates}
         searchQuery={searchQuery}
         projectFilter={projectFilter}
+        dueStatusFilter={dueStatusFilter}
+        includeUnscheduled={includeUnscheduled}
         dueFrom={dueFrom}
         dueTo={dueTo}
         statusFilter={statusFilter}
@@ -1098,6 +1165,8 @@ const App: React.FC = () => {
         setAssigneeFilter={setAssigneeFilter}
         setSearchQuery={setSearchQuery}
         setProjectFilter={setProjectFilter}
+        setDueStatusFilter={setDueStatusFilter}
+        setIncludeUnscheduled={setIncludeUnscheduled}
         setDueFrom={setDueFrom}
         setDueTo={setDueTo}
         setSelectedTaskIds={setSelectedTaskIds}
@@ -1135,6 +1204,8 @@ const App: React.FC = () => {
             ? (insight: string) => handleUnpinInsightFromProject(activeProjectId, insight)
             : undefined
         }
+        routeTicketId={routeTicketId}
+        onOpenTicketRoute={handleOpenTicketRoute}
       />
       {isOffline && (
         <div className="fixed bottom-3 left-1/2 -translate-x-1/2 z-[200] rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-800 shadow-sm">
@@ -1252,9 +1323,7 @@ const App: React.FC = () => {
         user={user}
         allUsers={allUsers}
         teams={teams}
-        groups={groups}
         onTeamsChanged={setTeams}
-        onGroupsChanged={setGroups}
         onClose={() => setIsAdminSetupOpen(false)}
         onOpenSettingsTab={(tab) => {
           setIsAdminSetupOpen(false);

@@ -65,6 +65,10 @@ export const projectsService = {
       completedById?: string;
       deletedAt?: number;
       deletedById?: string;
+      integrations?: {
+        slack?: { enabled?: boolean; channel?: string };
+        github?: { enabled?: boolean; repo?: string };
+      };
     };
   }) {
     const project = await prisma.project.create({
@@ -130,6 +134,10 @@ export const projectsService = {
         completedById?: string;
         deletedAt?: number;
         deletedById?: string;
+        integrations?: {
+          slack?: { enabled?: boolean; channel?: string };
+          github?: { enabled?: boolean; repo?: string };
+        };
       };
     }>;
   }) {

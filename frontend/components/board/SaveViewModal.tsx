@@ -5,11 +5,21 @@ interface SaveViewModalProps {
   isOpen: boolean;
   name: string;
   setName: (value: string) => void;
+  shareWithWorkspace: boolean;
+  setShareWithWorkspace: (value: boolean) => void;
   onClose: () => void;
   onSave: () => void;
 }
 
-const SaveViewModal: React.FC<SaveViewModalProps> = ({ isOpen, name, setName, onClose, onSave }) => {
+const SaveViewModal: React.FC<SaveViewModalProps> = ({
+  isOpen,
+  name,
+  setName,
+  shareWithWorkspace,
+  setShareWithWorkspace,
+  onClose,
+  onSave
+}) => {
   if (!isOpen) return null;
 
   return (
@@ -34,6 +44,15 @@ const SaveViewModal: React.FC<SaveViewModalProps> = ({ isOpen, name, setName, on
               placeholder="e.g. Sprint board"
               className="w-full h-10 rounded-lg border border-slate-300 px-3 text-sm outline-none focus:ring-2 focus:ring-slate-300"
             />
+          </label>
+          <label className="mt-3 inline-flex items-center gap-2 text-sm text-slate-700">
+            <input
+              type="checkbox"
+              checked={shareWithWorkspace}
+              onChange={(event) => setShareWithWorkspace(event.target.checked)}
+              className="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-300"
+            />
+            Share with workspace
           </label>
         </div>
         <div className="h-14 px-4 border-t border-slate-200 flex items-center justify-end gap-2">

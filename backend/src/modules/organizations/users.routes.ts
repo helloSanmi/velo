@@ -22,6 +22,8 @@ router.get('/orgs/:orgId/users', authenticate, requireOrgAccess, async (req, res
         email: true,
         avatar: true,
         role: true,
+        licenseActive: true,
+        mustChangePassword: true,
         createdAt: true,
         updatedAt: true
       },

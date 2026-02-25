@@ -1,11 +1,10 @@
 import React, { useMemo, useState } from 'react';
-import { Hash, Loader2, Sparkles, Users, X } from 'lucide-react';
-import { SecurityGroup, TaskPriority } from '../types';
+import { Hash, Loader2, Sparkles, X } from 'lucide-react';
+import { TaskPriority } from '../types';
 import { userService } from '../services/userService';
 import { aiService } from '../services/aiService';
 import { dialogService } from '../services/dialogService';
 import { estimationService } from '../services/estimationService';
-import { groupService } from '../services/groupService';
 import { settingsService } from '../services/settingsService';
 import Button from './ui/Button';
 import AssigneePicker from './ui/AssigneePicker';
@@ -21,7 +20,6 @@ interface TaskModalProps {
     tags: string[],
     dueDate?: number,
     assigneeIds?: string[],
-    securityGroupIds?: string[],
     estimateMinutes?: number,
     creationAuditAction?: string
   ) => void;
@@ -37,7 +35,6 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSubmit, canAss
   const [tags, setTags] = useState<string[]>([]);
   const [dueDate, setDueDate] = useState('');
   const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
-  const [securityGroupIds, setSecurityGroupIds] = useState<string[]>([]);
   const [estimateHours, setEstimateHours] = useState('');
   const [whatIfPercent, setWhatIfPercent] = useState(0);
   const [isScheduling, setIsScheduling] = useState(false);
@@ -47,14 +44,6 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSubmit, canAss
 
   const allUsers = userService.getUsers();
   const currentUser = userService.getCurrentUser();
-  const assignableGroups = useMemo(
-    () => (currentUser ? groupService.getAssignableGroupsForProject(currentUser.orgId, projectId || undefined) : []),
-    [currentUser, projectId]
-  );
-  const selectedGroups = useMemo(
-    () => assignableGroups.filter((group) => securityGroupIds.includes(group.id)),
-    [assignableGroups, securityGroupIds]
-  );
   const estimateMinutes = estimateHours.trim() ? Math.max(0, Math.round(Number(estimateHours || 0) * 60)) : 0;
   const preview = currentUser && estimateMinutes > 0
     ? estimationService.getAdjustmentPreview(currentUser.orgId, currentUser.id, estimateMinutes, {
@@ -102,12 +91,6 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSubmit, canAss
     setTagInput('');
   };
 
-  const toggleGroup = (groupId: string) => {
-    setSecurityGroupIds((prev) => (prev.includes(groupId) ? prev.filter((id) => id !== groupId) : [...prev, groupId]));
-  };
-
-  const formatGroupScope = (group: SecurityGroup) => (group.scope === 'global' ? 'Global' : 'Project');
-
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) return;
@@ -119,7 +102,6 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSubmit, canAss
       tags,
       dueDate ? new Date(dueDate).getTime() : undefined,
       assigneeIds,
-      securityGroupIds,
       estimateMinutes > 0 ? estimateMinutes : undefined,
       aiSuggestedDueDateUsed ? 'used AI-suggested due date at creation' : undefined
     );
@@ -131,7 +113,6 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSubmit, canAss
     setTagInput('');
     setDueDate('');
     setAssigneeIds([]);
-    setSecurityGroupIds([]);
     setEstimateHours('');
     setWhatIfPercent(0);
     setAiSuggestedDueDateUsed(false);
@@ -174,41 +155,6 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSubmit, canAss
                     Project owners and admins can be assigned even if they are not listed as project members.
                   </p>
                 ) : null}
-                <div className="mt-2">
-                  <label className="block text-[11px] text-slate-500 mb-1">Security groups</label>
-                  <div className="rounded-lg border border-slate-300 bg-white p-1.5 max-h-24 overflow-y-auto custom-scrollbar space-y-1">
-                    {assignableGroups.length === 0 ? (
-                      <p className="text-[11px] text-slate-500 px-1 py-1">No groups available for this project.</p>
-                    ) : (
-                      assignableGroups.map((group) => (
-                        <label
-                          key={group.id}
-                          className="h-7 px-2 rounded-md text-xs text-slate-700 bg-slate-50 hover:bg-slate-100 inline-flex items-center justify-between gap-2 w-full cursor-pointer"
-                        >
-                          <span className="truncate">{group.name}</span>
-                          <span className="text-[10px] text-slate-500">{formatGroupScope(group)}</span>
-                          <input
-                            type="checkbox"
-                            checked={securityGroupIds.includes(group.id)}
-                            onChange={() => toggleGroup(group.id)}
-                            className="accent-slate-900"
-                            disabled={!canAssignMembers}
-                          />
-                        </label>
-                      ))
-                    )}
-                  </div>
-                  {selectedGroups.length > 0 ? (
-                    <div className="mt-1.5 flex flex-wrap gap-1">
-                      {selectedGroups.map((group) => (
-                        <span key={group.id} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] bg-slate-100 text-slate-700 border border-slate-200">
-                          <Users className="w-3 h-3" />
-                          {group.name}
-                        </span>
-                      ))}
-                    </div>
-                  ) : null}
-                </div>
                 {!canAssignMembers ? <p className="mt-1 text-[11px] text-slate-500">Only project owner/admin can assign members.</p> : null}
               </div>
               <div>

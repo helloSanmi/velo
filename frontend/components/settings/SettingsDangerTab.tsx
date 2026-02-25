@@ -47,7 +47,7 @@ const SettingsDangerTab: React.FC<SettingsDangerTabProps> = ({ user, org, onDele
       <div className="rounded-xl border border-slate-200 bg-white p-3 space-y-3">
         <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] leading-relaxed text-slate-600">
           <p>
-            This removes projects, tasks, users, teams, groups, invites, chat history, and analytics snapshots.
+            This removes projects, tasks, users, teams, invites, chat history, and analytics snapshots.
           </p>
           <p className="mt-1">
             Confirm by typing the workspace name and <span className="font-semibold text-slate-800">DELETE</span>.

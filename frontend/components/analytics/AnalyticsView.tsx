@@ -2,10 +2,12 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, CheckCircle2, Clock3, Sparkles } from 'lucide-react';
 import { Project, Task, TaskPriority, TaskStatus, User } from '../../types';
 import Button from '../ui/Button';
+import AppSelect from '../ui/AppSelect';
 import { aiService } from '../../services/aiService';
 import { aiJobService } from '../../services/aiJobService';
 import { userService } from '../../services/userService';
 import { toastService } from '../../services/toastService';
+import { AnalyticsPreset, AnalyticsPresetKey, analyticsPresetService } from '../../services/analyticsPresetService';
 
 interface AnalyticsViewProps {
   tasks: Task[];
@@ -32,8 +34,17 @@ const AnalyticsView: React.FC<AnalyticsViewProps> = ({ tasks, projects, allUsers
   const currentUser = userService.getCurrentUser();
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [selectedProjectId, setSelectedProjectId] = useState('all');
+  const [selectedPreset, setSelectedPreset] = useState<AnalyticsPresetKey>('overview');
+  const [savedPresets, setSavedPresets] = useState<AnalyticsPreset[]>([]);
+  const [newPresetName, setNewPresetName] = useState('');
+  const [sharePreset, setSharePreset] = useState(false);
   const [insights, setInsights] = useState<{ bottlenecks: string[]; suggestions: string[] } | null>(null);
   const [isCheckingAI, setIsCheckingAI] = useState(false);
+
+  useEffect(() => {
+    if (!currentUser) return;
+    setSavedPresets(analyticsPresetService.list(currentUser.id, orgId));
+  }, [currentUser, orgId]);
 
   useEffect(() => {
     if (!currentUser) return;
@@ -66,30 +77,46 @@ const AnalyticsView: React.FC<AnalyticsViewProps> = ({ tasks, projects, allUsers
   }, [selectedProject, tasks]);
 
   const now = Date.now();
+  const presetTasks = useMemo(() => {
+    if (selectedPreset === 'overview') return scopedTasks;
+    if (selectedPreset === 'delivery') {
+      return scopedTasks.filter((task) => task.status !== TaskStatus.DONE || Boolean(task.dueDate && task.dueDate <= now + 14 * 86400000));
+    }
+    if (selectedPreset === 'risk') {
+      return scopedTasks.filter(
+        (task) =>
+          Boolean(task.isAtRisk) ||
+          Boolean(task.dueDate && task.dueDate < now && task.status !== TaskStatus.DONE) ||
+          (task.priority === TaskPriority.HIGH && task.status !== TaskStatus.DONE)
+      );
+    }
+    return scopedTasks.filter((task) => (task.timeLogged || 0) > 0);
+  }, [now, scopedTasks, selectedPreset]);
+
   const stats = useMemo(() => {
-    const total = scopedTasks.length;
-    const done = scopedTasks.filter((task) => task.status === TaskStatus.DONE).length;
-    const inProgress = scopedTasks.filter((task) => task.status === TaskStatus.IN_PROGRESS).length;
-    const overdue = scopedTasks.filter((task) => Boolean(task.dueDate && task.dueDate < now && task.status !== TaskStatus.DONE)).length;
-    const atRisk = scopedTasks.filter((task) => task.isAtRisk).length;
+    const total = presetTasks.length;
+    const done = presetTasks.filter((task) => task.status === TaskStatus.DONE).length;
+    const inProgress = presetTasks.filter((task) => task.status === TaskStatus.IN_PROGRESS).length;
+    const overdue = presetTasks.filter((task) => Boolean(task.dueDate && task.dueDate < now && task.status !== TaskStatus.DONE)).length;
+    const atRisk = presetTasks.filter((task) => task.isAtRisk).length;
     const completion = total > 0 ? Math.round((done / total) * 100) : 0;
     return { total, done, inProgress, overdue, atRisk, completion };
-  }, [scopedTasks, now]);
+  }, [presetTasks, now]);
 
   const spend = useMemo(() => {
     if (!selectedProject?.hourlyRate) return null;
-    const trackedHours = scopedTasks.reduce((sum, task) => sum + ((task.timeLogged || 0) / 3600000), 0);
+    const trackedHours = presetTasks.reduce((sum, task) => sum + ((task.timeLogged || 0) / 3600000), 0);
     return {
       trackedHours,
       trackedCost: trackedHours * selectedProject.hourlyRate,
       budget: selectedProject.budgetCost || 0
     };
-  }, [scopedTasks, selectedProject]);
+  }, [presetTasks, selectedProject]);
 
   const recommendations = useMemo<Recommendation[]>(() => {
     const items: Recommendation[] = [];
 
-    const overdueTaskIds = scopedTasks
+    const overdueTaskIds = presetTasks
       .filter((task) => task.dueDate && task.dueDate < now && task.status !== TaskStatus.DONE)
       .map((task) => task.id);
     if (overdueTaskIds.length > 0) {
@@ -104,7 +131,7 @@ const AnalyticsView: React.FC<AnalyticsViewProps> = ({ tasks, projects, allUsers
       });
     }
 
-    const highTodoIds = scopedTasks
+    const highTodoIds = presetTasks
       .filter((task) => task.priority === TaskPriority.HIGH && task.status === TaskStatus.TODO)
       .map((task) => task.id);
     if (highTodoIds.length > 0) {
@@ -120,9 +147,9 @@ const AnalyticsView: React.FC<AnalyticsViewProps> = ({ tasks, projects, allUsers
     }
 
     if (selectedProject?.hourlyRate && selectedProject.budgetCost) {
-      const trackedCost = scopedTasks.reduce((sum, task) => sum + ((task.timeLogged || 0) / 3600000) * selectedProject.hourlyRate!, 0);
+      const trackedCost = presetTasks.reduce((sum, task) => sum + ((task.timeLogged || 0) / 3600000) * selectedProject.hourlyRate!, 0);
       if (trackedCost > selectedProject.budgetCost * 0.9) {
-        const inProgressIds = scopedTasks.filter((task) => task.status === TaskStatus.IN_PROGRESS).map((task) => task.id);
+        const inProgressIds = presetTasks.filter((task) => task.status === TaskStatus.IN_PROGRESS).map((task) => task.id);
         if (inProgressIds.length > 0) {
           items.push({
             id: 'budget-risk',
@@ -138,7 +165,7 @@ const AnalyticsView: React.FC<AnalyticsViewProps> = ({ tasks, projects, allUsers
     }
 
     return items.slice(0, 4);
-  }, [now, onUpdateTask, scopedTasks, selectedProject]);
+  }, [now, onUpdateTask, presetTasks, selectedProject]);
 
   const runAIHealthAudit = async () => {
     if (!currentUser) return;
@@ -150,7 +177,7 @@ const AnalyticsView: React.FC<AnalyticsViewProps> = ({ tasks, projects, allUsers
       type: 'analytics_health',
       label: selectedProject ? `Analytics AI check for "${selectedProject.name}"` : 'Analytics AI check',
       dedupeKey,
-      run: () => aiService.getHealthInsights(scopedTasks, allUsers),
+      run: () => aiService.getHealthInsights(presetTasks, allUsers),
       onSuccess: (result) => {
         setInsights(result);
         toastService.success('AI analysis complete', 'Insights are ready.');
@@ -158,6 +185,40 @@ const AnalyticsView: React.FC<AnalyticsViewProps> = ({ tasks, projects, allUsers
       onError: () => toastService.error('AI analysis failed', 'Please retry in a moment.')
     });
     setIsCheckingAI(aiJobService.isJobRunning(orgId, currentUser.id, dedupeKey));
+  };
+
+  const saveCurrentPreset = () => {
+    if (!currentUser) return;
+    const name = newPresetName.trim();
+    if (!name) {
+      toastService.warning('Name required', 'Enter a preset name.');
+      return;
+    }
+    analyticsPresetService.create({
+      userId: currentUser.id,
+      orgId,
+      name,
+      key: selectedPreset,
+      selectedProjectId,
+      visibility: sharePreset ? 'shared' : 'personal'
+    });
+    setSavedPresets(analyticsPresetService.list(currentUser.id, orgId));
+    setNewPresetName('');
+    setSharePreset(false);
+    toastService.success('Preset saved', `"${name}" saved.`);
+  };
+
+  const applySavedPreset = (presetId: string) => {
+    const preset = savedPresets.find((item) => item.id === presetId);
+    if (!preset) return;
+    setSelectedPreset(preset.key);
+    setSelectedProjectId(preset.selectedProjectId);
+  };
+
+  const removeSavedPreset = (presetId: string) => {
+    if (!currentUser) return;
+    analyticsPresetService.remove(currentUser.id, orgId, presetId);
+    setSavedPresets(analyticsPresetService.list(currentUser.id, orgId));
   };
 
   return (
@@ -183,36 +244,76 @@ const AnalyticsView: React.FC<AnalyticsViewProps> = ({ tasks, projects, allUsers
               </button>
             </div>
             <div className={`${mobileFiltersOpen ? 'block' : 'hidden'} md:hidden`}>
-              <select
+              <AppSelect
                 value={selectedProjectId}
-                onChange={(event) => setSelectedProjectId(event.target.value)}
-                className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-700 outline-none"
-              >
-                <option value="all">All active projects</option>
-                {activeProjects.map((project) => (
-                  <option key={project.id} value={project.id}>
-                    {project.name}
-                  </option>
-                ))}
-              </select>
+                onChange={setSelectedProjectId}
+                className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-700"
+                options={[
+                  { value: 'all', label: 'All active projects' },
+                  ...activeProjects.map((project) => ({ value: project.id, label: project.name }))
+                ]}
+              />
             </div>
             <div className="hidden md:flex w-full flex-col gap-2 md:w-auto md:flex-row md:items-center">
-              <select
-                value={selectedProjectId}
-                onChange={(event) => setSelectedProjectId(event.target.value)}
-                className="h-9 min-w-[220px] rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-700 outline-none"
-              >
-                <option value="all">All active projects</option>
-                {activeProjects.map((project) => (
-                  <option key={project.id} value={project.id}>
-                    {project.name}
-                  </option>
-                ))}
-              </select>
+              <div className="min-w-[180px]">
+                <AppSelect
+                  value={selectedPreset}
+                  onChange={(value) => setSelectedPreset(value as AnalyticsPresetKey)}
+                  className="h-9 rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-700"
+                  options={[
+                    { value: 'overview', label: 'Overview preset' },
+                    { value: 'delivery', label: 'Delivery preset' },
+                    { value: 'risk', label: 'Risk preset' },
+                    { value: 'budget', label: 'Budget preset' }
+                  ]}
+                />
+              </div>
+              <div className="min-w-[220px]">
+                <AppSelect
+                  value={selectedProjectId}
+                  onChange={setSelectedProjectId}
+                  className="h-9 rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-700"
+                  options={[
+                    { value: 'all', label: 'All active projects' },
+                    ...activeProjects.map((project) => ({ value: project.id, label: project.name }))
+                  ]}
+                />
+              </div>
               <Button onClick={runAIHealthAudit} variant="secondary" disabled={isCheckingAI} className="h-9 px-3 text-sm">
                 <Sparkles className={`mr-1.5 h-4 w-4 ${isCheckingAI ? 'animate-pulse' : ''}`} />
                 {isCheckingAI ? 'Running AI…' : 'Run AI analysis'}
               </Button>
+            </div>
+          </div>
+          <div className="mt-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                value={newPresetName}
+                onChange={(event) => setNewPresetName(event.target.value)}
+                placeholder="Save preset as..."
+                className="h-8 w-44 rounded-lg border border-slate-300 bg-white px-2 text-xs text-slate-700"
+              />
+              <label className="inline-flex items-center gap-1 text-xs text-slate-600">
+                <input type="checkbox" checked={sharePreset} onChange={(event) => setSharePreset(event.target.checked)} />
+                Share
+              </label>
+              <button type="button" onClick={saveCurrentPreset} className="h-8 rounded-lg border border-slate-300 bg-white px-2 text-xs text-slate-700 hover:bg-slate-50">
+                Save preset
+              </button>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {savedPresets.slice(0, 6).map((preset) => (
+                <div key={preset.id} className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2 py-1">
+                  <button type="button" onClick={() => applySavedPreset(preset.id)} className="text-[11px] text-slate-700">
+                    {preset.name}{preset.visibility === 'shared' ? ' (Shared)' : ''}
+                  </button>
+                  {preset.userId === currentUser?.id ? (
+                    <button type="button" onClick={() => removeSavedPreset(preset.id)} className="text-[11px] text-rose-600">
+                      ×
+                    </button>
+                  ) : null}
+                </div>
+              ))}
             </div>
           </div>
         </section>

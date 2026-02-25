@@ -58,6 +58,15 @@ const ProjectOwnerChatModal: React.FC<ProjectOwnerChatModalProps> = ({
     return `Chat with ${ownerName}`;
   }, [owner?.displayName]);
 
+  const handleSend = () => {
+    if (!canChat) return;
+    const sent = projectChatService.sendMessage(currentUser, project, text);
+    if (sent) {
+      setText('');
+      reload();
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -103,19 +112,17 @@ const ProjectOwnerChatModal: React.FC<ProjectOwnerChatModalProps> = ({
             <input
               value={text}
               onChange={(event) => setText(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key !== 'Enter') return;
+                event.preventDefault();
+                handleSend();
+              }}
               disabled={!canChat}
               placeholder={canChat ? 'Type a message...' : 'You do not have access to this chat'}
               className="flex-1 h-10 rounded-lg border border-slate-300 px-3 text-sm outline-none focus:ring-2 focus:ring-slate-300 disabled:opacity-60"
             />
             <button
-              onClick={() => {
-                if (!canChat) return;
-                const sent = projectChatService.sendMessage(currentUser, project, text);
-                if (sent) {
-                  setText('');
-                  reload();
-                }
-              }}
+              onClick={handleSend}
               disabled={!canChat || !text.trim()}
               className="h-10 px-3 rounded-lg bg-slate-900 text-white text-sm inline-flex items-center gap-1.5 disabled:opacity-40 whitespace-nowrap"
             >

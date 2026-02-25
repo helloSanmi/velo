@@ -25,6 +25,13 @@ enum AiProvider {
   gemini
 }
 
+enum OAuthProvider {
+  google
+  microsoft
+  slack
+  github
+}
+
 enum AuditActionType {
   auth_login
   auth_logout
@@ -44,10 +51,17 @@ enum AuditActionType {
 model Organization {
   id                 String   @id
   name               String
+  loginSubdomain     String   @unique
   plan               String   @default("basic")
   totalSeats         Int
   seatPrice          Int      @default(0)
   billingCurrency    String   @default("USD")
+  allowGoogleAuth    Boolean  @default(false)
+  allowMicrosoftAuth Boolean  @default(false)
+  googleWorkspaceConnected Boolean @default(false)
+  microsoftWorkspaceConnected Boolean @default(false)
+  googleHostedDomain String?
+  microsoftTenantId  String?
   ownerId            String
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
@@ -65,6 +79,7 @@ model Organization {
   auditLogs          AuditLog[]
   aiUsageDaily       AiUsageDaily[]
   aiInteractions     AiInteraction[]
+  oauthConnections   OrganizationOAuthConnection[]
 }
 
 model User {
@@ -77,6 +92,10 @@ model User {
   email          String
   avatar         String?
   role           UserRole @default(member)
+  licenseActive  Boolean  @default(true)
+  mustChangePassword Boolean @default(false)
+  googleSubject  String?  @unique
+  microsoftSubject String? @unique
   passwordHash   String
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
@@ -274,4 +293,22 @@ model AuditLog {
 
   @@index([orgId, createdAt])
   @@index([orgId, actionType, createdAt])
+}
+
+model OrganizationOAuthConnection {
+  id                   String        @id
+  orgId                String
+  provider             OAuthProvider
+  accessToken          String?
+  accessTokenExpiresAt DateTime?
+  refreshToken         String?
+  scope                String?
+  metadata             Json?
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+
+  organization         Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, provider])
+  @@index([orgId, provider])
 }
