@@ -10,20 +10,11 @@ interface IntegrationHubProps {
   projects: Project[];
   onUpdateProject: (id: string, updates: Partial<Project>) => void;
   org?: Organization | null;
-  onUpdateOrganizationSettings?: (patch: Partial<Pick<Organization, 'allowGoogleAuth' | 'allowMicrosoftAuth' | 'googleWorkspaceConnected' | 'microsoftWorkspaceConnected'>>) => Promise<void>;
+  onUpdateOrganizationSettings?: (patch: Partial<Pick<Organization, 'allowMicrosoftAuth' | 'microsoftWorkspaceConnected'>>) => Promise<void>;
   compact?: boolean;
 }
 
 type StatusFilter = 'All' | 'Connected' | 'Not Connected';
-
-const GoogleLogo = () => (
-  <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden="true">
-    <path fill="#EA4335" d="M12 10.2v3.9h5.5c-.2 1.3-1.5 3.9-5.5 3.9-3.3 0-6-2.7-6-6s2.7-6 6-6c1.9 0 3.1.8 3.8 1.5l2.6-2.5C16.8 3.5 14.6 2.5 12 2.5A9.5 9.5 0 0 0 2.5 12c0 5.2 4.3 9.5 9.5 9.5 5.5 0 9.1-3.9 9.1-9.3 0-.6-.1-1.1-.2-1.5H12Z" />
-    <path fill="#34A853" d="M2.5 12c0 1.7.5 3.2 1.4 4.5l3.2-2.5a6 6 0 0 1-.3-2c0-.7.1-1.3.3-1.9L3.9 7.6A9.4 9.4 0 0 0 2.5 12Z" />
-    <path fill="#FBBC05" d="M12 21.5c2.6 0 4.8-.9 6.4-2.5l-3.1-2.4c-.8.6-1.9 1-3.3 1-2.5 0-4.7-1.7-5.5-4l-3.2 2.5A9.5 9.5 0 0 0 12 21.5Z" />
-    <path fill="#4285F4" d="M18.4 19c1.8-1.6 2.7-4 2.7-6.8 0-.6-.1-1.1-.2-1.5H12v3.9h5.5c-.2 1-.7 2.3-2.2 3.4l3.1 2.4Z" />
-  </svg>
-);
 
 const MicrosoftLogo = () => (
   <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden="true">
@@ -41,7 +32,7 @@ const IntegrationHub: React.FC<IntegrationHubProps> = ({ projects, onUpdateProje
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [githubRepo, setGithubRepo] = useState('');
   const [slackChannel, setSlackChannel] = useState('');
-  const [connectingProvider, setConnectingProvider] = useState<'google' | 'microsoft' | null>(null);
+  const [connectingProvider, setConnectingProvider] = useState<'microsoft' | null>(null);
   const [connectingIntegrationProvider, setConnectingIntegrationProvider] = useState<'slack' | 'github' | null>(null);
   const [integrationConnections, setIntegrationConnections] = useState<{ slackConnected: boolean; githubConnected: boolean; slackLabel?: string; githubLabel?: string }>({
     slackConnected: false,
@@ -157,20 +148,18 @@ const IntegrationHub: React.FC<IntegrationHubProps> = ({ projects, onUpdateProje
     });
   };
 
-  const handleConnectProvider = async (provider: 'google' | 'microsoft') => {
+  const handleConnectProvider = async (provider: 'microsoft') => {
     if (!org || !org.loginSubdomain || !onUpdateOrganizationSettings) return;
     setSsoError('');
     setConnectingProvider(provider);
     const result = await userService.connectWorkspaceProvider(provider, `${org.loginSubdomain}.velo.ai`);
     setConnectingProvider(null);
     if (!result.success) {
-      setSsoError(result.error || `Could not connect ${provider === 'google' ? 'Google' : 'Microsoft'} SSO.`);
+      setSsoError(result.error || 'Could not connect Microsoft SSO.');
       return;
     }
     await onUpdateOrganizationSettings({
-      googleWorkspaceConnected: result.googleConnected,
       microsoftWorkspaceConnected: result.microsoftConnected,
-      allowGoogleAuth: result.googleAllowed,
       allowMicrosoftAuth: result.microsoftAllowed
     });
   };
@@ -258,49 +247,11 @@ const IntegrationHub: React.FC<IntegrationHubProps> = ({ projects, onUpdateProje
               <div>
                 <h3 className="text-base font-semibold text-slate-900">Workspace SSO</h3>
                 <p className="mt-1 text-xs text-slate-500">
-                  Configure organization-level Microsoft and Google sign-in for {org.loginSubdomain || 'workspace'}.velo.ai.
+                  Configure organization-level Microsoft sign-in for {org.loginSubdomain || 'workspace'}.velo.ai.
                 </p>
               </div>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <article className="rounded-xl border border-slate-200 bg-slate-50 p-3.5 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="inline-flex items-center gap-2.5">
-                    <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-white border border-slate-200">
-                      <GoogleLogo />
-                    </span>
-                    <div>
-                      <p className="text-sm font-semibold text-slate-900">Google Workspace</p>
-                      <p className="text-[11px] text-slate-500">Org-wide sign-in provider</p>
-                    </div>
-                  </div>
-                  <Badge variant={org.googleWorkspaceConnected ? 'emerald' : 'neutral'}>
-                    {org.googleWorkspaceConnected ? 'Connected' : 'Not connected'}
-                  </Badge>
-                </div>
-                <label className="rounded-lg border border-slate-200 bg-white px-2.5 py-2 flex items-center justify-between">
-                  <span className="text-xs text-slate-700">Consent / connection</span>
-                  <Button
-                    size="sm"
-                    variant={org.googleWorkspaceConnected ? 'outline' : 'primary'}
-                    className="!h-7 !px-2.5 !text-[11px]"
-                    onClick={() => handleConnectProvider('google')}
-                    isLoading={connectingProvider === 'google'}
-                  >
-                    {org.googleWorkspaceConnected ? 'Reconnect' : 'Connect'}
-                  </Button>
-                </label>
-                <label className="rounded-lg border border-slate-200 bg-white px-2.5 py-2 flex items-center justify-between">
-                  <span className="text-xs text-slate-700">Allow user sign-in</span>
-                  <input
-                    type="checkbox"
-                    checked={Boolean(org.allowGoogleAuth)}
-                    onChange={(event) => onUpdateOrganizationSettings({ allowGoogleAuth: event.target.checked })}
-                    disabled={!org.googleWorkspaceConnected}
-                  />
-                </label>
-              </article>
-
+            <div className="grid grid-cols-1 gap-3">
               <article className="rounded-xl border border-slate-200 bg-slate-50 p-3.5 space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="inline-flex items-center gap-2.5">

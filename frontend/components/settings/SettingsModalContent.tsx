@@ -128,6 +128,7 @@ const SettingsModalContent: React.FC<SettingsModalContentProps> = (props) => {
           setNewInviteRole={props.setNewInviteRole}
           handleCreateInvite={props.handleCreateInvite}
           handleRevokeInvite={props.handleRevokeInvite}
+          handleResendInvite={props.handleResendInvite}
           onRefreshWorkspaceUsers={props.refreshWorkspaceUsers}
           aiUsageRows={props.aiUsageRows}
           onRefreshAiUsage={props.refreshAiUsage}

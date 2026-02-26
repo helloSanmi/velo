@@ -277,9 +277,19 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   };
 
   const handleCreateInvite = async () => {
+    const cleanInviteEmail = newInviteIdentifier.trim().toLowerCase();
+    if (!cleanInviteEmail) {
+      await dialogService.notice('Enter the user work email before creating an invite.', { title: 'Invite required' });
+      return;
+    }
+    const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanInviteEmail);
+    if (!emailOk) {
+      await dialogService.notice('Enter a valid work email address.', { title: 'Invalid email' });
+      return;
+    }
     const result = await userService.createInviteRemote(user.orgId, {
       role: newInviteRole,
-      invitedIdentifier: newInviteIdentifier.trim() || undefined,
+      invitedIdentifier: cleanInviteEmail,
       ttlDays: 14,
       maxUses: 1
     });
@@ -289,7 +299,18 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     }
     setInvites(await userService.fetchInvitesFromBackend(user.orgId));
     setNewInviteIdentifier('');
-    await dialogService.notice(`Invite token: ${result.invite.token}`, { title: 'Invite created' });
+    const inviteLink = `${window.location.origin}/?invite=${encodeURIComponent(result.invite.token)}`;
+    const deliveryStatus = (result.invite.deliveryStatus || 'pending').toLowerCase();
+    try {
+      await navigator.clipboard.writeText(inviteLink);
+      if (deliveryStatus === 'sent') {
+        await dialogService.notice(`Invite email sent and link copied:\n${inviteLink}`, { title: 'Invite created' });
+      } else {
+        await dialogService.notice(`Invite created, but email delivery is ${deliveryStatus.replace('_', ' ')}.\nLink copied:\n${inviteLink}`, { title: 'Invite created' });
+      }
+    } catch {
+      await dialogService.notice(`Invite link:\n${inviteLink}`, { title: 'Invite created' });
+    }
   };
 
   const handleAvatarUpdate = async (avatar: string) => {
@@ -350,7 +371,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   };
 
   const handleUpdateOrganizationSettings = async (
-    patch: Partial<Pick<Organization, 'loginSubdomain' | 'allowGoogleAuth' | 'allowMicrosoftAuth' | 'googleWorkspaceConnected' | 'microsoftWorkspaceConnected'>>
+    patch: Partial<Pick<Organization, 'loginSubdomain' | 'allowMicrosoftAuth' | 'microsoftWorkspaceConnected'>>
   ) => {
     if (!user || user.role !== 'admin' || !org) return;
     const updated = await userService.updateOrganizationSettingsRemote(org.id, patch);
@@ -360,6 +381,15 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   const handleRevokeInvite = async (inviteId: string) => {
     const result = await userService.revokeInviteRemote(user.orgId, inviteId);
     if (!result.success) return;
+    setInvites(await userService.fetchInvitesFromBackend(user.orgId));
+  };
+
+  const handleResendInvite = async (inviteId: string) => {
+    const result = await userService.resendInviteRemote(user.orgId, inviteId);
+    if (!result.success) {
+      await dialogService.notice(result.error || 'Could not resend invite.', { title: 'Invite resend failed' });
+      return;
+    }
     setInvites(await userService.fetchInvitesFromBackend(user.orgId));
   };
 
@@ -505,6 +535,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
               setNewInviteRole={setNewInviteRole}
               handleCreateInvite={handleCreateInvite}
               handleRevokeInvite={handleRevokeInvite}
+              handleResendInvite={handleResendInvite}
               refreshWorkspaceUsers={refreshWorkspaceUsers}
               aiUsageRows={aiUsageRows}
               refreshAiUsage={refreshAiUsage}

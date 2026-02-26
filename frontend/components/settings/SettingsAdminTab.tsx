@@ -6,6 +6,7 @@ import SettingsAdminHeaderCard from './SettingsAdminHeaderCard';
 import SettingsAdminUsersSection from './SettingsAdminUsersSection';
 import SettingsAdminInviteSection from './SettingsAdminInviteSection';
 import SettingsAdminProvisionDrawer from './SettingsAdminProvisionDrawer';
+import SettingsTicketNotificationPolicySection from './SettingsTicketNotificationPolicySection';
 
 interface SettingsAdminTabProps {
   user: UserType; org: Organization | null; allUsers: UserType[]; isProvisioning: boolean; setIsProvisioning: (value: boolean) => void;
@@ -16,16 +17,16 @@ interface SettingsAdminTabProps {
   editingUserId: string | null; editFirstNameValue: string; setEditFirstNameValue: (value: string) => void; editLastNameValue: string; setEditLastNameValue: (value: string) => void; editEmailValue: string; setEditEmailValue: (value: string) => void;
   handleCommitEdit: () => void; handleStartEdit: (targetUser: UserType) => void; handleUpdateUserRole: (userId: string, role: 'admin' | 'member') => void; handlePurgeUser: (userId: string) => void;
   invites: OrgInvite[]; newInviteIdentifier: string; setNewInviteIdentifier: (value: string) => void; newInviteRole: 'member' | 'admin'; setNewInviteRole: (value: 'member' | 'admin') => void;
-  handleCreateInvite: () => void; handleRevokeInvite: (inviteId: string) => void; onRefreshWorkspaceUsers: () => Promise<void>;
+  handleCreateInvite: () => void; handleRevokeInvite: (inviteId: string) => void; handleResendInvite: (inviteId: string) => void; onRefreshWorkspaceUsers: () => Promise<void>;
   aiUsageRows: Array<{ id: string; orgId: string; dayKey: string; requestsUsed: number; tokensUsed: number; warningIssuedAt?: string | null; blockedAt?: string | null }>;
   onRefreshAiUsage: () => Promise<void>;
-  onUpdateOrganizationSettings: (patch: Partial<Pick<Organization, 'loginSubdomain' | 'allowGoogleAuth' | 'allowMicrosoftAuth' | 'googleWorkspaceConnected' | 'microsoftWorkspaceConnected'>>) => Promise<void>;
+  onUpdateOrganizationSettings: (patch: Partial<Pick<Organization, 'loginSubdomain' | 'allowMicrosoftAuth' | 'microsoftWorkspaceConnected'>>) => Promise<void>;
   settings: UserSettings;
   onUpdateSettings: (updates: Partial<UserSettings>) => void;
 }
 
-type DirectoryEntry = { externalId: string; email: string; displayName: string; provider: 'google' | 'microsoft'; firstName?: string; lastName?: string };
-type Row = { key: string; source: 'workspace'; displayName: string; email: string; role: 'admin' | 'member' | 'guest'; licensed: boolean; member: UserType } | { key: string; source: 'directory'; provider: 'google' | 'microsoft'; displayName: string; email: string; licensed: false; entry: DirectoryEntry };
+type DirectoryEntry = { externalId: string; email: string; displayName: string; provider: 'microsoft'; firstName?: string; lastName?: string };
+type Row = { key: string; source: 'workspace'; displayName: string; email: string; role: 'admin' | 'member' | 'guest'; licensed: boolean; member: UserType } | { key: string; source: 'directory'; provider: 'microsoft'; displayName: string; email: string; licensed: false; entry: DirectoryEntry };
 
 const SettingsAdminTab: React.FC<SettingsAdminTabProps> = (p) => {
   const [userSearch, setUserSearch] = useState(''); const [peopleExpanded, setPeopleExpanded] = useState(true); const [inviteExpanded, setInviteExpanded] = useState(false);
@@ -37,7 +38,7 @@ const SettingsAdminTab: React.FC<SettingsAdminTabProps> = (p) => {
   const rows = useMemo<Row[]>(() => ([...p.allUsers.map((member) => ({ key: `usr:${member.id}`, source: 'workspace' as const, displayName: member.displayName, email: member.email || '', role: (member.role || 'member') as 'admin' | 'member' | 'guest', licensed: member.licenseActive !== false, member })), ...directoryUsers.filter((entry) => !usersByEmail[entry.email.toLowerCase()]).map((entry) => ({ key: `dir:${entry.email.toLowerCase()}`, source: 'directory' as const, provider: entry.provider, displayName: entry.displayName, email: entry.email, licensed: false as const, entry }))]), [p.allUsers, directoryUsers, usersByEmail]);
   const filteredRows = useMemo(() => { const q = userSearch.trim().toLowerCase(); return q ? rows.filter((row) => `${row.displayName} ${row.email}`.toLowerCase().includes(q)) : rows; }, [rows, userSearch]);
 
-  const mergeDirectoryUsers = useCallback((provider: 'google' | 'microsoft', entries: DirectoryEntry[]) => {
+  const mergeDirectoryUsers = useCallback((provider: 'microsoft', entries: DirectoryEntry[]) => {
     setDirectoryUsers((prev) => {
       const next = [...prev]; const indexByEmail = new Map(next.map((entry, index) => [entry.email.toLowerCase(), index]));
       for (const entry of entries) { const key = entry.email.toLowerCase(); const index = indexByEmail.get(key); if (index === undefined) { indexByEmail.set(key, next.length); next.push(entry); } else next[index] = entry; }
@@ -46,16 +47,15 @@ const SettingsAdminTab: React.FC<SettingsAdminTabProps> = (p) => {
     });
   }, [directoryCacheKey]);
 
-  const handleSyncDirectory = useCallback(async (provider: 'google' | 'microsoft') => {
-    if (provider === 'google' && !p.org?.googleWorkspaceConnected) return setDirectoryError('Google is not connected in Integrations.');
+  const handleSyncDirectory = useCallback(async (provider: 'microsoft') => {
     if (provider === 'microsoft' && !p.org?.microsoftWorkspaceConnected) return setDirectoryError('Microsoft is not connected in Integrations.');
     setDirectoryLoading(true); setDirectoryError('');
     try {
       let result = await userService.startDirectoryImport(provider);
       if (!result.success && result.code === 'SSO_RECONNECT_REQUIRED' && p.org?.loginSubdomain) {
         const reconnect = await userService.connectWorkspaceProvider(provider, `${p.org.loginSubdomain}.velo.ai`);
-        if (!reconnect.success) return setDirectoryError(reconnect.error || `Could not reconnect ${provider === 'google' ? 'Google' : 'Microsoft'} directory access.`);
-        await p.onUpdateOrganizationSettings({ googleWorkspaceConnected: reconnect.googleConnected, microsoftWorkspaceConnected: reconnect.microsoftConnected, allowGoogleAuth: reconnect.googleAllowed, allowMicrosoftAuth: reconnect.microsoftAllowed });
+        if (!reconnect.success) return setDirectoryError(reconnect.error || 'Could not reconnect Microsoft directory access.');
+        await p.onUpdateOrganizationSettings({ microsoftWorkspaceConnected: reconnect.microsoftConnected, allowMicrosoftAuth: reconnect.microsoftAllowed });
         result = await userService.startDirectoryImport(provider);
       }
       if (!result.success || !result.users) return setDirectoryError(result.error || 'Could not sync directory.');
@@ -103,6 +103,7 @@ const SettingsAdminTab: React.FC<SettingsAdminTabProps> = (p) => {
         onLicenseRow={handleLicenseRow}
         onRemoveUser={p.handlePurgeUser}
       />
+      {p.org ? <SettingsTicketNotificationPolicySection orgId={p.org.id} /> : null}
       <SettingsAdminInviteSection
         settings={p.settings}
         onUpdateSettings={p.onUpdateSettings}
@@ -115,6 +116,7 @@ const SettingsAdminTab: React.FC<SettingsAdminTabProps> = (p) => {
         setNewInviteRole={p.setNewInviteRole}
         handleCreateInvite={p.handleCreateInvite}
         handleRevokeInvite={p.handleRevokeInvite}
+        handleResendInvite={p.handleResendInvite}
       />
       <SettingsAdminProvisionDrawer
         open={p.isProvisioning}

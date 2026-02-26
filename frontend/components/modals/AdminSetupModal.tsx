@@ -67,7 +67,7 @@ const AdminSetupModal: React.FC<AdminSetupModalProps> = ({
   };
 
   const updateOrgSettings = async (
-    patch: Partial<Pick<Organization, 'allowGoogleAuth' | 'allowMicrosoftAuth' | 'googleWorkspaceConnected' | 'microsoftWorkspaceConnected'>>
+    patch: Partial<Pick<Organization, 'allowMicrosoftAuth' | 'microsoftWorkspaceConnected'>>
   ) => {
     const updated = await userService.updateOrganizationSettingsRemote(user.orgId, patch);
     if (updated) setOrg(updated);
@@ -146,23 +146,7 @@ const AdminSetupModal: React.FC<AdminSetupModalProps> = ({
 
           <div className="rounded-xl border border-slate-200 bg-slate-50 p-3.5 space-y-2.5">
             <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Step 2 (optional): workspace identity login</p>
-            <p className="text-xs text-slate-500">Enable sign-in with Google or Microsoft now, or configure later in Integrations.</p>
-            <label className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-2.5 py-2">
-              <span className="text-xs text-slate-700">Google Workspace connected</span>
-              <input
-                type="checkbox"
-                checked={Boolean(org?.googleWorkspaceConnected)}
-                onChange={(event) => updateOrgSettings({ googleWorkspaceConnected: event.target.checked })}
-              />
-            </label>
-            <label className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-2.5 py-2">
-              <span className="text-xs text-slate-700">Allow Google sign-in</span>
-              <input
-                type="checkbox"
-                checked={Boolean(org?.allowGoogleAuth)}
-                onChange={(event) => updateOrgSettings({ allowGoogleAuth: event.target.checked })}
-              />
-            </label>
+            <p className="text-xs text-slate-500">Enable Microsoft sign-in now, or configure later in Integrations.</p>
             <label className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-2.5 py-2">
               <span className="text-xs text-slate-700">Microsoft Workspace connected</span>
               <input

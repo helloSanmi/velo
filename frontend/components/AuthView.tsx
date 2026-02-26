@@ -17,27 +17,6 @@ interface AuthViewProps {
 type Tier = 'free' | 'basic' | 'pro';
 type AuthMode = 'login' | 'signup' | 'join';
 
-const GoogleLogo = () => (
-  <svg viewBox="0 0 24 24" className="h-6 w-6" aria-hidden="true">
-    <path
-      fill="#4285F4"
-      d="M23.49 12.27c0-.79-.07-1.54-.2-2.27H12v4.29h6.46a5.52 5.52 0 0 1-2.4 3.62v3h3.89c2.28-2.1 3.54-5.2 3.54-8.64Z"
-    />
-    <path
-      fill="#34A853"
-      d="M12 24c3.24 0 5.95-1.08 7.93-2.92l-3.89-3a7.2 7.2 0 0 1-10.71-3.79H1.31v3.09A12 12 0 0 0 12 24Z"
-    />
-    <path
-      fill="#FBBC05"
-      d="M5.33 14.29a7.2 7.2 0 0 1 0-4.58V6.62H1.31a12 12 0 0 0 0 10.76l4.02-3.09Z"
-    />
-    <path
-      fill="#EA4335"
-      d="M12 4.77c1.76 0 3.34.61 4.58 1.8l3.43-3.43C17.94 1.19 15.24 0 12 0 7.31 0 3.26 2.69 1.31 6.62l4.02 3.09A7.2 7.2 0 0 1 12 4.77Z"
-    />
-  </svg>
-);
-
 const MicrosoftLogo = () => (
   <svg viewBox="0 0 24 24" className="h-6 w-6" aria-hidden="true">
     <rect x="2" y="2" width="9" height="9" fill="#F35325" />
@@ -75,25 +54,30 @@ const AuthView: React.FC<AuthViewProps> = ({ onAuthSuccess, initialMode = 'login
     ? 'login'
     : initialMode === 'register'
       ? 'signup'
-      : initialMode === 'join'
-        ? 'join'
-        : 'login';
+      : 'login';
   const [mode, setMode] = useState<AuthMode>(initialAuthMode);
   const [identifier, setIdentifier] = useState('');
   const [inviteToken, setInviteToken] = useState('');
+  const [invitePreview, setInvitePreview] = useState<{
+    token: string;
+    role: 'member' | 'admin';
+    invitedIdentifier: string | null;
+    expiresAt: string;
+    org: { id: string; name: string; loginSubdomain: string };
+  } | null>(null);
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isResetPasswordMode, setIsResetPasswordMode] = useState(false);
   const [resetNotice, setResetNotice] = useState('');
-  const [licenseBlocked, setLicenseBlocked] = useState<{ provider: 'google' | 'microsoft'; message: string } | null>(null);
+  const [licenseBlocked, setLicenseBlocked] = useState<{ provider: 'microsoft'; message: string } | null>(null);
   const [orgName, setOrgName] = useState('');
   const [selectedTier, setSelectedTier] = useState<Tier>('basic');
   const [seatCount, setSeatCount] = useState(3);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [oauthLoadingProvider, setOauthLoadingProvider] = useState<'google' | 'microsoft' | null>(null);
+  const [oauthLoadingProvider, setOauthLoadingProvider] = useState<'microsoft' | null>(null);
   const [workspaceName, setWorkspaceName] = useState<string>('');
 
   const plans: Array<{ id: Tier; label: string; maxSeats?: number; price: number }> = [
@@ -104,6 +88,7 @@ const AuthView: React.FC<AuthViewProps> = ({ onAuthSuccess, initialMode = 'login
   const selectedPlan = plans.find((plan) => plan.id === selectedTier) || plans[1];
   const effectiveSeatCount = selectedTier === 'free' ? Math.max(1, Math.min(3, seatCount || 1)) : null;
   const inferredWorkspaceDomain = inferWorkspaceDomainFromHost();
+  const inferredWorkspaceSubdomain = inferredWorkspaceDomain?.split('.')[0]?.toLowerCase();
 
   useEffect(() => {
     if (!scopedWorkspace || !inferredWorkspaceDomain) return;
@@ -117,7 +102,51 @@ const AuthView: React.FC<AuthViewProps> = ({ onAuthSuccess, initialMode = 'login
     };
   }, [scopedWorkspace, inferredWorkspaceDomain]);
 
-  const handleProviderSignIn = async (provider: 'google' | 'microsoft') => {
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const tokenFromLink = (params.get('invite') || params.get('token') || '').trim();
+    if (!tokenFromLink) return;
+    setMode('join');
+    setInviteToken(tokenFromLink);
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!inviteToken.trim()) {
+      setInvitePreview(null);
+      return;
+    }
+
+    userService.previewInvite(inviteToken.trim()).then((result) => {
+      if (cancelled) return;
+      if (!result.success || !result.data) {
+        setInvitePreview(null);
+        setError(result.error || 'Invite link is invalid or expired.');
+        return;
+      }
+      if (
+        scopedWorkspace &&
+        inferredWorkspaceSubdomain &&
+        result.data.org.loginSubdomain.toLowerCase() !== inferredWorkspaceSubdomain
+      ) {
+        setInvitePreview(null);
+        setError(`This invite is for ${result.data.org.loginSubdomain}. Open that workspace URL to continue.`);
+        return;
+      }
+      setError('');
+      setInvitePreview(result.data);
+      if (result.data.invitedIdentifier) {
+        setIdentifier(result.data.invitedIdentifier);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [inviteToken]);
+
+  const handleProviderSignIn = async (provider: 'microsoft') => {
     setError('');
     setLicenseBlocked(null);
     setOauthLoadingProvider(provider);
@@ -131,7 +160,7 @@ const AuthView: React.FC<AuthViewProps> = ({ onAuthSuccess, initialMode = 'login
         setOauthLoadingProvider(null);
         return;
       }
-      setError(result.error || `${provider === 'google' ? 'Google' : 'Microsoft'} sign-in failed.`);
+      setError(result.error || 'Microsoft sign-in failed.');
       setOauthLoadingProvider(null);
       return;
     }
@@ -144,7 +173,9 @@ const AuthView: React.FC<AuthViewProps> = ({ onAuthSuccess, initialMode = 'login
     setError('');
     setResetNotice('');
 
-    if (!identifier.trim()) return setError('Enter your username or email.');
+    const resolvedInviteIdentifier = (invitePreview?.invitedIdentifier || identifier).trim();
+    if (mode !== 'join' && !identifier.trim()) return setError('Enter your username or email.');
+    if (mode === 'join' && !resolvedInviteIdentifier) return setError('Enter your work email or username from the invite.');
     if (!isResetPasswordMode && !password.trim()) return setError('Enter your password.');
     if (isResetPasswordMode && !password.trim()) return setError('Enter your new password.');
     if (isResetPasswordMode && !confirmPassword.trim()) return setError('Re-enter your new password.');
@@ -187,11 +218,11 @@ const AuthView: React.FC<AuthViewProps> = ({ onAuthSuccess, initialMode = 'login
 
     if (mode === 'join') {
       if (!inviteToken.trim()) {
-        setError('Enter your invite token.');
+        setError('Invite link is required.');
         setLoading(false);
         return;
       }
-      const result = await userService.acceptInviteWithPassword(inviteToken, identifier.trim(), password.trim());
+      const result = await userService.acceptInviteWithPassword(inviteToken, resolvedInviteIdentifier, password.trim());
       if (!result.success || !result.user) {
         setError(result.error || 'Unable to join workspace.');
         setLoading(false);
@@ -318,7 +349,7 @@ const AuthView: React.FC<AuthViewProps> = ({ onAuthSuccess, initialMode = 'login
             ) : null}
 
             {!scopedWorkspace ? (
-              <div className="mb-6 grid grid-cols-3 rounded-xl bg-slate-100 p-1">
+              <div className="mb-6 grid grid-cols-2 rounded-xl bg-slate-100 p-1">
                 <button
                   type="button"
                   onClick={() => { setMode('login'); setError(''); setResetNotice(''); setIsResetPasswordMode(false); }}
@@ -333,13 +364,6 @@ const AuthView: React.FC<AuthViewProps> = ({ onAuthSuccess, initialMode = 'login
                 >
                   Create workspace
                 </button>
-                <button
-                  type="button"
-                  onClick={() => { setMode('join'); setError(''); setResetNotice(''); setIsResetPasswordMode(false); }}
-                  className={`h-10 rounded-lg text-sm font-medium ${mode === 'join' ? 'bg-white text-[#76003f] shadow-sm' : 'text-slate-500'}`}
-                >
-                  Join workspace
-                </button>
               </div>
             ) : null}
 
@@ -349,7 +373,7 @@ const AuthView: React.FC<AuthViewProps> = ({ onAuthSuccess, initialMode = 'login
                   <p className="font-semibold">No license seat available</p>
                   <p className="mt-1">{licenseBlocked.message}</p>
                   <p className="mt-1 text-xs text-amber-800">
-                    Ask your workspace admin to add/assign a seat, then retry {licenseBlocked.provider === 'google' ? 'Google' : 'Microsoft'} sign-in.
+                    Ask your workspace admin to add/assign a seat, then retry Microsoft sign-in.
                   </p>
                 </div>
               ) : null}
@@ -366,14 +390,23 @@ const AuthView: React.FC<AuthViewProps> = ({ onAuthSuccess, initialMode = 'login
                 </div>
               ) : null}
 
-              {mode === 'join' ? (
+              {mode === 'join' && invitePreview ? (
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+                  <p className="text-xs font-semibold text-emerald-800">Invite to workspace</p>
+                  <p className="mt-1 text-xs text-emerald-700">
+                    {invitePreview.org.name} ({invitePreview.org.loginSubdomain}.velo.ai)
+                  </p>
+                </div>
+              ) : null}
+
+              {mode === 'join' && !invitePreview ? (
                 <div>
-                  <label className="mb-1.5 block text-xs text-slate-500">Invite token</label>
+                  <label className="mb-1.5 block text-xs text-slate-500">Invite link token</label>
                   <input
                     required
                     value={inviteToken}
                     onChange={(e) => setInviteToken(e.target.value)}
-                    placeholder="velo_xxxxxxxx"
+                    placeholder="Paste invite token from your link"
                     className="h-11 w-full rounded-xl border border-slate-300 px-3.5 outline-none focus:ring-2 focus:ring-slate-300"
                   />
                 </div>
@@ -385,7 +418,8 @@ const AuthView: React.FC<AuthViewProps> = ({ onAuthSuccess, initialMode = 'login
                   value={identifier}
                   onChange={(e) => setIdentifier(e.target.value)}
                   placeholder="you@company.com"
-                  className="h-11 w-full rounded-xl border border-slate-300 px-3.5 outline-none focus:ring-2 focus:ring-slate-300"
+                  readOnly={mode === 'join' && Boolean(invitePreview?.invitedIdentifier)}
+                  className="h-11 w-full rounded-xl border border-slate-300 px-3.5 outline-none focus:ring-2 focus:ring-slate-300 read-only:bg-slate-50 read-only:text-slate-600"
                 />
               </div>
               <div>
@@ -497,22 +531,7 @@ const AuthView: React.FC<AuthViewProps> = ({ onAuthSuccess, initialMode = 'login
                     <span className="text-[11px] text-slate-500">or continue with</span>
                     <div className="h-px flex-1 bg-slate-200" />
                   </div>
-                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="h-11 w-full"
-                      disabled={oauthLoadingProvider !== null}
-                      onClick={(event) => {
-                        event.preventDefault();
-                        handleProviderSignIn('google');
-                      }}
-                      isLoading={oauthLoadingProvider === 'google'}
-                      aria-label="Sign in with Google"
-                      title="Sign in with Google"
-                    >
-                      <GoogleLogo />
-                    </Button>
+                  <div className="grid grid-cols-1 gap-2">
                     <Button
                       type="button"
                       variant="outline"
@@ -550,10 +569,10 @@ const AuthView: React.FC<AuthViewProps> = ({ onAuthSuccess, initialMode = 'login
             {!scopedWorkspace ? (
               <p className="mt-4 text-center text-xs text-slate-500">
                 {mode === 'login'
-                  ? 'Need a new workspace? Use Create workspace. Have an invite token? Use Join workspace.'
+                  ? 'Need a new workspace? Use Create workspace. Have an invite link? Open it directly.'
                   : mode === 'signup'
                     ? 'Already registered? Switch to Sign in.'
-                    : 'No invite token yet? Ask your admin to send one from Settings → Users.'}
+                    : 'No invite link yet? Ask your admin to send one from Settings → Users.'}
               </p>
             ) : null}
             </div>

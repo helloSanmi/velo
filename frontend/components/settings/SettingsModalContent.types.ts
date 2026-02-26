@@ -86,6 +86,7 @@ export interface SettingsModalContentProps {
   setNewInviteRole: (value: 'member' | 'admin') => void;
   handleCreateInvite: () => Promise<void>;
   handleRevokeInvite: (inviteId: string) => Promise<void>;
+  handleResendInvite: (inviteId: string) => Promise<void>;
   refreshWorkspaceUsers: () => Promise<void>;
   aiUsageRows: Array<{
     id: string;
@@ -97,5 +98,5 @@ export interface SettingsModalContentProps {
     blockedAt?: string | null;
   }>;
   refreshAiUsage: () => Promise<void>;
-  onUpdateOrganizationSettings: (patch: Partial<Pick<Organization, 'loginSubdomain' | 'allowGoogleAuth' | 'allowMicrosoftAuth' | 'googleWorkspaceConnected' | 'microsoftWorkspaceConnected'>>) => Promise<void>;
+  onUpdateOrganizationSettings: (patch: Partial<Pick<Organization, 'loginSubdomain' | 'allowMicrosoftAuth' | 'microsoftWorkspaceConnected'>>) => Promise<void>;
 }

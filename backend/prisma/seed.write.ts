@@ -29,9 +29,7 @@ export const seedOrganizationsAndUsers = async (prisma: PrismaClient, data: Seed
         plan: org.plan ?? 'basic',
         seatPrice: org.seatPrice ?? 5,
         billingCurrency: org.billingCurrency ?? 'USD',
-        allowGoogleAuth: false,
         allowMicrosoftAuth: false,
-        googleWorkspaceConnected: false,
         microsoftWorkspaceConnected: false,
         ownerId: org.ownerId,
         createdAt: org.createdAt ? new Date(org.createdAt) : undefined

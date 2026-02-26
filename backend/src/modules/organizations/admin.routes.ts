@@ -39,7 +39,7 @@ const updateLicenseSchema = z.object({
 });
 
 const importUsersSchema = z.object({
-  provider: z.enum(['google', 'microsoft']),
+  provider: z.enum(['microsoft']),
   users: z.array(
     z.object({
       email: z.string().email(),

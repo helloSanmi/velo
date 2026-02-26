@@ -22,7 +22,7 @@ const registerSchema = z.object({
 
 const acceptInviteSchema = z.object({
   token: z.string().min(1),
-  identifier: z.string().min(1),
+  identifier: z.string().min(1).optional(),
   password: z.string().min(1)
 });
 
@@ -48,7 +48,7 @@ const resetPasswordSchema = z.object({
   confirmPassword: z.string().min(1)
 });
 
-const oauthProviderSchema = z.enum(['google', 'microsoft']);
+const oauthProviderSchema = z.enum(['microsoft']);
 
 router.post('/register', async (req, res, next) => {
   try {
@@ -72,6 +72,16 @@ router.post('/invites/accept', async (req, res, next) => {
       userAgent: req.headers['user-agent'],
       ipAddress: req.ip
     });
+    res.json({ success: true, data: result });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get('/invites/:token', async (req, res, next) => {
+  try {
+    const token = z.string().min(1).parse(req.params.token);
+    const result = await authService.previewInvite(token);
     res.json({ success: true, data: result });
   } catch (error) {
     next(error);

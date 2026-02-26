@@ -3,7 +3,7 @@ import { prisma } from '../../lib/prisma.js';
 import { HttpError } from '../../lib/httpError.js';
 import { JwtUser } from './auth.types.js';
 import { RegisterPlan, toPublicUser } from './auth.shared.js';
-import { registerAuth, acceptInviteAuth } from './auth.registration.js';
+import { registerAuth, acceptInviteAuth, previewInviteAuth } from './auth.registration.js';
 import { changePasswordAuth, loginAuth, logoutAuth, refreshAuth, resetPasswordAuth } from './auth.sessions.js';
 
 export const authService = {
@@ -19,8 +19,12 @@ export const authService = {
     return registerAuth(input);
   },
 
-  acceptInvite(input: { token: string; identifier: string; password: string; userAgent?: string; ipAddress?: string }) {
+  acceptInvite(input: { token: string; identifier?: string; password: string; userAgent?: string; ipAddress?: string }) {
     return acceptInviteAuth(input);
+  },
+
+  previewInvite(token: string) {
+    return previewInviteAuth(token);
   },
 
   login(input: { identifier: string; password: string; workspaceDomain?: string; userAgent?: string; ipAddress?: string }) {

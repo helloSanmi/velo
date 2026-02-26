@@ -24,8 +24,10 @@ import {
   importDirectoryUsersRemote,
   loginWithPasswordRemote,
   provisionUserRemote,
+  previewInviteRemote,
   registerWithPasswordRemote,
   resetPasswordRemote,
+  resendInviteRemote,
   revokeInviteRemote,
   updateUserRemote,
   updateOrganizationSettingsRemote,
@@ -251,11 +253,11 @@ export const userService = {
 
   getOauthProviderAvailability: async (
     workspaceDomain: string
-  ): Promise<{ googleEnabled: boolean; microsoftEnabled: boolean; workspaceDomain?: string; orgName?: string; error?: string }> =>
+  ): Promise<{ microsoftEnabled: boolean; workspaceDomain?: string; orgName?: string; error?: string }> =>
     getOauthProviderAvailabilityRemote(workspaceDomain),
 
   loginWithProvider: async (
-    provider: 'google' | 'microsoft',
+    provider: 'microsoft',
     workspaceDomain?: string
   ): Promise<{ user?: User; error?: string; code?: string }> =>
     beginOauthPopupRemote(provider, workspaceDomain, (nextUser) => {
@@ -263,13 +265,11 @@ export const userService = {
     }),
 
   connectWorkspaceProvider: async (
-    provider: 'google' | 'microsoft',
+    provider: 'microsoft',
     workspaceDomain: string
   ): Promise<{
     success: boolean;
-    googleConnected?: boolean;
     microsoftConnected?: boolean;
-    googleAllowed?: boolean;
     microsoftAllowed?: boolean;
     error?: string;
   }> => {
@@ -296,10 +296,10 @@ export const userService = {
   },
 
   startDirectoryImport: async (
-    provider: 'google' | 'microsoft'
+    provider: 'microsoft'
   ): Promise<{
     success: boolean;
-    provider?: 'google' | 'microsoft';
+    provider?: 'microsoft';
     users?: Array<{ externalId: string; email: string; displayName: string; firstName?: string; lastName?: string }>;
     error?: string;
     code?: string;
@@ -310,7 +310,7 @@ export const userService = {
       return {
         success: false,
         code: direct.code,
-        error: `${provider === 'google' ? 'Google' : 'Microsoft'} directory access needs reconnect. Use Integrations > Workspace SSO and click Connect once.`
+        error: 'Microsoft directory access needs reconnect. Use Integrations > Workspace SSO and click Connect once.'
       };
     }
     return { success: false, code: direct.code, error: direct.error || 'Could not load directory users.' };
@@ -318,7 +318,7 @@ export const userService = {
 
   importDirectoryUsers: async (
     orgId: string,
-    provider: 'google' | 'microsoft',
+    provider: 'microsoft',
     users: Array<{ email: string; displayName: string; firstName?: string; lastName?: string }>
   ): Promise<{
     success: boolean;
@@ -338,10 +338,21 @@ export const userService = {
       localStorage.setItem(SESSION_KEY, JSON.stringify(nextUser));
     }),
 
-  acceptInviteWithPassword: async (token: string, identifier: string, password: string): Promise<{ success: boolean; error?: string; user?: User }> =>
+  acceptInviteWithPassword: async (token: string, identifier: string | undefined, password: string): Promise<{ success: boolean; error?: string; user?: User }> =>
     acceptInviteWithPasswordRemote(token, identifier, password, (nextUser) => {
       localStorage.setItem(SESSION_KEY, JSON.stringify(nextUser));
     }),
+  previewInvite: async (token: string): Promise<{
+    success: boolean;
+    data?: {
+      token: string;
+      role: 'member' | 'admin';
+      invitedIdentifier: string | null;
+      expiresAt: string;
+      org: { id: string; name: string; loginSubdomain: string };
+    };
+    error?: string;
+  }> => previewInviteRemote(token),
 
   changePassword: async (
     currentPassword: string,
@@ -369,12 +380,18 @@ export const userService = {
   revokeInviteRemote: async (orgId: string, inviteId: string): Promise<{ success: boolean; error?: string }> =>
     revokeInviteRemote(orgId, inviteId),
 
+  resendInviteRemote: async (
+    orgId: string,
+    inviteId: string
+  ): Promise<{ success: boolean; invite?: OrgInvite; error?: string }> =>
+    resendInviteRemote(orgId, inviteId),
+
   addSeatsRemote: async (orgId: string, seatsToAdd: number): Promise<Organization | null> =>
     addSeatsRemote(orgId, seatsToAdd),
 
   updateOrganizationSettingsRemote: async (
     orgId: string,
-    patch: Partial<Pick<Organization, 'loginSubdomain' | 'allowGoogleAuth' | 'allowMicrosoftAuth' | 'googleWorkspaceConnected' | 'microsoftWorkspaceConnected'>>
+    patch: Partial<Pick<Organization, 'loginSubdomain' | 'allowMicrosoftAuth' | 'microsoftWorkspaceConnected'>>
   ): Promise<Organization | null> => updateOrganizationSettingsRemote(orgId, patch),
 
   provisionUserRemote: async (

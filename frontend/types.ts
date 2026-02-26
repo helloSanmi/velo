@@ -28,9 +28,7 @@ export interface Organization {
   billingCurrency?: string;
   aiDailyRequestLimit?: number;
   aiDailyTokenLimit?: number;
-  allowGoogleAuth?: boolean;
   allowMicrosoftAuth?: boolean;
-  googleWorkspaceConnected?: boolean;
   microsoftWorkspaceConnected?: boolean;
 }
 
@@ -46,6 +44,12 @@ export interface OrgInvite {
   usedCount: number;
   revoked?: boolean;
   invitedIdentifier?: string;
+  deliveryStatus?: 'pending' | 'sent' | 'failed' | 'not_configured' | string;
+  deliveryProvider?: 'microsoft' | string;
+  deliveryAttempts?: number;
+  deliveryLastAttemptAt?: number;
+  deliveryDeliveredAt?: number;
+  deliveryError?: string;
 }
 
 export interface User {
@@ -319,6 +323,110 @@ export interface TicketPolicy {
   };
   roundRobinCursor: number;
   updatedAt: number;
+}
+
+export type TicketNotificationEventType =
+  | 'ticket_created'
+  | 'ticket_assigned'
+  | 'ticket_status_changed'
+  | 'ticket_commented'
+  | 'ticket_sla_breach'
+  | 'ticket_approval_required';
+
+export interface TicketNotificationPolicy {
+  orgId: string;
+  enabled: boolean;
+  quietHoursEnabled: boolean;
+  quietHoursStartHour: number;
+  quietHoursEndHour: number;
+  timezoneOffsetMinutes: number;
+  channels: {
+    email: boolean;
+    teams: boolean;
+  };
+  digest: {
+    enabled: boolean;
+    cadence: 'hourly' | 'daily';
+    dailyHourLocal: number;
+  };
+  events: Record<
+    TicketNotificationEventType,
+    {
+      immediate: boolean;
+      digest: boolean;
+      channels: {
+        email: boolean;
+        teams: boolean;
+      };
+    }
+  >;
+  updatedAt: number;
+}
+
+export type TicketNotificationDeliveryStatus = 'queued' | 'sent' | 'failed' | 'suppressed' | 'dead_letter';
+
+export interface TicketNotificationDelivery {
+  id: string;
+  orgId: string;
+  kind: 'immediate' | 'digest';
+  eventType: string;
+  status: TicketNotificationDeliveryStatus;
+  ticketId?: string;
+  recipientUserId?: string;
+  recipientEmail?: string;
+  attempts: number;
+  maxAttempts: number;
+  nextAttemptAt?: number;
+  lastError?: string;
+  createdAt: number;
+  updatedAt: number;
+  sentAt?: number;
+  resolvedAt?: number;
+}
+
+export interface TicketNotificationDiagnostics {
+  orgId: string;
+  microsoft: {
+    connected: boolean;
+    ssoEnabled: boolean;
+    tenantId?: string;
+    hasRefreshToken: boolean;
+    accessTokenExpiresAt?: string;
+    tokenStatus: 'ok' | 'expiring' | 'expired' | 'missing' | 'error';
+    tokenError?: string;
+  };
+  subscription: {
+    id?: string;
+    expiresAt?: string;
+    minutesRemaining?: number;
+    status: 'ok' | 'expiring' | 'expired' | 'missing' | 'unknown';
+  };
+  webhook: {
+    clientStateConfigured: boolean;
+    lastSyncAt?: string;
+    lastWebhookAt?: string;
+    inboundSeenLast24h: number;
+    inboundSeenTotal: number;
+  };
+  delivery: {
+    queued: number;
+    digestPending: number;
+    failedLast24h: number;
+    deadLetterOpen: number;
+    lastSentAt?: string;
+    lastFailureAt?: string;
+  };
+}
+
+export interface TicketNotificationActiveHealthCheck {
+  ranAt: string;
+  checks: Array<{
+    key: 'connection' | 'token_refresh' | 'graph_me' | 'subscription_read' | 'webhook_client_state' | 'delivery_dead_letter';
+    ok: boolean;
+    detail: string;
+    remediation?: string;
+  }>;
+  ok: boolean;
 }
 
 export type MainViewType =

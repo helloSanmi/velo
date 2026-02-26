@@ -1,5 +1,5 @@
 import React from 'react';
-import { MailPlus } from 'lucide-react';
+import { Copy, MailPlus, RefreshCcw } from 'lucide-react';
 import Button from '../ui/Button';
 import AppSelect from '../ui/AppSelect';
 import { OrgInvite } from '../../types';
@@ -17,7 +17,16 @@ interface SettingsAdminInviteSectionProps {
   setNewInviteRole: (value: 'member' | 'admin') => void;
   handleCreateInvite: () => void;
   handleRevokeInvite: (inviteId: string) => void;
+  handleResendInvite: (inviteId: string) => void;
 }
+
+const formatDeliveryStatus = (invite: OrgInvite): { label: string; tone: string } => {
+  const status = (invite.deliveryStatus || 'pending').toLowerCase();
+  if (status === 'sent') return { label: 'Sent', tone: 'text-emerald-700 bg-emerald-50 border-emerald-200' };
+  if (status === 'failed') return { label: 'Failed', tone: 'text-rose-700 bg-rose-50 border-rose-200' };
+  if (status === 'not_configured') return { label: 'Not configured', tone: 'text-amber-700 bg-amber-50 border-amber-200' };
+  return { label: 'Pending', tone: 'text-slate-700 bg-slate-100 border-slate-200' };
+};
 
 const toggleClass = (active: boolean) => `w-11 h-6 rounded-full p-1 transition-colors ${active ? 'bg-slate-900' : 'bg-slate-300'}`;
 const thumbClass = (active: boolean) => `block h-4 w-4 rounded-full bg-white transition-transform ${active ? 'translate-x-5' : ''}`;
@@ -62,7 +71,7 @@ const SettingsAdminInviteSection: React.FC<SettingsAdminInviteSectionProps> = (p
       {props.inviteExpanded ? (
         <div className="mt-2 space-y-2">
           <div className="grid gap-1.5 md:grid-cols-[1fr_140px_auto]">
-            <input placeholder="Emails (comma-separated)" value={props.newInviteIdentifier} onChange={(event) => props.setNewInviteIdentifier(event.target.value)} className="h-7.5 rounded-md border border-slate-300 px-2 text-xs outline-none" />
+            <input placeholder="Work email (name@company.com)" value={props.newInviteIdentifier} onChange={(event) => props.setNewInviteIdentifier(event.target.value)} className="h-7.5 rounded-md border border-slate-300 px-2 text-xs outline-none" />
             <AppSelect
               value={props.newInviteRole}
               onChange={(value) => props.setNewInviteRole(value as 'member' | 'admin')}
@@ -76,8 +85,30 @@ const SettingsAdminInviteSection: React.FC<SettingsAdminInviteSectionProps> = (p
           </div>
           {props.activeInvites.slice(0, 3).map((invite) => (
             <div key={invite.id} className="flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-[11px]">
-              <span>{invite.invitedIdentifier || invite.token}</span>
-              <button type="button" onClick={() => props.handleRevokeInvite(invite.id)} className="text-rose-700 hover:text-rose-800">Revoke</button>
+              <div className="min-w-0">
+                <div className="truncate">{invite.invitedIdentifier || invite.token}</div>
+                <div className="mt-0.5 flex items-center gap-1.5">
+                  <span className={`inline-flex rounded-full border px-1.5 py-0.5 text-[10px] ${formatDeliveryStatus(invite).tone}`}>{formatDeliveryStatus(invite).label}</span>
+                  {invite.deliveryError ? <span className="truncate text-[10px] text-rose-700">{invite.deliveryError}</span> : null}
+                </div>
+              </div>
+              <div className="ml-2 inline-flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const link = `${window.location.origin}/?invite=${encodeURIComponent(invite.token)}`;
+                    navigator.clipboard.writeText(link).catch(() => undefined);
+                  }}
+                  className="inline-flex items-center gap-1 text-slate-600 hover:text-slate-900"
+                  title="Copy invite link"
+                >
+                  <Copy className="h-3 w-3" /> Copy link
+                </button>
+                <button type="button" onClick={() => props.handleResendInvite(invite.id)} className="inline-flex items-center gap-1 text-slate-600 hover:text-slate-900" title="Resend invite email">
+                  <RefreshCcw className="h-3 w-3" /> Resend
+                </button>
+                <button type="button" onClick={() => props.handleRevokeInvite(invite.id)} className="text-rose-700 hover:text-rose-800">Revoke</button>
+              </div>
             </div>
           ))}
         </div>

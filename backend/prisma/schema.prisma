@@ -56,11 +56,8 @@ model Organization {
   totalSeats         Int
   seatPrice          Int      @default(0)
   billingCurrency    String   @default("USD")
-  allowGoogleAuth    Boolean  @default(false)
   allowMicrosoftAuth Boolean  @default(false)
-  googleWorkspaceConnected Boolean @default(false)
   microsoftWorkspaceConnected Boolean @default(false)
-  googleHostedDomain String?
   microsoftTenantId  String?
   ownerId            String
   createdAt          DateTime @default(now())
@@ -80,6 +77,23 @@ model Organization {
   aiUsageDaily       AiUsageDaily[]
   aiInteractions     AiInteraction[]
   oauthConnections   OrganizationOAuthConnection[]
+  ticketNotificationPolicies TicketNotificationPolicy[]
+  ticketNotificationSuppressions TicketNotificationSuppression[]
+  ticketInboundMessageStates TicketInboundMessageState[]
+  ticketNotificationDeliveries TicketNotificationDelivery[]
+}
+
+enum TicketNotificationDeliveryStatus {
+  queued
+  sent
+  failed
+  suppressed
+  dead_letter
+}
+
+enum TicketNotificationDeliveryKind {
+  immediate
+  digest
 }
 
 model User {
@@ -94,7 +108,6 @@ model User {
   role           UserRole @default(member)
   licenseActive  Boolean  @default(true)
   mustChangePassword Boolean @default(false)
-  googleSubject  String?  @unique
   microsoftSubject String? @unique
   passwordHash   String
   createdAt      DateTime @default(now())
@@ -231,6 +244,12 @@ model Invite {
   usedCount        Int      @default(0)
   revoked          Boolean  @default(false)
   invitedIdentifier String?
+  deliveryStatus   String   @default("pending")
+  deliveryProvider OAuthProvider?
+  deliveryAttempts Int      @default(0)
+  deliveryLastAttemptAt DateTime?
+  deliveryDeliveredAt DateTime?
+  deliveryError    String?
 
   organization     Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
@@ -311,4 +330,73 @@ model OrganizationOAuthConnection {
 
   @@unique([orgId, provider])
   @@index([orgId, provider])
+}
+
+model TicketNotificationPolicy {
+  id                 String   @id
+  orgId              String   @unique
+  enabled            Boolean  @default(true)
+  quietHoursEnabled  Boolean  @default(false)
+  quietHoursStartHour Int     @default(22)
+  quietHoursEndHour  Int      @default(7)
+  timezoneOffsetMinutes Int   @default(0)
+  channels           Json
+  events             Json
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  organization       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, updatedAt])
+}
+
+model TicketNotificationSuppression {
+  id                 String   @id
+  orgId              String
+  suppressionKey     String
+  lastSentAt         DateTime
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  organization       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, suppressionKey])
+  @@index([orgId, lastSentAt])
+}
+
+model TicketInboundMessageState {
+  id                 String   @id
+  orgId              String
+  messageKey         String
+  seenAt             DateTime @default(now())
+
+  organization       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, messageKey])
+  @@index([orgId, seenAt])
+}
+
+model TicketNotificationDelivery {
+  id                 String   @id
+  orgId              String
+  kind               TicketNotificationDeliveryKind
+  eventType          String
+  status             TicketNotificationDeliveryStatus
+  ticketId           String?
+  recipientUserId    String?
+  recipientEmail     String?
+  attempts           Int      @default(0)
+  maxAttempts        Int      @default(0)
+  nextAttemptAt      DateTime?
+  lastError          String?
+  payload            Json?
+  sentAt             DateTime?
+  resolvedAt         DateTime?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  organization       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, status, createdAt])
+  @@index([orgId, kind, createdAt])
 }

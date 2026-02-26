@@ -236,9 +236,7 @@ export const backendSyncService = {
         billingCurrency: orgRaw.billingCurrency,
         aiDailyRequestLimit: typeof orgRaw.aiDailyRequestLimit === 'number' ? orgRaw.aiDailyRequestLimit : undefined,
         aiDailyTokenLimit: typeof orgRaw.aiDailyTokenLimit === 'number' ? orgRaw.aiDailyTokenLimit : undefined,
-        allowGoogleAuth: Boolean(orgRaw.allowGoogleAuth),
         allowMicrosoftAuth: Boolean(orgRaw.allowMicrosoftAuth),
-        googleWorkspaceConnected: Boolean(orgRaw.googleWorkspaceConnected),
         microsoftWorkspaceConnected: Boolean(orgRaw.microsoftWorkspaceConnected)
       };
 

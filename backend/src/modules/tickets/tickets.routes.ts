@@ -1,4 +1,4 @@
-import { UserRole } from '@prisma/client';
+import { TicketNotificationDeliveryStatus, UserRole } from '@prisma/client';
 import { Router } from 'express';
 import { z } from 'zod';
 import { authenticate } from '../../middleware/authenticate.js';
@@ -10,6 +10,9 @@ import { writeAudit } from '../audit/audit.service.js';
 import { realtimeGateway } from '../realtime/realtime.gateway.js';
 import { ticketsStore } from './tickets.store.js';
 import { ticketsPolicyStore, type StoredTicketPolicy } from './tickets.policy.store.js';
+import { ticketsNotificationService } from './tickets.notification.service.js';
+import { ticketsGraphService } from './tickets.graph.service.js';
+import { ticketsNotificationPolicyStore } from './tickets.notification.policy.store.js';
 
 const router = Router();
 
@@ -64,6 +67,43 @@ const policyUpsertSchema = z.object({
     urgent: z.number().int().positive()
   }),
   roundRobinCursor: z.number().int().min(0).optional()
+});
+const notificationPolicySchema = z.object({
+  enabled: z.boolean().optional(),
+  quietHoursEnabled: z.boolean().optional(),
+  quietHoursStartHour: z.number().int().min(0).max(23).optional(),
+  quietHoursEndHour: z.number().int().min(0).max(23).optional(),
+  timezoneOffsetMinutes: z.number().int().min(-720).max(840).optional(),
+  channels: z.object({
+    email: z.boolean().optional(),
+    teams: z.boolean().optional()
+  }).optional(),
+  digest: z
+    .object({
+      enabled: z.boolean().optional(),
+      cadence: z.enum(['hourly', 'daily']).optional(),
+      dailyHourLocal: z.number().int().min(0).max(23).optional()
+    })
+    .optional(),
+  events: z
+    .record(
+      z.enum(['ticket_created', 'ticket_assigned', 'ticket_status_changed', 'ticket_commented', 'ticket_sla_breach', 'ticket_approval_required']),
+      z.object({
+        immediate: z.boolean().optional(),
+        digest: z.boolean().optional(),
+        channels: z.object({
+          email: z.boolean().optional(),
+          teams: z.boolean().optional()
+        }).optional()
+      })
+    )
+    .optional()
+});
+const notificationDeliveryQuerySchema = z.object({
+  status: z
+    .enum(['queued', 'sent', 'failed', 'suppressed', 'dead_letter'])
+    .optional(),
+  limit: z.coerce.number().int().min(1).max(200).optional()
 });
 
 const getProjectOwnerIds = (project: { ownerId: string; createdBy: string; metadata: unknown }): string[] => {
@@ -187,6 +227,29 @@ router.patch('/orgs/:orgId/tickets/policy', authenticate, requireOrgAccess, asyn
   }
 });
 
+router.get('/orgs/:orgId/tickets/notifications/policy', authenticate, requireOrgAccess, async (req, res, next) => {
+  try {
+    const { orgId } = orgParamsSchema.parse(req.params);
+    if (req.auth!.role !== 'admin') throw new HttpError(403, 'Only admins can view ticket notification policy.');
+    const policy = await ticketsNotificationPolicyStore.get(orgId);
+    res.json({ success: true, data: policy });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.patch('/orgs/:orgId/tickets/notifications/policy', authenticate, requireOrgAccess, async (req, res, next) => {
+  try {
+    const { orgId } = orgParamsSchema.parse(req.params);
+    if (req.auth!.role !== 'admin') throw new HttpError(403, 'Only admins can update ticket notification policy.');
+    const patch = notificationPolicySchema.parse(req.body);
+    const policy = await ticketsNotificationPolicyStore.upsert({ orgId, patch });
+    res.json({ success: true, data: policy });
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.get('/orgs/:orgId/tickets', authenticate, requireOrgAccess, async (req, res, next) => {
   try {
     const { orgId } = orgParamsSchema.parse(req.params);
@@ -265,6 +328,21 @@ router.post('/orgs/:orgId/tickets', authenticate, requireOrgAccess, async (req, 
       entityType: 'intake_ticket',
       entityId: created.id
     });
+    try {
+      const actor = await prisma.user.findUnique({
+        where: { id: req.auth!.userId },
+        select: { displayName: true }
+      });
+      await ticketsNotificationService.enqueue({
+        orgId,
+        actorUserId: req.auth!.userId,
+        actorName: actor?.displayName || 'User',
+        eventType: 'ticket_created',
+        ticketAfter: created
+      });
+    } catch {
+      // Non-blocking notification path.
+    }
     realtimeGateway.publish(orgId, 'TICKETS_UPDATED', { ticketId: created.id, action: 'created' });
     res.status(201).json({ success: true, data: created });
   } catch (error) {
@@ -313,6 +391,36 @@ router.patch('/orgs/:orgId/tickets/:ticketId', authenticate, requireOrgAccess, a
       entityType: 'intake_ticket',
       entityId: updated.id
     });
+    try {
+      const actor = await prisma.user.findUnique({
+        where: { id: req.auth!.userId },
+        select: { displayName: true }
+      });
+      const changedAssignee = existing.assigneeId !== updated.assigneeId;
+      const changedStatus = existing.status !== updated.status;
+      if (changedAssignee) {
+        await ticketsNotificationService.enqueue({
+          orgId,
+          actorUserId: req.auth!.userId,
+          actorName: actor?.displayName || 'User',
+          eventType: 'ticket_assigned',
+          ticketBefore: existing,
+          ticketAfter: updated
+        });
+      }
+      if (changedStatus) {
+        await ticketsNotificationService.enqueue({
+          orgId,
+          actorUserId: req.auth!.userId,
+          actorName: actor?.displayName || 'User',
+          eventType: 'ticket_status_changed',
+          ticketBefore: existing,
+          ticketAfter: updated
+        });
+      }
+    } catch {
+      // Non-blocking notification path.
+    }
     realtimeGateway.publish(orgId, 'TICKETS_UPDATED', { ticketId: updated.id, action: 'updated' });
     res.json({ success: true, data: updated });
   } catch (error) {
@@ -359,6 +467,19 @@ router.post('/orgs/:orgId/tickets/:ticketId/comments', authenticate, requireOrgA
       entityType: 'intake_ticket',
       entityId: ticket.id
     });
+    try {
+      await ticketsNotificationService.enqueue({
+        orgId,
+        actorUserId: req.auth!.userId,
+        actorName: actor?.displayName || 'User',
+        eventType: 'ticket_commented',
+        ticketBefore: ticket,
+        ticketAfter: updated,
+        commentText: body.text.trim()
+      });
+    } catch {
+      // Non-blocking notification path.
+    }
     realtimeGateway.publish(orgId, 'TICKETS_UPDATED', { ticketId: updated.id, action: 'commented' });
     res.status(201).json({ success: true, data: updated });
   } catch (error) {
@@ -459,6 +580,127 @@ router.delete('/orgs/:orgId/tickets/:ticketId', authenticate, requireOrgAccess, 
     });
     realtimeGateway.publish(orgId, 'TICKETS_UPDATED', { ticketId: ticket.id, action: 'deleted' });
     res.status(204).send();
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post('/orgs/:orgId/tickets/notifications/subscriptions', authenticate, requireOrgAccess, async (req, res, next) => {
+  try {
+    const { orgId } = orgParamsSchema.parse(req.params);
+    if (req.auth!.role !== 'admin') throw new HttpError(403, 'Only admins can manage ticket notification subscriptions.');
+    const result = await ticketsGraphService.ensureMailSubscription({ orgId });
+    res.json({ success: true, data: result });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post('/orgs/:orgId/tickets/notifications/delta-sync', authenticate, requireOrgAccess, async (req, res, next) => {
+  try {
+    const { orgId } = orgParamsSchema.parse(req.params);
+    if (req.auth!.role !== 'admin') throw new HttpError(403, 'Only admins can run ticket mail delta sync.');
+    const result = await ticketsGraphService.syncMailDelta({ orgId });
+    res.json({ success: true, data: result });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get('/orgs/:orgId/tickets/notifications/queue-status', authenticate, requireOrgAccess, async (req, res, next) => {
+  try {
+    const { orgId } = orgParamsSchema.parse(req.params);
+    if (req.auth!.role !== 'admin') throw new HttpError(403, 'Only admins can view ticket queue status.');
+    const data = await ticketsNotificationService.getQueueStatus();
+    res.json({ success: true, data });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get('/orgs/:orgId/tickets/notifications/health', authenticate, requireOrgAccess, async (req, res, next) => {
+  try {
+    const { orgId } = orgParamsSchema.parse(req.params);
+    if (req.auth!.role !== 'admin') throw new HttpError(403, 'Only admins can view ticket notification diagnostics.');
+    const queue = await ticketsNotificationService.getQueueStatus();
+    const data = await ticketsGraphService.getDiagnostics({ orgId, queue });
+    res.json({ success: true, data });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post('/orgs/:orgId/tickets/notifications/health-check', authenticate, requireOrgAccess, async (req, res, next) => {
+  try {
+    const { orgId } = orgParamsSchema.parse(req.params);
+    if (req.auth!.role !== 'admin') throw new HttpError(403, 'Only admins can run ticket notification diagnostics.');
+    const queue = await ticketsNotificationService.getQueueStatus();
+    const data = await ticketsGraphService.runActiveHealthCheck({ orgId, queue });
+    res.json({ success: true, data });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get('/orgs/:orgId/tickets/notifications/deliveries', authenticate, requireOrgAccess, async (req, res, next) => {
+  try {
+    const { orgId } = orgParamsSchema.parse(req.params);
+    if (req.auth!.role !== 'admin') throw new HttpError(403, 'Only admins can view ticket notification deliveries.');
+    const { status, limit } = notificationDeliveryQuerySchema.parse(req.query);
+    const data = await ticketsNotificationService.listDeliveries({
+      orgId,
+      status: status as TicketNotificationDeliveryStatus | undefined,
+      limit
+    });
+    res.json({ success: true, data });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post(
+  '/orgs/:orgId/tickets/notifications/deliveries/:deliveryId/retry',
+  authenticate,
+  requireOrgAccess,
+  async (req, res, next) => {
+    try {
+      const { orgId } = orgParamsSchema.parse(req.params);
+      const deliveryId = String(req.params.deliveryId || '').trim();
+      if (!deliveryId) throw new HttpError(400, 'deliveryId is required.');
+      if (req.auth!.role !== 'admin') throw new HttpError(403, 'Only admins can retry ticket notification deliveries.');
+      const data = await ticketsNotificationService.retryDeliveryNow({
+        orgId,
+        deliveryId,
+        actorUserId: req.auth!.userId
+      });
+      if (!data) throw new HttpError(404, 'Notification delivery record not found.');
+      res.json({ success: true, data });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+router.get('/integrations/microsoft/graph/webhook', async (req, res) => {
+  const token = typeof req.query.validationToken === 'string' ? req.query.validationToken : '';
+  if (token) {
+    res.setHeader('Content-Type', 'text/plain');
+    res.status(200).send(token);
+    return;
+  }
+  res.status(200).send('ok');
+});
+
+router.post('/integrations/microsoft/graph/webhook', async (req, res, next) => {
+  try {
+    const body = req.body as { value?: Array<{ clientState?: string }> } | undefined;
+    const notifications = Array.isArray(body?.value) ? body!.value : [];
+    const orgIds = await ticketsGraphService.extractValidatedOrgIdsFromWebhookNotifications({ notifications });
+    for (const orgId of orgIds) {
+      await ticketsGraphService.recordWebhookHit({ orgId });
+      await ticketsGraphService.syncMailDelta({ orgId });
+    }
+    res.status(202).json({ success: true });
   } catch (error) {
     next(error);
   }

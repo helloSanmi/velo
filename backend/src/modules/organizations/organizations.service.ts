@@ -79,9 +79,7 @@ export const organizationsService = {
     actor: { userId: string; role: UserRole };
     patch: {
       loginSubdomain?: string;
-      allowGoogleAuth?: boolean;
       allowMicrosoftAuth?: boolean;
-      googleWorkspaceConnected?: boolean;
       microsoftWorkspaceConnected?: boolean;
     };
   }) {
@@ -113,9 +111,7 @@ export const organizationsService = {
       where: { id: input.orgId },
       data: {
         loginSubdomain: nextSubdomain,
-        allowGoogleAuth: input.patch.allowGoogleAuth,
         allowMicrosoftAuth: input.patch.allowMicrosoftAuth,
-        googleWorkspaceConnected: input.patch.googleWorkspaceConnected,
         microsoftWorkspaceConnected: input.patch.microsoftWorkspaceConnected
       }
     });
@@ -130,16 +126,12 @@ export const organizationsService = {
       metadata: {
         before: {
           loginSubdomain: org.loginSubdomain,
-          allowGoogleAuth: org.allowGoogleAuth,
           allowMicrosoftAuth: org.allowMicrosoftAuth,
-          googleWorkspaceConnected: org.googleWorkspaceConnected,
           microsoftWorkspaceConnected: org.microsoftWorkspaceConnected
         },
         after: {
           loginSubdomain: updated.loginSubdomain,
-          allowGoogleAuth: updated.allowGoogleAuth,
           allowMicrosoftAuth: updated.allowMicrosoftAuth,
-          googleWorkspaceConnected: updated.googleWorkspaceConnected,
           microsoftWorkspaceConnected: updated.microsoftWorkspaceConnected
         }
       }

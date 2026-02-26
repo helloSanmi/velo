@@ -1,4 +1,14 @@
-import { IntakeTicket, IntakeTicketPriority, IntakeTicketStatus, TicketPolicy } from '../types';
+import {
+  IntakeTicket,
+  IntakeTicketPriority,
+  IntakeTicketStatus,
+  TicketNotificationDelivery,
+  TicketNotificationActiveHealthCheck,
+  TicketNotificationDiagnostics,
+  TicketNotificationDeliveryStatus,
+  TicketNotificationPolicy,
+  TicketPolicy
+} from '../types';
 import { createId } from '../utils/id';
 import { apiRequest } from './apiClient';
 
@@ -34,6 +44,57 @@ export const ticketService = {
     }
   ): Promise<TicketPolicy> {
     return apiRequest<TicketPolicy>(`/orgs/${orgId}/tickets/policy`, { method: 'PATCH', body: patch });
+  },
+
+  async getNotificationPolicy(orgId: string): Promise<TicketNotificationPolicy> {
+    return apiRequest<TicketNotificationPolicy>(`/orgs/${orgId}/tickets/notifications/policy`);
+  },
+
+  async updateNotificationPolicy(
+    orgId: string,
+    patch: Partial<Omit<TicketNotificationPolicy, 'orgId' | 'updatedAt'>>
+  ): Promise<TicketNotificationPolicy> {
+    return apiRequest<TicketNotificationPolicy>(`/orgs/${orgId}/tickets/notifications/policy`, { method: 'PATCH', body: patch });
+  },
+
+  async getNotificationQueueStatus(orgId: string): Promise<{ queued: number; digestPending: number }> {
+    return apiRequest<{ queued: number; digestPending: number }>(`/orgs/${orgId}/tickets/notifications/queue-status`);
+  },
+
+  async getNotificationDeliveries(
+    orgId: string,
+    input?: { status?: TicketNotificationDeliveryStatus; limit?: number }
+  ): Promise<TicketNotificationDelivery[]> {
+    const search = new URLSearchParams();
+    if (input?.status) search.set('status', input.status);
+    if (typeof input?.limit === 'number') search.set('limit', String(input.limit));
+    const query = search.toString() ? `?${search.toString()}` : '';
+    const rows = await apiRequest<TicketNotificationDelivery[]>(`/orgs/${orgId}/tickets/notifications/deliveries${query}`);
+    return rows.map((row: any) => ({
+      ...row,
+      createdAt: Date.parse(String(row.createdAt || '')) || Date.now(),
+      updatedAt: Date.parse(String(row.updatedAt || '')) || Date.now(),
+      nextAttemptAt: row.nextAttemptAt ? Date.parse(String(row.nextAttemptAt)) : undefined,
+      sentAt: row.sentAt ? Date.parse(String(row.sentAt)) : undefined,
+      resolvedAt: row.resolvedAt ? Date.parse(String(row.resolvedAt)) : undefined
+    }));
+  },
+
+  async retryNotificationDelivery(orgId: string, deliveryId: string): Promise<TicketNotificationDelivery> {
+    return apiRequest<TicketNotificationDelivery>(
+      `/orgs/${orgId}/tickets/notifications/deliveries/${encodeURIComponent(deliveryId)}/retry`,
+      { method: 'POST' }
+    );
+  },
+
+  async getNotificationDiagnostics(orgId: string): Promise<TicketNotificationDiagnostics> {
+    return apiRequest<TicketNotificationDiagnostics>(`/orgs/${orgId}/tickets/notifications/health`);
+  },
+
+  async runNotificationHealthCheck(orgId: string): Promise<TicketNotificationActiveHealthCheck> {
+    return apiRequest<TicketNotificationActiveHealthCheck>(`/orgs/${orgId}/tickets/notifications/health-check`, {
+      method: 'POST'
+    });
   },
 
   async getTickets(orgId: string): Promise<IntakeTicket[]> {

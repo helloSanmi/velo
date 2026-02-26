@@ -119,21 +119,30 @@ export const registerAuth = async (input: {
 
 export const acceptInviteAuth = async (input: {
   token: string;
-  identifier: string;
+  identifier?: string;
   password: string;
   userAgent?: string;
   ipAddress?: string;
 }) => {
   const token = input.token.trim();
-  const { normalized, username, email } = normalizeIdentifier(input.identifier);
-  if (!token || !normalized) throw new HttpError(400, 'Token and identifier are required.');
+  if (!token) throw new HttpError(400, 'Token is required.');
 
   const invite = await prisma.invite.findFirst({ where: { token } });
   if (!invite) throw new HttpError(404, 'Invite token not found.');
   if (invite.revoked) throw new HttpError(400, 'Invite was revoked.');
   if (invite.expiresAt.getTime() < Date.now()) throw new HttpError(400, 'Invite expired.');
   if (invite.usedCount >= invite.maxUses) throw new HttpError(400, 'Invite usage limit reached.');
-  if (invite.invitedIdentifier && invite.invitedIdentifier.toLowerCase() !== normalized) {
+
+  const inviteIdentifier = (invite.invitedIdentifier || '').trim().toLowerCase();
+  if (!inviteIdentifier || !inviteIdentifier.includes('@')) {
+    throw new HttpError(400, 'Invite is missing a valid work email.');
+  }
+
+  const identifierSource = (input.identifier || inviteIdentifier).trim();
+  if (!identifierSource) throw new HttpError(400, 'Identifier is required for this invite.');
+  const { normalized, username, email } = normalizeIdentifier(identifierSource);
+  if (!normalized) throw new HttpError(400, 'Identifier is required for this invite.');
+  if (normalized !== inviteIdentifier) {
     throw new HttpError(400, 'Invite is restricted to another identifier.');
   }
 
@@ -190,4 +199,32 @@ export const acceptInviteAuth = async (input: {
   });
 
   return { tokens, user: toPublicUser(user) };
+};
+
+export const previewInviteAuth = async (token: string) => {
+  const cleanToken = token.trim();
+  if (!cleanToken) throw new HttpError(400, 'Invite token is required.');
+  const invite = await prisma.invite.findFirst({ where: { token: cleanToken } });
+  if (!invite) throw new HttpError(404, 'Invite token not found.');
+  if (invite.revoked) throw new HttpError(400, 'Invite was revoked.');
+  if (invite.expiresAt.getTime() < Date.now()) throw new HttpError(400, 'Invite expired.');
+  if (invite.usedCount >= invite.maxUses) throw new HttpError(400, 'Invite usage limit reached.');
+
+  const org = await prisma.organization.findUnique({
+    where: { id: invite.orgId },
+    select: { id: true, name: true, loginSubdomain: true }
+  });
+  if (!org) throw new HttpError(404, 'Organization not found.');
+
+  return {
+    token: invite.token,
+    role: invite.role,
+    invitedIdentifier: invite.invitedIdentifier || null,
+    expiresAt: invite.expiresAt.toISOString(),
+    org: {
+      id: org.id,
+      name: org.name,
+      loginSubdomain: org.loginSubdomain
+    }
+  };
 };

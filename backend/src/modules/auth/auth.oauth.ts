@@ -9,7 +9,7 @@ import { createTokenPair } from './auth.tokens.js';
 import { buildJwtPayload, hashToken, normalizeWorkspaceDomain, sessionExpiresAt, toPublicUser } from './auth.shared.js';
 import { isSeatLimitedPlan } from '../../lib/planLimits.js';
 
-type Provider = 'google' | 'microsoft';
+export type Provider = 'microsoft';
 
 type OAuthState = {
   provider: Provider;
@@ -21,9 +21,6 @@ type OAuthState = {
   nonce: string;
 };
 
-const GOOGLE_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
-const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token';
-const GOOGLE_USERINFO_URL = 'https://openidconnect.googleapis.com/v1/userinfo';
 const MICROSOFT_AUTH_URL = 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize';
 const MICROSOFT_TOKEN_URL = 'https://login.microsoftonline.com/common/oauth2/v2.0/token';
 const MICROSOFT_USERINFO_URL = 'https://graph.microsoft.com/v1.0/me';
@@ -70,16 +67,6 @@ const normalizeEmailForUsername = (email: string) => {
 };
 
 const getProviderConfig = (provider: Provider) => {
-  if (provider === 'google') {
-    if (!env.GOOGLE_OAUTH_CLIENT_ID || !env.GOOGLE_OAUTH_CLIENT_SECRET) {
-      throw new HttpError(503, 'Google sign-in is not configured on the server.');
-    }
-    return {
-      clientId: env.GOOGLE_OAUTH_CLIENT_ID,
-      clientSecret: env.GOOGLE_OAUTH_CLIENT_SECRET,
-      redirectUri: env.GOOGLE_OAUTH_REDIRECT_URI || `${env.APP_BASE_URL}/api/v1/auth/oauth/google/callback`
-    };
-  }
   if (!env.MICROSOFT_OAUTH_CLIENT_ID || !env.MICROSOFT_OAUTH_CLIENT_SECRET) {
     throw new HttpError(503, 'Microsoft sign-in is not configured on the server.');
   }
@@ -90,8 +77,7 @@ const getProviderConfig = (provider: Provider) => {
   };
 };
 
-const toPrismaProvider = (provider: Provider): 'google' | 'microsoft' =>
-  provider === 'google' ? 'google' : 'microsoft';
+const toPrismaProvider = (_provider: Provider): 'microsoft' => 'microsoft';
 
 const upsertOrgOauthConnection = async (input: {
   orgId: string;
@@ -134,14 +120,13 @@ const exchangeRefreshToken = async (input: {
   refreshToken: string;
 }): Promise<{ accessToken: string; refreshToken?: string; expiresInSeconds?: number; scope?: string }> => {
   const config = getProviderConfig(input.provider);
-  const tokenUrl = input.provider === 'google' ? GOOGLE_TOKEN_URL : MICROSOFT_TOKEN_URL;
   const params = new URLSearchParams({
     client_id: config.clientId,
     client_secret: config.clientSecret,
     grant_type: 'refresh_token',
     refresh_token: input.refreshToken
   });
-  const response = await fetch(tokenUrl, {
+  const response = await fetch(MICROSOFT_TOKEN_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: params.toString()
@@ -162,7 +147,7 @@ const exchangeRefreshToken = async (input: {
   };
 };
 
-const ensureProviderAccessToken = async (input: {
+export const ensureProviderAccessToken = async (input: {
   orgId: string;
   provider: Provider;
 }): Promise<string> => {
@@ -205,68 +190,37 @@ const fetchDirectoryUsersByAccessToken = async (input: {
   provider: Provider;
   accessToken: string;
 }): Promise<Array<{ externalId: string; email: string; displayName: string; firstName?: string; lastName?: string }>> => {
-  if (input.provider === 'microsoft') {
-    let nextUrl: string | null =
-      'https://graph.microsoft.com/v1.0/users?$select=id,displayName,givenName,surname,mail,userPrincipalName,accountEnabled,proxyAddresses&$top=200';
-    const rows: Array<any> = [];
-    while (nextUrl) {
-      const response = await fetch(nextUrl, {
-        headers: { Authorization: `Bearer ${input.accessToken}` }
-      });
-      if (!response.ok) {
-        throw new HttpError(400, 'Could not load Microsoft directory users. Ensure admin consent includes User.ReadBasic.All.');
-      }
-      const data = await response.json() as { value?: Array<any>; ['@odata.nextLink']?: string };
-      rows.push(...(data.value || []));
-      nextUrl = data['@odata.nextLink'] || null;
-    }
-    return rows
-      .map((row) => {
-        const proxyAddresses = Array.isArray(row.proxyAddresses) ? row.proxyAddresses : [];
-        const smtpFromProxy = proxyAddresses
-          .map((value: unknown) => String(value))
-          .find((value: string) => /^SMTP:/i.test(value))
-          ?.replace(/^SMTP:/i, '');
-        const email = String(row.mail || row.userPrincipalName || smtpFromProxy || '').trim().toLowerCase();
-        return {
-          externalId: String(row.id || ''),
-          email,
-          displayName: String(row.displayName || email || 'Unknown User'),
-          firstName: row.givenName ? String(row.givenName) : undefined,
-          lastName: row.surname ? String(row.surname) : undefined
-        };
-      })
-      .filter((row) => row.externalId && row.email);
-  }
-
+  let nextUrl: string | null =
+    'https://graph.microsoft.com/v1.0/users?$select=id,displayName,givenName,surname,mail,userPrincipalName,accountEnabled,proxyAddresses&$top=200';
   const rows: Array<any> = [];
-  let nextPageToken: string | undefined;
-  do {
-    const params = new URLSearchParams({
-      customer: 'my_customer',
-      maxResults: '500',
-      orderBy: 'email'
-    });
-    if (nextPageToken) params.set('pageToken', nextPageToken);
-    const response = await fetch(`https://admin.googleapis.com/admin/directory/v1/users?${params.toString()}`, {
+  while (nextUrl) {
+    const response = await fetch(nextUrl, {
       headers: { Authorization: `Bearer ${input.accessToken}` }
     });
     if (!response.ok) {
-      throw new HttpError(400, 'Could not load Google Workspace users. Ensure admin consent and Directory API access are configured.');
+      throw new HttpError(400, 'Could not load Microsoft directory users. Ensure admin consent includes User.ReadBasic.All.');
     }
-    const data = await response.json() as { users?: Array<any>; nextPageToken?: string };
-    rows.push(...(data.users || []));
-    nextPageToken = data.nextPageToken;
-  } while (nextPageToken);
+    const data = await response.json() as { value?: Array<any>; ['@odata.nextLink']?: string };
+    rows.push(...(data.value || []));
+    nextUrl = data['@odata.nextLink'] || null;
+  }
 
   return rows
-    .map((row) => ({
-      externalId: String(row.id || ''),
-      email: String(row.primaryEmail || '').trim().toLowerCase(),
-      displayName: String(row.name?.fullName || row.primaryEmail || 'Unknown User'),
-      firstName: row.name?.givenName ? String(row.name.givenName) : undefined,
-      lastName: row.name?.familyName ? String(row.name.familyName) : undefined
-    }))
+    .map((row) => {
+      const proxyAddresses = Array.isArray(row.proxyAddresses) ? row.proxyAddresses : [];
+      const smtpFromProxy = proxyAddresses
+        .map((value: unknown) => String(value))
+        .find((value: string) => /^SMTP:/i.test(value))
+        ?.replace(/^SMTP:/i, '');
+      const email = String(row.mail || row.userPrincipalName || smtpFromProxy || '').trim().toLowerCase();
+      return {
+        externalId: String(row.id || ''),
+        email,
+        displayName: String(row.displayName || email || 'Unknown User'),
+        firstName: row.givenName ? String(row.givenName) : undefined,
+        lastName: row.surname ? String(row.surname) : undefined
+      };
+    })
     .filter((row) => row.externalId && row.email);
 };
 
@@ -282,9 +236,7 @@ const resolveOrgByWorkspaceDomain = async (workspaceDomain: string | undefined) 
       id: true,
       name: true,
       loginSubdomain: true,
-      allowGoogleAuth: true,
       allowMicrosoftAuth: true,
-      googleWorkspaceConnected: true,
       microsoftWorkspaceConnected: true
     }
   });
@@ -295,21 +247,19 @@ const resolveOrgByWorkspaceDomain = async (workspaceDomain: string | undefined) 
 
 const assertProviderSignInEnabled = (
   org: {
-    allowGoogleAuth: boolean;
     allowMicrosoftAuth: boolean;
-    googleWorkspaceConnected: boolean;
     microsoftWorkspaceConnected: boolean;
   },
-  provider: Provider
+  _provider: Provider
 ) => {
-  const isAllowed = provider === 'google' ? org.allowGoogleAuth : org.allowMicrosoftAuth;
-  const isConnected = provider === 'google' ? org.googleWorkspaceConnected : org.microsoftWorkspaceConnected;
+  const isAllowed = org.allowMicrosoftAuth;
+  const isConnected = org.microsoftWorkspaceConnected;
 
   if (!isAllowed) {
-    throw new HttpError(403, `${provider === 'google' ? 'Google' : 'Microsoft'} sign-in is disabled for this workspace.`);
+    throw new HttpError(403, 'Microsoft sign-in is disabled for this workspace.');
   }
   if (!isConnected) {
-    throw new HttpError(403, `${provider === 'google' ? 'Google' : 'Microsoft'} workspace integration is not connected for this workspace.`);
+    throw new HttpError(403, 'Microsoft workspace integration is not connected for this workspace.');
   }
 };
 
@@ -332,20 +282,7 @@ const verifyState = (state: string): OAuthState => {
 };
 
 const parseProviderProfile = (provider: Provider, raw: any): { subject: string; email: string; name: string; avatar: string | null } => {
-  if (provider === 'google') {
-    const email = String(raw?.email || '').trim().toLowerCase();
-    const subject = String(raw?.sub || '').trim();
-    if (!email || !subject || raw?.email_verified !== true) {
-      throw new HttpError(401, 'Google account must provide a verified email.');
-    }
-    return {
-      subject,
-      email,
-      name: String(raw?.name || raw?.given_name || email),
-      avatar: raw?.picture ? String(raw.picture) : null
-    };
-  }
-
+  void provider;
   const subject = String(raw?.id || '').trim();
   const email = String(raw?.mail || raw?.userPrincipalName || '').trim().toLowerCase();
   if (!email || !subject) {
@@ -445,16 +382,11 @@ export const getOauthProviderAvailability = async (workspaceDomain: string | und
   return {
     workspaceDomain: `${org.loginSubdomain}${domainSuffix}`,
     orgName: org.name,
-    google: {
-      enabled: Boolean(org.allowGoogleAuth && org.googleWorkspaceConnected)
-    },
     microsoft: {
       enabled: Boolean(org.allowMicrosoftAuth && org.microsoftWorkspaceConnected)
     },
     status: {
-      googleConnected: Boolean(org.googleWorkspaceConnected),
       microsoftConnected: Boolean(org.microsoftWorkspaceConnected),
-      googleAllowed: Boolean(org.allowGoogleAuth),
       microsoftAllowed: Boolean(org.allowMicrosoftAuth)
     }
   };
@@ -481,19 +413,6 @@ export const buildOauthStartUrl = async (
     returnOrigin: safeReturnOrigin,
     nonce: createId('nonce')
   });
-
-  if (provider === 'google') {
-    const params = new URLSearchParams({
-      client_id: config.clientId,
-      redirect_uri: config.redirectUri,
-      response_type: 'code',
-      scope: 'openid email profile',
-      access_type: 'offline',
-      prompt: 'select_account',
-      state
-    });
-    return `${GOOGLE_AUTH_URL}?${params.toString()}`;
-  }
 
   const params = new URLSearchParams({
     client_id: config.clientId,
@@ -533,25 +452,11 @@ export const buildOauthConnectUrl = async (input: {
     nonce: createId('nonce')
   });
 
-  if (input.provider === 'google') {
-    const params = new URLSearchParams({
-      client_id: config.clientId,
-      redirect_uri: config.redirectUri,
-      response_type: 'code',
-      scope: 'openid email profile https://www.googleapis.com/auth/admin.directory.user.readonly',
-      access_type: 'offline',
-      prompt: 'consent',
-      include_granted_scopes: 'true',
-      state
-    });
-    return `${GOOGLE_AUTH_URL}?${params.toString()}`;
-  }
-
   const params = new URLSearchParams({
     client_id: config.clientId,
     redirect_uri: config.redirectUri,
     response_type: 'code',
-    scope: 'openid profile email offline_access User.Read User.ReadBasic.All',
+    scope: 'openid profile email offline_access User.Read User.ReadBasic.All Mail.Send',
     response_mode: 'query',
     prompt: 'consent',
     state
@@ -572,15 +477,11 @@ export const buildOauthDirectoryUrl = async (input: {
     select: {
       id: true,
       loginSubdomain: true,
-      googleWorkspaceConnected: true,
       microsoftWorkspaceConnected: true
     }
   });
   if (!org) throw new HttpError(404, 'Organization not found.');
-  if (input.provider === 'google' && !org.googleWorkspaceConnected) {
-    throw new HttpError(400, 'Google is not connected for this workspace.');
-  }
-  if (input.provider === 'microsoft' && !org.microsoftWorkspaceConnected) {
+  if (!org.microsoftWorkspaceConnected) {
     throw new HttpError(400, 'Microsoft is not connected for this workspace.');
   }
 
@@ -595,20 +496,6 @@ export const buildOauthDirectoryUrl = async (input: {
     returnOrigin: safeReturnOrigin,
     nonce: createId('nonce')
   });
-
-  if (input.provider === 'google') {
-    const params = new URLSearchParams({
-      client_id: config.clientId,
-      redirect_uri: config.redirectUri,
-      response_type: 'code',
-      scope: 'openid email profile https://www.googleapis.com/auth/admin.directory.user.readonly',
-      access_type: 'offline',
-      prompt: 'select_account',
-      include_granted_scopes: 'true',
-      state
-    });
-    return `${GOOGLE_AUTH_URL}?${params.toString()}`;
-  }
 
   const params = new URLSearchParams({
     client_id: config.clientId,
@@ -633,15 +520,11 @@ export const listDirectoryUsers = async (input: {
     where: { id: input.actor.orgId },
     select: {
       id: true,
-      googleWorkspaceConnected: true,
       microsoftWorkspaceConnected: true
     }
   });
   if (!org) throw new HttpError(404, 'Organization not found.');
-  if (input.provider === 'google' && !org.googleWorkspaceConnected) {
-    throw new HttpError(400, 'Google is not connected for this workspace.');
-  }
-  if (input.provider === 'microsoft' && !org.microsoftWorkspaceConnected) {
+  if (!org.microsoftWorkspaceConnected) {
     throw new HttpError(400, 'Microsoft is not connected for this workspace.');
   }
 
@@ -704,7 +587,7 @@ export const completeOauthCallback = async (input: {
     grant_type: 'authorization_code'
   });
 
-  const tokenResponse = await fetch(input.provider === 'google' ? GOOGLE_TOKEN_URL : MICROSOFT_TOKEN_URL, {
+  const tokenResponse = await fetch(MICROSOFT_TOKEN_URL, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded'
@@ -712,9 +595,7 @@ export const completeOauthCallback = async (input: {
     body: tokenParams.toString()
   });
 
-  if (!tokenResponse.ok) {
-    throw new HttpError(401, `${input.provider === 'google' ? 'Google' : 'Microsoft'} token exchange failed.`);
-  }
+  if (!tokenResponse.ok) throw new HttpError(401, 'Microsoft token exchange failed.');
 
   const tokenJson = await tokenResponse.json() as {
     access_token?: string;
@@ -723,19 +604,15 @@ export const completeOauthCallback = async (input: {
     scope?: string;
     id_token?: string;
   };
-  if (!tokenJson.access_token) {
-    throw new HttpError(401, `${input.provider === 'google' ? 'Google' : 'Microsoft'} token exchange returned no access token.`);
-  }
+  if (!tokenJson.access_token) throw new HttpError(401, 'Microsoft token exchange returned no access token.');
 
-  const profileResponse = await fetch(input.provider === 'google' ? GOOGLE_USERINFO_URL : MICROSOFT_USERINFO_URL, {
+  const profileResponse = await fetch(MICROSOFT_USERINFO_URL, {
     headers: {
       Authorization: `Bearer ${tokenJson.access_token}`
     }
   });
 
-  if (!profileResponse.ok) {
-    throw new HttpError(401, `${input.provider === 'google' ? 'Google' : 'Microsoft'} profile fetch failed.`);
-  }
+  if (!profileResponse.ok) throw new HttpError(401, 'Microsoft profile fetch failed.');
 
   const rawProfile = await profileResponse.json() as any;
   const profile = parseProviderProfile(input.provider, rawProfile);
@@ -747,10 +624,7 @@ export const completeOauthCallback = async (input: {
   const microsoftTenantId = input.provider === 'microsoft'
     ? String(idTokenClaims.tid || accessTokenClaims.tid || '').trim() || null
     : null;
-  const googleHostedDomain = input.provider === 'google'
-    ? String(idTokenClaims.hd || profile.email.split('@')[1] || '').trim().toLowerCase() || null
-    : null;
-  const providerSubjectField = input.provider === 'google' ? 'googleSubject' : 'microsoftSubject';
+  const providerSubjectField = 'microsoftSubject';
 
   if (state.mode === 'connect') {
     if (!stateOrg) {
@@ -767,21 +641,15 @@ export const completeOauthCallback = async (input: {
       );
     }
 
-    const patch =
-      input.provider === 'google'
-        ? { googleWorkspaceConnected: true, allowGoogleAuth: true, googleHostedDomain }
-        : { microsoftWorkspaceConnected: true, allowMicrosoftAuth: true, microsoftTenantId };
+    const patch = { microsoftWorkspaceConnected: true, allowMicrosoftAuth: true, microsoftTenantId };
 
     const updated = await prisma.organization.update({
       where: { id: stateOrg.id },
       data: patch,
       select: {
         loginSubdomain: true,
-        allowGoogleAuth: true,
         allowMicrosoftAuth: true,
-        googleWorkspaceConnected: true,
         microsoftWorkspaceConnected: true,
-        googleHostedDomain: true,
         microsoftTenantId: true
       }
     });
@@ -799,14 +667,13 @@ export const completeOauthCallback = async (input: {
       orgId: stateOrg.id,
       userId: actor.id,
       actionType: 'project_updated',
-      action: `${input.provider === 'google' ? 'Google' : 'Microsoft'} SSO connected for workspace.`,
+      action: 'Microsoft SSO connected for workspace.',
       entityType: 'organization',
       entityId: stateOrg.id,
       metadata: {
         provider: input.provider,
         consentedBy: profile.email,
-        tenantId: microsoftTenantId,
-        hostedDomain: googleHostedDomain
+        tenantId: microsoftTenantId
       },
       ipAddress: input.ipAddress,
       userAgent: input.userAgent
@@ -817,9 +684,7 @@ export const completeOauthCallback = async (input: {
         ok: true,
         provider: input.provider,
         workspaceDomain: `${updated.loginSubdomain}.velo.ai`,
-        googleConnected: updated.googleWorkspaceConnected,
         microsoftConnected: updated.microsoftWorkspaceConnected,
-        googleAllowed: updated.allowGoogleAuth,
         microsoftAllowed: updated.allowMicrosoftAuth
       },
       'velo-oauth-connect-result',
@@ -878,9 +743,7 @@ export const completeOauthCallback = async (input: {
       state.returnOrigin || frontendOrigin
     );
   }
-  const providerEnabledFilter = input.provider === 'google'
-    ? { allowGoogleAuth: true, googleWorkspaceConnected: true }
-    : { allowMicrosoftAuth: true, microsoftWorkspaceConnected: true };
+  const providerEnabledFilter = { allowMicrosoftAuth: true, microsoftWorkspaceConnected: true };
 
   const userMatchesBySubject = await prisma.user.findMany({
     where: {
@@ -927,23 +790,13 @@ export const completeOauthCallback = async (input: {
           microsoftWorkspaceConnected: true
         }
       });
-    } else if (input.provider === 'google' && googleHostedDomain) {
-      resolvedOrg = await prisma.organization.findFirst({
-        where: {
-          googleHostedDomain,
-          allowGoogleAuth: true,
-          googleWorkspaceConnected: true
-        }
-      });
     }
   }
 
   // Fallback for single-workspace SSO setups where tenant/domain hints are unavailable.
   if (!resolvedOrg && !user) {
     const enabledOrgs = await prisma.organization.findMany({
-      where: input.provider === 'google'
-        ? { allowGoogleAuth: true, googleWorkspaceConnected: true }
-        : { allowMicrosoftAuth: true, microsoftWorkspaceConnected: true },
+      where: { allowMicrosoftAuth: true, microsoftWorkspaceConnected: true },
       take: 2
     });
     if (enabledOrgs.length === 1) {

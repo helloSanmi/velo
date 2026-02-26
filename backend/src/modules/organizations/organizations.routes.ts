@@ -12,9 +12,7 @@ const roleSchema = z.object({ userId: z.string().min(1), role: z.nativeEnum(User
 const deleteSchema = z.object({ confirmation: z.string().min(1) });
 const settingsSchema = z.object({
   loginSubdomain: z.string().min(2).max(40).optional(),
-  allowGoogleAuth: z.boolean().optional(),
   allowMicrosoftAuth: z.boolean().optional(),
-  googleWorkspaceConnected: z.boolean().optional(),
   microsoftWorkspaceConnected: z.boolean().optional()
 });
 

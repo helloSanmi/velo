@@ -15,7 +15,13 @@ const mapInviteFromApi = (invite: any): OrgInvite => ({
   maxUses: invite.maxUses,
   usedCount: invite.usedCount,
   revoked: invite.revoked,
-  invitedIdentifier: invite.invitedIdentifier || undefined
+  invitedIdentifier: invite.invitedIdentifier || undefined,
+  deliveryStatus: invite.deliveryStatus || undefined,
+  deliveryProvider: invite.deliveryProvider || undefined,
+  deliveryAttempts: typeof invite.deliveryAttempts === 'number' ? invite.deliveryAttempts : undefined,
+  deliveryLastAttemptAt: invite.deliveryLastAttemptAt ? new Date(invite.deliveryLastAttemptAt).getTime() : undefined,
+  deliveryDeliveredAt: invite.deliveryDeliveredAt ? new Date(invite.deliveryDeliveredAt).getTime() : undefined,
+  deliveryError: invite.deliveryError || undefined
 });
 
 const mapOrganizationFromApi = (org: any): Organization => ({
@@ -30,9 +36,7 @@ const mapOrganizationFromApi = (org: any): Organization => ({
   billingCurrency: org.billingCurrency,
   aiDailyRequestLimit: typeof org.aiDailyRequestLimit === 'number' ? org.aiDailyRequestLimit : undefined,
   aiDailyTokenLimit: typeof org.aiDailyTokenLimit === 'number' ? org.aiDailyTokenLimit : undefined,
-  allowGoogleAuth: Boolean(org.allowGoogleAuth),
   allowMicrosoftAuth: Boolean(org.allowMicrosoftAuth),
-  googleWorkspaceConnected: Boolean(org.googleWorkspaceConnected),
   microsoftWorkspaceConnected: Boolean(org.microsoftWorkspaceConnected)
 });
 
@@ -75,25 +79,22 @@ export const loginWithPasswordRemote = async (
 
 export const getOauthProviderAvailabilityRemote = async (
   workspaceDomain: string
-): Promise<{ googleEnabled: boolean; microsoftEnabled: boolean; workspaceDomain?: string; orgName?: string; error?: string }> => {
+): Promise<{ microsoftEnabled: boolean; workspaceDomain?: string; orgName?: string; error?: string }> => {
   try {
     const response = await apiRequest<{
       workspaceDomain: string;
       orgName?: string;
-      google: { enabled: boolean };
       microsoft: { enabled: boolean };
     }>(`/auth/oauth/providers?workspaceDomain=${encodeURIComponent(workspaceDomain)}`, {
       auth: false
     });
     return {
-      googleEnabled: Boolean(response.google?.enabled),
       microsoftEnabled: Boolean(response.microsoft?.enabled),
       workspaceDomain: response.workspaceDomain,
       orgName: response.orgName
     };
   } catch (error: any) {
     return {
-      googleEnabled: false,
       microsoftEnabled: false,
       error: error?.message || 'Could not read SSO provider availability.'
     };
@@ -101,7 +102,7 @@ export const getOauthProviderAvailabilityRemote = async (
 };
 
 export const beginOauthPopupRemote = async (
-  provider: 'google' | 'microsoft',
+  provider: 'microsoft',
   workspaceDomain: string | undefined,
   saveSession: (user: User) => void
 ): Promise<{ user?: User; error?: string; code?: string }> => {
@@ -188,7 +189,7 @@ export const beginOauthPopupRemote = async (
 };
 
 export const getOauthConnectUrlRemote = async (
-  provider: 'google' | 'microsoft',
+  provider: 'microsoft',
   workspaceDomain: string
 ): Promise<{ url?: string; error?: string }> => {
   try {
@@ -247,7 +248,7 @@ export const getIntegrationConnectUrlRemote = async (
 };
 
 export const getOauthDirectoryUrlRemote = async (
-  provider: 'google' | 'microsoft'
+  provider: 'microsoft'
 ): Promise<{ url?: string; error?: string }> => {
   try {
     const response = await apiRequest<{ url: string }>(
@@ -261,17 +262,17 @@ export const getOauthDirectoryUrlRemote = async (
 };
 
 export const getDirectoryUsersRemote = async (
-  provider: 'google' | 'microsoft'
+  provider: 'microsoft'
 ): Promise<{
   success: boolean;
-  provider?: 'google' | 'microsoft';
+  provider?: 'microsoft';
   users?: Array<{ externalId: string; email: string; displayName: string; firstName?: string; lastName?: string }>;
   error?: string;
   code?: string;
 }> => {
   try {
     const response = await apiRequest<{
-      provider: 'google' | 'microsoft';
+      provider: 'microsoft';
       users: Array<{ externalId: string; email: string; displayName: string; firstName?: string; lastName?: string }>;
     }>(`/auth/oauth/${provider}/directory`, { auth: true });
     return { success: true, provider: response.provider, users: response.users };
@@ -288,7 +289,7 @@ export const beginOauthDirectoryPopupRemote = async (
   startUrl: string
 ): Promise<{
   success: boolean;
-  provider?: 'google' | 'microsoft';
+  provider?: 'microsoft';
   users?: Array<{ externalId: string; email: string; displayName: string; firstName?: string; lastName?: string }>;
   error?: string;
 }> => {
@@ -368,14 +369,12 @@ export const beginOauthDirectoryPopupRemote = async (
 
 export const beginOauthConnectPopupRemote = async (
   startUrl: string,
-  provider: 'google' | 'microsoft',
+  provider: 'microsoft',
   workspaceDomain: string
 ): Promise<{
   success: boolean;
-  provider?: 'google' | 'microsoft';
-  googleConnected?: boolean;
+  provider?: 'microsoft';
   microsoftConnected?: boolean;
-  googleAllowed?: boolean;
   microsoftAllowed?: boolean;
   error?: string;
 }> => {
@@ -400,17 +399,15 @@ export const beginOauthConnectPopupRemote = async (
     const statusPoll = window.setInterval(async () => {
       if (settled) return;
       const availability = await getOauthProviderAvailabilityRemote(workspaceDomain);
-      const connected = provider === 'google' ? availability.googleEnabled : availability.microsoftEnabled;
+      const connected = availability.microsoftEnabled;
       if (!connected) return;
       settled = true;
       cleanup();
       resolve({
         success: true,
         provider,
-        googleConnected: provider === 'google' ? true : undefined,
-        microsoftConnected: provider === 'microsoft' ? true : undefined,
-        googleAllowed: provider === 'google' ? true : undefined,
-        microsoftAllowed: provider === 'microsoft' ? true : undefined
+        microsoftConnected: true,
+        microsoftAllowed: true
       });
     }, 1000);
 
@@ -428,9 +425,7 @@ export const beginOauthConnectPopupRemote = async (
         resolve({
           success: true,
           provider: payload.provider,
-          googleConnected: Boolean(payload.googleConnected),
           microsoftConnected: Boolean(payload.microsoftConnected),
-          googleAllowed: Boolean(payload.googleAllowed),
           microsoftAllowed: Boolean(payload.microsoftAllowed)
         });
         return;
@@ -556,7 +551,7 @@ export const registerWithPasswordRemote = async (
 
 export const acceptInviteWithPasswordRemote = async (
   token: string,
-  identifier: string,
+  identifier: string | undefined,
   password: string,
   saveSession: (user: User) => void
 ): Promise<{ success: boolean; error?: string; user?: User }> => {
@@ -574,6 +569,36 @@ export const acceptInviteWithPasswordRemote = async (
     return { success: true, user: response.user };
   } catch (error: any) {
     return { success: false, error: error?.message || 'Unable to join workspace.' };
+  }
+};
+
+export const previewInviteRemote = async (
+  token: string
+): Promise<{
+  success: boolean;
+  data?: {
+    token: string;
+    role: 'member' | 'admin';
+    invitedIdentifier: string | null;
+    expiresAt: string;
+    org: { id: string; name: string; loginSubdomain: string };
+  };
+  error?: string;
+}> => {
+  try {
+    const data = await apiRequest<{
+      token: string;
+      role: 'member' | 'admin';
+      invitedIdentifier: string | null;
+      expiresAt: string;
+      org: { id: string; name: string; loginSubdomain: string };
+    }>(`/auth/invites/${encodeURIComponent(token)}`, {
+      method: 'GET',
+      auth: false
+    });
+    return { success: true, data };
+  } catch (error: any) {
+    return { success: false, error: error?.message || 'Invite link is invalid or expired.' };
   }
 };
 
@@ -652,6 +677,20 @@ export const revokeInviteRemote = async (orgId: string, inviteId: string): Promi
   }
 };
 
+export const resendInviteRemote = async (
+  orgId: string,
+  inviteId: string
+): Promise<{ success: boolean; invite?: OrgInvite; error?: string }> => {
+  try {
+    const invite = await apiRequest<any>(`/orgs/${orgId}/invites/${inviteId}/resend`, {
+      method: 'POST'
+    });
+    return { success: true, invite: mapInviteFromApi(invite) };
+  } catch (error: any) {
+    return { success: false, error: error?.message || 'Could not resend invite.' };
+  }
+};
+
 export const addSeatsRemote = async (orgId: string, seatsToAdd: number): Promise<Organization | null> => {
   try {
     const org = await apiRequest<any>(`/orgs/${orgId}/seats/add`, {
@@ -693,7 +732,7 @@ export const provisionUserRemote = async (
 
 export const updateOrganizationSettingsRemote = async (
   orgId: string,
-  patch: Partial<Pick<Organization, 'loginSubdomain' | 'allowGoogleAuth' | 'allowMicrosoftAuth' | 'googleWorkspaceConnected' | 'microsoftWorkspaceConnected'>>
+  patch: Partial<Pick<Organization, 'loginSubdomain' | 'allowMicrosoftAuth' | 'microsoftWorkspaceConnected'>>
 ): Promise<Organization | null> => {
   try {
     const org = await apiRequest<any>(`/orgs/${orgId}/settings`, {
@@ -708,7 +747,7 @@ export const updateOrganizationSettingsRemote = async (
 
 export const importDirectoryUsersRemote = async (
   orgId: string,
-  provider: 'google' | 'microsoft',
+  provider: 'microsoft',
   users: Array<{ email: string; displayName: string; firstName?: string; lastName?: string }>
 ): Promise<{
   success: boolean;
