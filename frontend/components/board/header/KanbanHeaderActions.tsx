@@ -1,5 +1,5 @@
 import React from 'react';
-import { Calendar, ChartGantt, KanbanSquare, List, ListOrdered, Loader2, Settings2, Sparkles, Users, X } from 'lucide-react';
+import { Calendar, ChartGantt, KanbanSquare, List, ListChecks, ListOrdered, Loader2, Settings2, Sparkles, Users, X } from 'lucide-react';
 import { KanbanHeaderProps } from './types';
 import AppSelect from '../../ui/AppSelect';
 
@@ -61,6 +61,16 @@ const KanbanHeaderActions: React.FC<KanbanHeaderActionsProps> = ({
         >
           <KanbanSquare className="h-3.5 w-3.5" />
           Kanban
+        </button>
+        <button
+          onClick={() => onChangeBoardView('checklist')}
+          className={`inline-flex h-7 items-center gap-1 rounded px-2 text-[11px] font-medium transition-colors ${
+            boardView === 'checklist' ? 'bg-slate-900 text-white' : 'text-slate-700 hover:bg-slate-50'
+          }`}
+          title="Checklist view"
+        >
+          <ListChecks className="h-3.5 w-3.5" />
+          Checklist
         </button>
         <button
           onClick={() => onChangeBoardView('gantt')}

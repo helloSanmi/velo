@@ -32,7 +32,7 @@ export const useKanbanStageManager = ({
   const projectStages = useMemo(() => buildProjectStages(activeProject, categorizedTasks), [activeProject, categorizedTasks]);
 
   const canManageStages = useMemo(
-    () => canManageProjectStages(activeProject, currentUserId, currentUserRole),
+    () => canManageProjectStages(activeProject, currentUserId, (currentUserRole || '').toLowerCase()),
     [activeProject, currentUserId, currentUserRole]
   );
 

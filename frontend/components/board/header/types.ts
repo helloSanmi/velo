@@ -2,8 +2,8 @@ import { Project, ProjectStage, TaskPriority, User } from '../../../types';
 import { SavedBoardView } from '../../../services/savedViewService';
 
 export interface KanbanHeaderProps {
-  boardView: 'kanban' | 'table' | 'timeline' | 'calendar' | 'gantt' | 'workload';
-  onChangeBoardView: (view: 'kanban' | 'table' | 'timeline' | 'calendar' | 'gantt' | 'workload') => void;
+  boardView: 'kanban' | 'checklist' | 'table' | 'timeline' | 'calendar' | 'gantt' | 'workload';
+  onChangeBoardView: (view: 'kanban' | 'checklist' | 'table' | 'timeline' | 'calendar' | 'gantt' | 'workload') => void;
   compactMode: boolean;
   activeProject?: Project;
   currentUserId: string;

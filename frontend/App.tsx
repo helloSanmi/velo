@@ -31,6 +31,7 @@ import DialogHost from './components/ui/DialogHost';
 import ToastHost from './components/ui/ToastHost';
 import { toastService } from './services/toastService';
 import { syncGuardService } from './services/syncGuardService';
+import { queuedTaskMutationCount, taskSyncQueueUpdatedEvent } from './services/task-service/syncQueue';
 import { notificationService } from './services/notificationService';
 import AuthRouter from './components/views/AuthRouter';
 import WorkspaceMainView from './components/views/WorkspaceMainView';
@@ -129,6 +130,10 @@ const App: React.FC = () => {
   const [templateQuery, setTemplateQuery] = useState('');
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const [hasPendingSync, setHasPendingSync] = useState(syncGuardService.hasPending());
+  const [pendingSyncCount, setPendingSyncCount] = useState(() => {
+    const current = userService.getCurrentUser();
+    return current ? queuedTaskMutationCount(current.orgId) : 0;
+  });
   const [onlineCount, setOnlineCount] = useState(1);
   const [projectCompletionPrompt, setProjectCompletionPrompt] = useState<{
     projectId: string;
@@ -170,9 +175,11 @@ const App: React.FC = () => {
     if (!user) return;
     userService.hydrateWorkspaceFromBackend(user.orgId).then((result) => {
       if (result) {
-        if (syncGuardService.hasPending()) {
+        if (syncGuardService.hasPending() && queuedTaskMutationCount(user.orgId) === 0) {
           syncGuardService.clearPending();
           setHasPendingSync(false);
+        } else if (syncGuardService.hasPending()) {
+          setHasPendingSync(true);
         }
         setAllUsers(result.users);
         setProjects(result.projects);
@@ -215,6 +222,15 @@ const App: React.FC = () => {
     setHasPendingSync,
     setOnlineCount
   });
+
+  useEffect(() => {
+    const refreshPendingSyncCount = () => {
+      setPendingSyncCount(user ? queuedTaskMutationCount(user.orgId) : 0);
+    };
+    refreshPendingSyncCount();
+    window.addEventListener(taskSyncQueueUpdatedEvent, refreshPendingSyncCount as EventListener);
+    return () => window.removeEventListener(taskSyncQueueUpdatedEvent, refreshPendingSyncCount as EventListener);
+  }, [user, tasks, projects, hasPendingSync]);
 
   useActiveProjectPersistence({
     user,
@@ -1127,7 +1143,7 @@ const App: React.FC = () => {
   }
 
   return (
-    <WorkspaceLayout user={user} allUsers={allUsers} isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} projects={visibleProjects} activeProjectId={activeProjectId} currentView={currentView} themeClass={themeClass} compactMode={settings.compactMode} onLogout={handleLogout} onNewTask={() => setIsModalOpen(true)} onReset={handleReset} onRefreshData={refreshWorkspaceData} onOpenProfile={handleOpenProfile} onOpenSettings={handleOpenSettings} onOpenTaskFromNotification={handleOpenTaskFromNotification} onCloseSidebar={() => setIsSidebarOpen(false)} onProjectSelect={setActiveProjectId} onViewChange={handleWorkspaceViewChange} onOpenCommandCenter={() => aiFeaturesEnabled && setIsCommandCenterOpen(true)} onOpenVisionModal={() => aiFeaturesEnabled && setIsVisionModalOpen(true)} onAddProject={() => { setProjectModalTemplateId(null); setIsProjectModalOpen(true); }} onUpdateProject={handleUpdateProject} onCompleteProject={handleCompleteProject} onArchiveProject={handleArchiveProject} onDeleteProject={handleDeleteProject} onlineCount={onlineCount} isOnline={!isOffline} planFeatures={planFeatures} aiFeaturesEnabled={aiFeaturesEnabled}>
+    <WorkspaceLayout user={user} allUsers={allUsers} isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} projects={visibleProjects} activeProjectId={activeProjectId} currentView={currentView} themeClass={themeClass} compactMode={settings.compactMode} onLogout={handleLogout} onNewTask={() => setIsModalOpen(true)} onReset={handleReset} onRefreshData={refreshWorkspaceData} onOpenProfile={handleOpenProfile} onOpenSettings={handleOpenSettings} onOpenTaskFromNotification={handleOpenTaskFromNotification} onCloseSidebar={() => setIsSidebarOpen(false)} onProjectSelect={setActiveProjectId} onViewChange={handleWorkspaceViewChange} onOpenCommandCenter={() => aiFeaturesEnabled && setIsCommandCenterOpen(true)} onOpenVisionModal={() => aiFeaturesEnabled && setIsVisionModalOpen(true)} onAddProject={() => { setProjectModalTemplateId(null); setIsProjectModalOpen(true); }} onUpdateProject={handleUpdateProject} onCompleteProject={handleCompleteProject} onArchiveProject={handleArchiveProject} onDeleteProject={handleDeleteProject} onlineCount={onlineCount} isOnline={!isOffline} pendingSyncCount={pendingSyncCount} planFeatures={planFeatures} aiFeaturesEnabled={aiFeaturesEnabled}>
       <Confetti active={confettiActive} onComplete={() => setConfettiActive(false)} />
       <WorkspaceMainView
         currentView={currentView}

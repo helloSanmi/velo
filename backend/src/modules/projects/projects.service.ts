@@ -41,6 +41,7 @@ export const projectsService = {
     name: string;
     description: string;
     color: string;
+    stageDefs?: { id: string; name: string }[];
     isPublic?: boolean;
     publicToken?: string;
     memberIds: string[];
@@ -80,6 +81,7 @@ export const projectsService = {
         name: input.name,
         description: input.description,
         color: input.color,
+        stageDefs: Array.isArray(input.stageDefs) && input.stageDefs.length > 0 ? input.stageDefs : undefined,
         isPublic: Boolean(input.isPublic),
         publicToken: input.publicToken,
         memberIds: Array.from(new Set([input.actor.userId, ...input.memberIds])),
@@ -108,6 +110,7 @@ export const projectsService = {
       name: string;
       description: string;
       color: string;
+      stageDefs: { id: string; name: string }[];
       isPublic: boolean;
       publicToken: string;
       lifecycle: ProjectLifecycle;
@@ -192,6 +195,7 @@ export const projectsService = {
       typeof input.patch.name === 'string' ||
       typeof input.patch.description === 'string' ||
       typeof input.patch.color === 'string' ||
+      Array.isArray(input.patch.stageDefs) ||
       typeof input.patch.isPublic === 'boolean' ||
       typeof input.patch.publicToken === 'string' ||
       typeof input.patch.metadata === 'object'
@@ -207,8 +211,11 @@ export const projectsService = {
       }
     }
 
+    const requestedStageDefs = Array.isArray(input.patch.stageDefs) ? parseStageDefs(input.patch.stageDefs) : [];
+    const effectiveStageDefs = requestedStageDefs.length > 0 ? requestedStageDefs : parseStageDefs(existing.stageDefs);
+
     if (input.patch.lifecycle === ProjectLifecycle.completed) {
-      const stages = parseStageDefs(existing.stageDefs);
+      const stages = effectiveStageDefs;
       const finalStageId = stages.length > 0 ? stages[stages.length - 1].id : 'done';
       const tasks = await prisma.task.findMany({
         where: { orgId: input.orgId, projectId: existing.id },
@@ -252,6 +259,7 @@ export const projectsService = {
         name: input.patch.name,
         description: input.patch.description,
         color: input.patch.color,
+        stageDefs: Array.isArray(input.patch.stageDefs) ? effectiveStageDefs : undefined,
         isPublic: input.patch.isPublic,
         publicToken: input.patch.publicToken,
         lifecycle: input.patch.lifecycle,

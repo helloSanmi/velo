@@ -71,6 +71,12 @@ const ProjectStageEditorModal: React.FC<ProjectStageEditorModalProps> = ({
               <input
                 value={newStageName}
                 onChange={(event) => setNewStageName(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    event.preventDefault();
+                    onAddStage();
+                  }
+                }}
                 placeholder="Example: Review"
                 className="flex-1 h-9 rounded-lg border border-slate-300 px-3 text-sm outline-none focus:ring-2 focus:ring-slate-300"
               />

@@ -19,7 +19,8 @@ const Header: React.FC<HeaderProps> = ({
   onOpenSettings,
   onOpenTaskFromNotification,
   onlineCount,
-  isOnline
+  isOnline,
+  pendingSyncCount = 0
 }) => {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
@@ -82,6 +83,11 @@ const Header: React.FC<HeaderProps> = ({
             <span className={`w-2 h-2 rounded-full ${isOnline ? 'bg-emerald-500' : 'bg-rose-400'}`} />
             <span className="text-xs font-medium text-slate-500">{isOnline ? `Live · ${onlineCount} online` : 'Offline'}</span>
           </div>
+          {isOnline && pendingSyncCount > 0 ? (
+            <div className="h-6 px-2 rounded-full border border-amber-200 bg-amber-50 text-[11px] font-medium text-amber-800 inline-flex items-center whitespace-nowrap">
+              Sync pending ({pendingSyncCount})
+            </div>
+          ) : null}
 
           <div className="hidden sm:flex items-center border-r border-slate-200 pr-3 gap-1.5">
             <button

@@ -296,6 +296,9 @@ export const projectService = {
         color: updates.color,
         ownerId: updates.createdBy || nextOwnerIds?.[0],
         memberIds: updates.members,
+        stageDefs: Array.isArray(updates.stages)
+          ? normalizeStages(updates.stages).map((stage) => ({ id: stage.id, name: stage.name }))
+          : undefined,
         isPublic: nextIsPublic,
         publicToken: nextPublicToken,
         lifecycle: nextLifecycle,

@@ -16,7 +16,7 @@ export interface SavedBoardView {
   includeUnscheduled?: boolean;
   dueFrom?: number;
   dueTo?: number;
-  boardView?: 'kanban' | 'table' | 'timeline' | 'calendar' | 'gantt' | 'workload';
+  boardView?: 'kanban' | 'checklist' | 'table' | 'timeline' | 'calendar' | 'gantt' | 'workload';
   visibility?: 'personal' | 'shared';
   createdAt: number;
   sortOrder?: number;

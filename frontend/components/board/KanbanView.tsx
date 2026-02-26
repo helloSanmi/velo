@@ -7,6 +7,7 @@ import BoardTimelineView from './BoardTimelineView';
 import BoardCalendarView from './BoardCalendarView';
 import BoardGanttView from './BoardGanttView';
 import BoardWorkloadView from './BoardWorkloadView';
+import BoardChecklistView from './BoardChecklistView';
 import KanbanModals from './KanbanModals';
 import ProjectOwnerChatModal from './ProjectOwnerChatModal';
 import { computeKanbanTotals } from './kanbanUtils';
@@ -140,10 +141,12 @@ const KanbanView: React.FC<KanbanViewProps> = ({
     if (typeof window === 'undefined') return false;
     return window.localStorage.getItem('velo_board_views_onboarding_v1') !== 'seen';
   });
-  const [boardView, setBoardView] = useState<'kanban' | 'table' | 'timeline' | 'calendar' | 'gantt' | 'workload'>(() => {
+  const [boardView, setBoardView] = useState<'kanban' | 'checklist' | 'table' | 'timeline' | 'calendar' | 'gantt' | 'workload'>(() => {
     const saved = typeof window !== 'undefined' ? window.localStorage.getItem('velo_board_view') : null;
     return saved === 'table'
       ? 'table'
+      : saved === 'checklist'
+        ? 'checklist'
       : saved === 'timeline'
         ? 'timeline'
         : saved === 'calendar'
@@ -346,7 +349,7 @@ const KanbanView: React.FC<KanbanViewProps> = ({
           <div className={`${BOARD_INNER_WRAP_CLASS} ${BOARD_CONTENT_GUTTER_CLASS}`}>
             <div className="rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 flex items-start justify-between gap-2">
             <p className="text-xs text-indigo-800">
-              New board modes available: use <span className="font-semibold">Kanban</span>, <span className="font-semibold">Gantt</span>, <span className="font-semibold">Table</span>, <span className="font-semibold">Calendar</span>, and <span className="font-semibold">Workload</span> from the top switcher.
+              New board modes available: use <span className="font-semibold">Kanban</span>, <span className="font-semibold">Checklist</span>, <span className="font-semibold">Gantt</span>, <span className="font-semibold">Table</span>, <span className="font-semibold">Calendar</span>, and <span className="font-semibold">Workload</span> from the top switcher.
             </p>
             <button
               type="button"
@@ -436,6 +439,18 @@ const KanbanView: React.FC<KanbanViewProps> = ({
           canUseTaskAI={canUseTaskAI}
           canToggleTaskTimer={canToggleTaskTimer}
           showProjectNameOnCards={!activeProject}
+        />
+      ) : boardView === 'checklist' ? (
+        <BoardChecklistView
+          categorizedTasks={categorizedTasks}
+          statusFilter={statusFilter}
+          statusOptions={projectStages}
+          allUsers={allUsers}
+          compactMode={compactMode}
+          onSelectTask={setSelectedTask}
+          onUpdateTask={onUpdateTask}
+          onMoveTask={moveTask}
+          onAddNewTask={() => setIsModalOpen(true)}
         />
       ) : boardView === 'table' ? (
         <BoardTableView

@@ -16,7 +16,7 @@ interface UseSavedBoardViewsOptions {
   includeUnscheduled: boolean;
   dueFrom?: number;
   dueTo?: number;
-  boardView: 'kanban' | 'table' | 'timeline' | 'calendar' | 'gantt' | 'workload';
+  boardView: 'kanban' | 'checklist' | 'table' | 'timeline' | 'calendar' | 'gantt' | 'workload';
   setSearchQuery: (value: string) => void;
   setProjectFilter: (value: string | 'All') => void;
   setStatusFilter: (status: string | 'All') => void;
@@ -27,7 +27,7 @@ interface UseSavedBoardViewsOptions {
   setIncludeUnscheduled: (value: boolean) => void;
   setDueFrom: (value?: number) => void;
   setDueTo: (value?: number) => void;
-  setBoardView: (view: 'kanban' | 'table' | 'timeline' | 'calendar' | 'gantt' | 'workload') => void;
+  setBoardView: (view: 'kanban' | 'checklist' | 'table' | 'timeline' | 'calendar' | 'gantt' | 'workload') => void;
 }
 
 export const useSavedBoardViews = ({
@@ -121,6 +121,8 @@ export const useSavedBoardViews = ({
     setBoardView(
       view.boardView === 'table'
         ? 'table'
+        : view.boardView === 'checklist'
+          ? 'checklist'
         : view.boardView === 'timeline'
           ? 'timeline'
           : view.boardView === 'calendar'

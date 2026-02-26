@@ -2,7 +2,10 @@ import { Project, Task, User } from '../types';
 
 export type TaskRestrictedAction = 'complete' | 'rename' | 'delete' | 'assign';
 
-const isAdmin = (user?: User) => (user?.role || '').toLowerCase() === 'admin';
+const isAdmin = (user?: User) => {
+  const normalizedRole = String(user?.role || '').trim().toLowerCase();
+  return normalizedRole === 'admin' || normalizedRole.endsWith('_admin') || normalizedRole.includes('admin');
+};
 
 export const getProjectOwnerIds = (project?: Project): string[] => {
   if (!project) return [];

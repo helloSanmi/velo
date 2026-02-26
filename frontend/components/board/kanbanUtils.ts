@@ -15,8 +15,15 @@ export const buildProjectStages = (activeProject: Project | undefined, categoriz
 
 export const canManageProjectStages = (activeProject: Project | undefined, currentUserId: string, currentUserRole?: string): boolean => {
   if (!activeProject) return false;
-  const ownerId = activeProject.createdBy || activeProject.members?.[0];
-  return currentUserRole === 'admin' || ownerId === currentUserId;
+  const normalizedRole = String(currentUserRole || '').trim().toLowerCase();
+  const ownerIds = Array.isArray(activeProject.ownerIds)
+    ? activeProject.ownerIds
+    : activeProject.createdBy
+      ? [activeProject.createdBy]
+      : [];
+  const isOwner = ownerIds.includes(currentUserId);
+  const isAdmin = normalizedRole === 'admin' || normalizedRole.endsWith('_admin') || normalizedRole.includes('admin');
+  return isAdmin || isOwner;
 };
 
 export const computeKanbanTotals = (categorizedTasks: Record<string, Task[]>, projectStages: ProjectStage[]) => {

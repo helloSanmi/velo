@@ -35,6 +35,7 @@ interface WorkspaceLayoutProps {
   onDeleteProject: (id: string) => void;
   onlineCount: number;
   isOnline: boolean;
+  pendingSyncCount?: number;
   planFeatures: PlanFeatures;
   aiFeaturesEnabled: boolean;
   children: React.ReactNode;
@@ -44,7 +45,7 @@ const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
   user, allUsers, isSidebarOpen, setIsSidebarOpen, projects, activeProjectId, currentView,
   themeClass, compactMode, onLogout, onNewTask, onReset, onRefreshData, onOpenProfile, onOpenSettings,
   onOpenTaskFromNotification, onCloseSidebar, onProjectSelect, onViewChange, onOpenCommandCenter,
-  onOpenVisionModal, onAddProject, onUpdateProject, onCompleteProject, onArchiveProject, onDeleteProject, onlineCount, isOnline, planFeatures, aiFeaturesEnabled, children
+  onOpenVisionModal, onAddProject, onUpdateProject, onCompleteProject, onArchiveProject, onDeleteProject, onlineCount, isOnline, pendingSyncCount = 0, planFeatures, aiFeaturesEnabled, children
 }) => {
   const [sidebarWidth, setSidebarWidth] = useState(() => {
     const saved = localStorage.getItem('velo_sidebar_width');
@@ -97,6 +98,7 @@ const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
         onOpenTaskFromNotification={onOpenTaskFromNotification}
         onlineCount={onlineCount}
         isOnline={isOnline}
+        pendingSyncCount={pendingSyncCount}
       />
       
       <div className="flex-1 flex min-h-0 relative overflow-hidden">

@@ -13,4 +13,5 @@ export interface HeaderProps {
   onOpenTaskFromNotification: (taskId: string) => void;
   onlineCount: number;
   isOnline: boolean;
+  pendingSyncCount?: number;
 }

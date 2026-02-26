@@ -10,6 +10,7 @@ import { userService } from '../services/userService';
 import { presenceService } from '../services/presenceService';
 import { processSlaNotifications } from '../services/slaNotificationService';
 import { notificationService } from '../services/notificationService';
+import { flushQueuedTaskMutations, queuedTaskMutationCount } from '../services/task-service/syncQueue';
 
 interface UseWorkspaceConnectionOptions {
   user: User | null;
@@ -48,8 +49,11 @@ export const useWorkspaceConnection = ({
     const forceReconcile = () => {
       userService.hydrateWorkspaceFromBackend(user.orgId).then((result) => {
         if (!result) return;
-        syncGuardService.clearPending();
-        setHasPendingSync(false);
+        const hasQueuedMutations = queuedTaskMutationCount(user.orgId) > 0;
+        if (!hasQueuedMutations) {
+          syncGuardService.clearPending();
+        }
+        setHasPendingSync(hasQueuedMutations || syncGuardService.hasPending());
         setAllUsers(result.users);
         setProjects(result.projects);
         refreshTasks();
@@ -65,8 +69,13 @@ export const useWorkspaceConnection = ({
     const onOnline = () => {
       setIsOffline(false);
       if (syncGuardService.hasPending()) {
-        toastService.info('Connection restored', 'Checking pending changes against backend.');
-        forceReconcile();
+        toastService.info('Connection restored', 'Syncing local offline changes now.');
+        void flushQueuedTaskMutations(user.orgId).then((result) => {
+          if (result.remaining > 0) {
+            setHasPendingSync(true);
+          }
+          forceReconcile();
+        });
       }
     };
     const onWorkspaceSyncRequired = (event: Event) => {
@@ -78,6 +87,11 @@ export const useWorkspaceConnection = ({
     window.addEventListener('offline', onOffline);
     window.addEventListener('online', onOnline);
     window.addEventListener('workspaceSyncRequired', onWorkspaceSyncRequired as EventListener);
+    if (navigator.onLine && queuedTaskMutationCount(user.orgId) > 0) {
+      void flushQueuedTaskMutations(user.orgId).then(() => {
+        forceReconcile();
+      });
+    }
     return () => {
       window.removeEventListener('offline', onOffline);
       window.removeEventListener('online', onOnline);

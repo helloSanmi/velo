@@ -3,6 +3,7 @@ import { backendSyncService } from '../backendSyncService';
 import { realtimeService } from '../realtimeService';
 import { syncGuardService } from '../syncGuardService';
 import { toastService } from '../toastService';
+import { enqueueTaskCreate, enqueueTaskDelete, enqueueTaskUpdate } from './syncQueue';
 
 const WORKSPACE_SYNC_REQUIRED_EVENT = 'workspaceSyncRequired';
 const isPermissionError = (error: unknown) =>
@@ -108,6 +109,11 @@ export const syncTaskToBackend = (
   if (Object.keys(patch).length === 0) {
     return;
   }
+  if (!navigator.onLine) {
+    enqueueTaskUpdate(orgId, task.projectId, task.id, patch);
+    syncGuardService.markPending();
+    return;
+  }
   void (async () => {
     let lastError: unknown;
     for (let attempt = 0; attempt < 2; attempt += 1) {
@@ -133,6 +139,7 @@ export const syncTaskToBackend = (
       window.dispatchEvent(new CustomEvent(WORKSPACE_SYNC_REQUIRED_EVENT, { detail: { orgId, reason: 'task-permission-denied' } }));
       return;
     }
+    enqueueTaskUpdate(orgId, task.projectId, task.id, patch);
     toastService.warning('Sync pending', `Task update saved locally but not synced: ${message}`);
   })();
 };
@@ -141,18 +148,26 @@ export const syncTaskCreateToBackend = (
   orgId: string,
   task: Pick<Task, 'projectId' | 'title' | 'description' | 'status' | 'priority' | 'dueDate' | 'assigneeIds' | 'tags'>
 ) => {
+  const payload = {
+    title: task.title,
+    description: task.description,
+    status: task.status,
+    priority: task.priority,
+    dueDate: task.dueDate,
+    assigneeIds: task.assigneeIds,
+    tags: task.tags
+  };
+  if (!navigator.onLine) {
+    enqueueTaskCreate(orgId, task.projectId, task.id, payload);
+    syncGuardService.markPending();
+    return;
+  }
   void (async () => {
     let lastError: unknown;
     for (let attempt = 0; attempt < 2; attempt += 1) {
       try {
         await backendSyncService.createTask(orgId, task.projectId, {
-          title: task.title,
-          description: task.description,
-          status: task.status,
-          priority: task.priority,
-          dueDate: task.dueDate,
-          assigneeIds: task.assigneeIds,
-          tags: task.tags
+          ...payload
         });
         syncGuardService.clearPending();
         return;
@@ -173,12 +188,18 @@ export const syncTaskCreateToBackend = (
       window.dispatchEvent(new CustomEvent(WORKSPACE_SYNC_REQUIRED_EVENT, { detail: { orgId, reason: 'task-create-denied' } }));
       return;
     }
+    enqueueTaskCreate(orgId, task.projectId, task.id, payload);
     const message = lastError instanceof Error ? lastError.message : 'Task create sync failed';
     toastService.warning('Sync pending', `Task creation saved locally but not synced: ${message}`);
   })();
 };
 
 export const syncTaskDeleteToBackend = (orgId: string, task: Pick<Task, 'id' | 'projectId'>) => {
+  if (!navigator.onLine) {
+    enqueueTaskDelete(orgId, task.projectId, task.id);
+    syncGuardService.markPending();
+    return;
+  }
   void (async () => {
     let lastError: unknown;
     for (let attempt = 0; attempt < 2; attempt += 1) {
@@ -203,6 +224,7 @@ export const syncTaskDeleteToBackend = (orgId: string, task: Pick<Task, 'id' | '
       window.dispatchEvent(new CustomEvent(WORKSPACE_SYNC_REQUIRED_EVENT, { detail: { orgId, reason: 'task-delete-denied' } }));
       return;
     }
+    enqueueTaskDelete(orgId, task.projectId, task.id);
     const message = lastError instanceof Error ? lastError.message : 'Task delete sync failed';
     toastService.warning('Sync pending', `Task deletion saved locally but not synced: ${message}`);
   })();
