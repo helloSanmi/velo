@@ -5,6 +5,8 @@ export interface KanbanHeaderProps {
   boardView: 'kanban' | 'checklist' | 'table' | 'timeline' | 'calendar' | 'gantt' | 'workload';
   onChangeBoardView: (view: 'kanban' | 'checklist' | 'table' | 'timeline' | 'calendar' | 'gantt' | 'workload') => void;
   compactMode: boolean;
+  checklistDensity: 'comfortable' | 'compact';
+  onChecklistDensityChange: (density: 'comfortable' | 'compact') => void;
   activeProject?: Project;
   currentUserId: string;
   totals: { total: number; todo: number; inProgress: number; done: number };

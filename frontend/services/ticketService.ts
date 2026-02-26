@@ -4,7 +4,10 @@ import {
   IntakeTicketStatus,
   TicketNotificationDelivery,
   TicketNotificationActiveHealthCheck,
+  TicketNotificationAutoFixResult,
+  TicketNotificationFixAndRetryResult,
   TicketNotificationDiagnostics,
+  TicketNotificationDestination,
   TicketNotificationDeliveryStatus,
   TicketNotificationPolicy,
   TicketPolicy
@@ -61,6 +64,32 @@ export const ticketService = {
     return apiRequest<{ queued: number; digestPending: number }>(`/orgs/${orgId}/tickets/notifications/queue-status`);
   },
 
+  async ensureNotificationSubscription(orgId: string): Promise<{ subscriptionId: string; expiresAt: string }> {
+    return apiRequest<{ subscriptionId: string; expiresAt: string }>(`/orgs/${orgId}/tickets/notifications/subscriptions`, {
+      method: 'POST'
+    });
+  },
+
+  async runNotificationDeltaSync(orgId: string): Promise<{ processed: number; deltaLink?: string }> {
+    return apiRequest<{ processed: number; deltaLink?: string }>(`/orgs/${orgId}/tickets/notifications/delta-sync`, {
+      method: 'POST'
+    });
+  },
+
+  async getNotificationDestination(orgId: string): Promise<TicketNotificationDestination> {
+    return apiRequest<TicketNotificationDestination>(`/orgs/${orgId}/tickets/notifications/destination`);
+  },
+
+  async updateNotificationDestination(
+    orgId: string,
+    payload: TicketNotificationDestination
+  ): Promise<TicketNotificationDestination> {
+    return apiRequest<TicketNotificationDestination>(`/orgs/${orgId}/tickets/notifications/destination`, {
+      method: 'PATCH',
+      body: payload
+    });
+  },
+
   async getNotificationDeliveries(
     orgId: string,
     input?: { status?: TicketNotificationDeliveryStatus; limit?: number }
@@ -94,6 +123,22 @@ export const ticketService = {
   async runNotificationHealthCheck(orgId: string): Promise<TicketNotificationActiveHealthCheck> {
     return apiRequest<TicketNotificationActiveHealthCheck>(`/orgs/${orgId}/tickets/notifications/health-check`, {
       method: 'POST'
+    });
+  },
+
+  async runNotificationAutoFix(orgId: string): Promise<TicketNotificationAutoFixResult> {
+    return apiRequest<TicketNotificationAutoFixResult>(`/orgs/${orgId}/tickets/notifications/health-fix`, {
+      method: 'POST'
+    });
+  },
+
+  async runNotificationAutoFixAndRetryDeadLetters(
+    orgId: string,
+    input?: { limit?: number }
+  ): Promise<TicketNotificationFixAndRetryResult> {
+    return apiRequest<TicketNotificationFixAndRetryResult>(`/orgs/${orgId}/tickets/notifications/health-fix-retry`, {
+      method: 'POST',
+      body: { confirm: true, limit: input?.limit }
     });
   },
 

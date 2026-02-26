@@ -456,7 +456,7 @@ export const buildOauthConnectUrl = async (input: {
     client_id: config.clientId,
     redirect_uri: config.redirectUri,
     response_type: 'code',
-    scope: 'openid profile email offline_access User.Read User.ReadBasic.All Mail.Send',
+    scope: 'openid profile email offline_access User.Read User.ReadBasic.All Mail.Send Mail.Read ChannelMessage.Send Chat.ReadWrite',
     response_mode: 'query',
     prompt: 'consent',
     state
@@ -663,6 +663,16 @@ export const completeOauthCallback = async (input: {
       scope: tokenJson.scope
     });
 
+    let subscriptionEnsured = false;
+    let subscriptionEnsureError: string | undefined;
+    try {
+      const { ticketsGraphService } = await import('../tickets/tickets.graph.service.js');
+      const ensured = await ticketsGraphService.ensureMailSubscription({ orgId: stateOrg.id });
+      subscriptionEnsured = Boolean(ensured.subscriptionId);
+    } catch (error: any) {
+      subscriptionEnsureError = error?.message || 'Could not auto-create ticket mail subscription.';
+    }
+
     await writeAudit({
       orgId: stateOrg.id,
       userId: actor.id,
@@ -673,7 +683,9 @@ export const completeOauthCallback = async (input: {
       metadata: {
         provider: input.provider,
         consentedBy: profile.email,
-        tenantId: microsoftTenantId
+        tenantId: microsoftTenantId,
+        ticketNotificationSubscriptionEnsured: subscriptionEnsured,
+        ticketNotificationSubscriptionError: subscriptionEnsureError
       },
       ipAddress: input.ipAddress,
       userAgent: input.userAgent
@@ -685,7 +697,9 @@ export const completeOauthCallback = async (input: {
         provider: input.provider,
         workspaceDomain: `${updated.loginSubdomain}.velo.ai`,
         microsoftConnected: updated.microsoftWorkspaceConnected,
-        microsoftAllowed: updated.allowMicrosoftAuth
+        microsoftAllowed: updated.allowMicrosoftAuth,
+        subscriptionEnsured,
+        subscriptionEnsureError
       },
       'velo-oauth-connect-result',
       state.returnOrigin || frontendOrigin

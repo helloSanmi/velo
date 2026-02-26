@@ -2,7 +2,7 @@ import React from 'react';
 import { CheckCircle2, Circle, Hourglass, ListChecks } from 'lucide-react';
 import { Task } from '../../types';
 import Column from './Column';
-import { BOARD_INNER_WRAP_CLASS, BOARD_OUTER_WRAP_CLASS } from './layout';
+import { BOARD_INNER_WRAP_CLASS, BOARD_OUTER_WRAP_CLASS, BOARD_SCROLL_COLUMN_WIDTH_CLASS } from './layout';
 
 interface KanbanBoardProps {
   categorizedTasks: Record<string, Task[]>;
@@ -106,7 +106,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
                     ? ''
                     : shouldStretchColumns
                       ? 'w-full min-w-0'
-                      : 'w-full md:w-[360px] md:flex-shrink-0 md:snap-start'
+                      : BOARD_SCROLL_COLUMN_WIDTH_CLASS
                 }
               />
           ))}

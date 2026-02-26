@@ -40,6 +40,7 @@ describe('completionFlowService', () => {
     expect(isTaskInFinalStage(makeTask('2', 'completed'), 'done', 'Done')).toBe(true);
     expect(isTaskInFinalStage(makeTask('3', 'final-review'), 'final-review', 'Final Review')).toBe(true);
     expect(isTaskInFinalStage(makeTask('4', 'final review'), 'final-review', 'final review')).toBe(true);
+    expect(isTaskInFinalStage(makeTask('4b', 'done'), 'final-review', 'Final Review')).toBe(false);
     expect(isTaskInFinalStage(makeTask('5', 'in-progress'), 'done', 'Done')).toBe(false);
   });
 

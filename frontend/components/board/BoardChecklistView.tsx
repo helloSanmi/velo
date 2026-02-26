@@ -2,14 +2,19 @@ import React, { useMemo, useState } from 'react';
 import { Check, Circle, GripVertical, Plus, PlusCircle } from 'lucide-react';
 import { ProjectStage, Task } from '../../types';
 import { createId } from '../../utils/id';
-import { BOARD_CONTENT_GUTTER_CLASS, BOARD_INNER_WRAP_CLASS, BOARD_OUTER_WRAP_CLASS } from './layout';
+import {
+  BOARD_CONTENT_GUTTER_CLASS,
+  BOARD_INNER_WRAP_CLASS,
+  BOARD_OUTER_WRAP_CLASS,
+  BOARD_SCROLL_COLUMN_WIDTH_CLASS
+} from './layout';
 
 interface BoardChecklistViewProps {
   categorizedTasks: Record<string, Task[]>;
   statusFilter: string | 'All';
   statusOptions: ProjectStage[];
   allUsers: Array<{ id: string; displayName: string }>;
-  compactMode?: boolean;
+  density: 'comfortable' | 'compact';
   onSelectTask: (task: Task) => void;
   onUpdateTask: (id: string, updates: Partial<Omit<Task, 'id' | 'userId' | 'createdAt' | 'order'>>) => void;
   onMoveTask: (taskId: string, targetStatus: string, targetTaskId?: string) => void;
@@ -21,7 +26,7 @@ const BoardChecklistView: React.FC<BoardChecklistViewProps> = ({
   statusFilter,
   statusOptions,
   allUsers,
-  compactMode = false,
+  density,
   onSelectTask,
   onUpdateTask,
   onMoveTask,
@@ -29,12 +34,6 @@ const BoardChecklistView: React.FC<BoardChecklistViewProps> = ({
 }) => {
   const [draftSubtaskByTaskId, setDraftSubtaskByTaskId] = useState<Record<string, string>>({});
   const [dragOverStatus, setDragOverStatus] = useState<string | null>(null);
-  const [density, setDensity] = useState<'comfortable' | 'compact'>(() => {
-    if (typeof window === 'undefined') return compactMode ? 'compact' : 'comfortable';
-    const saved = window.localStorage.getItem('velo_checklist_density');
-    if (saved === 'comfortable' || saved === 'compact') return saved;
-    return compactMode ? 'compact' : 'comfortable';
-  });
   const isCompact = density === 'compact';
 
   const userMap = useMemo(() => {
@@ -51,6 +50,7 @@ const BoardChecklistView: React.FC<BoardChecklistViewProps> = ({
     }))
     .filter((column) => statusFilter === 'All' || column.id === statusFilter);
 
+  const singleColumn = visibleColumns.length === 1;
   const toggleSubtask = (task: Task, subtaskId: string) => {
     const nextSubtasks = (task.subtasks || []).map((subtask) =>
       subtask.id === subtaskId ? { ...subtask, isCompleted: !subtask.isCompleted } : subtask
@@ -68,42 +68,24 @@ const BoardChecklistView: React.FC<BoardChecklistViewProps> = ({
 
   return (
     <main className={`flex-1 min-h-0 overflow-y-auto ${BOARD_OUTER_WRAP_CLASS} pb-4 md:pb-8`}>
-      <div className={`${BOARD_INNER_WRAP_CLASS} ${BOARD_CONTENT_GUTTER_CLASS} h-full`}>
-        <div className="flex items-center justify-end pb-2">
-          <div className="inline-flex items-center rounded-md border border-slate-200 bg-white p-0.5">
-            <button
-              type="button"
-              onClick={() => {
-                setDensity('comfortable');
-                if (typeof window !== 'undefined') window.localStorage.setItem('velo_checklist_density', 'comfortable');
-              }}
-              className={`h-7 px-2 rounded text-[11px] font-medium transition-colors ${
-                !isCompact ? 'bg-slate-900 text-white' : 'text-slate-700 hover:bg-slate-50'
-              }`}
-            >
-              Comfortable
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setDensity('compact');
-                if (typeof window !== 'undefined') window.localStorage.setItem('velo_checklist_density', 'compact');
-              }}
-              className={`h-7 px-2 rounded text-[11px] font-medium transition-colors ${
-                isCompact ? 'bg-slate-900 text-white' : 'text-slate-700 hover:bg-slate-50'
-              }`}
-            >
-              Compact
-            </button>
-          </div>
-        </div>
-
-        <div className={`grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 ${isCompact ? 'gap-3' : 'gap-4'} h-full`}>
-          {visibleColumns.map((column, index) => (
+      <div className={`${singleColumn ? 'max-w-[840px] mx-auto' : BOARD_INNER_WRAP_CLASS} ${BOARD_CONTENT_GUTTER_CLASS} h-full`}>
+        <div className={`px-1 h-full ${singleColumn ? '' : 'overflow-x-auto custom-scrollbar pb-2'}`}>
+          <div
+            className={`${
+              singleColumn
+                ? 'grid grid-cols-1 h-full'
+                : `flex flex-row flex-nowrap items-start ${isCompact ? 'gap-3' : 'gap-4'} h-full min-w-max pr-2 snap-x snap-mandatory`
+            }`}
+          >
+            {visibleColumns.map((column, index) => (
             <section
               key={column.id}
               className={`h-full min-h-0 bg-slate-100 border rounded-xl flex flex-col transition-colors ${
                 dragOverStatus === column.id ? 'border-slate-400 bg-slate-100' : 'border-slate-200'
+              } ${
+                singleColumn
+                  ? ''
+                  : BOARD_SCROLL_COLUMN_WIDTH_CLASS
               }`}
               onDragOver={(event) => {
                 event.preventDefault();
@@ -256,7 +238,8 @@ const BoardChecklistView: React.FC<BoardChecklistViewProps> = ({
                 })}
               </div>
             </section>
-          ))}
+            ))}
+          </div>
         </div>
       </div>
     </main>

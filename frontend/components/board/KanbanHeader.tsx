@@ -10,6 +10,8 @@ const KanbanHeader: React.FC<KanbanHeaderProps> = ({
   boardView,
   onChangeBoardView,
   compactMode,
+  checklistDensity,
+  onChecklistDensityChange,
   activeProject,
   currentUserId,
   totals,
@@ -104,6 +106,8 @@ const KanbanHeader: React.FC<KanbanHeaderProps> = ({
           <KanbanHeaderActions
             boardView={boardView}
             onChangeBoardView={onChangeBoardView}
+            checklistDensity={checklistDensity}
+            onChecklistDensityChange={onChecklistDensityChange}
             allowSavedViews={allowSavedViews}
             onSaveView={onSaveView}
             savedViews={savedViews}

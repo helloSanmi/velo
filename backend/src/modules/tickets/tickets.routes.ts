@@ -105,6 +105,16 @@ const notificationDeliveryQuerySchema = z.object({
     .optional(),
   limit: z.coerce.number().int().min(1).max(200).optional()
 });
+const healthFixRetrySchema = z.object({
+  confirm: z.literal(true),
+  limit: z.number().int().min(1).max(50).optional()
+});
+const notificationDestinationSchema = z.object({
+  mode: z.enum(['none', 'chat', 'channel']),
+  teamsChatId: z.string().optional(),
+  teamsTeamId: z.string().optional(),
+  teamsChannelId: z.string().optional()
+});
 
 const getProjectOwnerIds = (project: { ownerId: string; createdBy: string; metadata: unknown }): string[] => {
   const metadataOwnerIds =
@@ -607,6 +617,35 @@ router.post('/orgs/:orgId/tickets/notifications/delta-sync', authenticate, requi
   }
 });
 
+router.get('/orgs/:orgId/tickets/notifications/destination', authenticate, requireOrgAccess, async (req, res, next) => {
+  try {
+    const { orgId } = orgParamsSchema.parse(req.params);
+    if (req.auth!.role !== 'admin') throw new HttpError(403, 'Only admins can view ticket notification destination.');
+    const data = await ticketsGraphService.getNotificationDestination({ orgId });
+    res.json({ success: true, data });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.patch('/orgs/:orgId/tickets/notifications/destination', authenticate, requireOrgAccess, async (req, res, next) => {
+  try {
+    const { orgId } = orgParamsSchema.parse(req.params);
+    if (req.auth!.role !== 'admin') throw new HttpError(403, 'Only admins can update ticket notification destination.');
+    const body = notificationDestinationSchema.parse(req.body || {});
+    const data = await ticketsGraphService.updateNotificationDestination({
+      orgId,
+      mode: body.mode,
+      teamsChatId: body.teamsChatId,
+      teamsTeamId: body.teamsTeamId,
+      teamsChannelId: body.teamsChannelId
+    });
+    res.json({ success: true, data });
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.get('/orgs/:orgId/tickets/notifications/queue-status', authenticate, requireOrgAccess, async (req, res, next) => {
   try {
     const { orgId } = orgParamsSchema.parse(req.params);
@@ -637,6 +676,84 @@ router.post('/orgs/:orgId/tickets/notifications/health-check', authenticate, req
     const queue = await ticketsNotificationService.getQueueStatus();
     const data = await ticketsGraphService.runActiveHealthCheck({ orgId, queue });
     res.json({ success: true, data });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post('/orgs/:orgId/tickets/notifications/health-fix', authenticate, requireOrgAccess, async (req, res, next) => {
+  try {
+    const { orgId } = orgParamsSchema.parse(req.params);
+    if (req.auth!.role !== 'admin') throw new HttpError(403, 'Only admins can run ticket notification auto-fix.');
+    const queue = await ticketsNotificationService.getQueueStatus();
+    const data = await ticketsGraphService.runAutoFix({ orgId, queue });
+    res.json({ success: true, data });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post('/orgs/:orgId/tickets/notifications/health-fix-retry', authenticate, requireOrgAccess, async (req, res, next) => {
+  try {
+    const { orgId } = orgParamsSchema.parse(req.params);
+    const { limit } = healthFixRetrySchema.parse(req.body || {});
+    if (req.auth!.role !== 'admin') throw new HttpError(403, 'Only admins can run ticket notification auto-fix.');
+
+    const queue = await ticketsNotificationService.getQueueStatus();
+    const autoFix = await ticketsGraphService.runAutoFix({ orgId, queue });
+    const retryLimit = Math.max(1, Math.min(50, limit || 15));
+    const retryCandidates = await ticketsNotificationService.listDeliveries({
+      orgId,
+      status: TicketNotificationDeliveryStatus.dead_letter,
+      limit: retryLimit
+    });
+    const failedCandidates = await ticketsNotificationService.listDeliveries({
+      orgId,
+      status: TicketNotificationDeliveryStatus.failed,
+      limit: retryLimit
+    });
+    const candidateMap = new Map<string, (typeof retryCandidates)[number]>();
+    [...retryCandidates, ...failedCandidates].forEach((row) => candidateMap.set(row.id, row));
+    const candidates = Array.from(candidateMap.values())
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+      .slice(0, retryLimit);
+
+    let retried = 0;
+    let succeeded = 0;
+    let failed = 0;
+    const details: Array<{ deliveryId: string; status: string; lastError?: string | null }> = [];
+    for (const row of candidates) {
+      const result = await ticketsNotificationService.retryDeliveryNow({
+        orgId,
+        deliveryId: row.id,
+        actorUserId: req.auth!.userId
+      });
+      if (!result) continue;
+      retried += 1;
+      if (result.status === TicketNotificationDeliveryStatus.sent) succeeded += 1;
+      else failed += 1;
+      details.push({
+        deliveryId: result.id,
+        status: result.status,
+        lastError: result.lastError
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        ranAt: new Date().toISOString(),
+        autoFix,
+        retry: {
+          scanned: candidates.length,
+          retried,
+          succeeded,
+          failed,
+          skipped: Math.max(0, candidates.length - retried),
+          details
+        }
+      }
+    });
   } catch (error) {
     next(error);
   }

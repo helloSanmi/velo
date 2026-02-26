@@ -2,8 +2,11 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, BellRing, CheckCircle2, RefreshCw } from 'lucide-react';
 import {
   TicketNotificationActiveHealthCheck,
+  TicketNotificationAutoFixResult,
+  TicketNotificationFixAndRetryResult,
   TicketNotificationDelivery,
   TicketNotificationDiagnostics,
+  TicketNotificationDestination,
   TicketNotificationDeliveryStatus,
   TicketNotificationEventType,
   TicketNotificationPolicy
@@ -41,9 +44,19 @@ const SettingsTicketNotificationPolicySection: React.FC<SettingsTicketNotificati
   const [deliveries, setDeliveries] = useState<TicketNotificationDelivery[]>([]);
   const [diagnostics, setDiagnostics] = useState<TicketNotificationDiagnostics | null>(null);
   const [activeHealth, setActiveHealth] = useState<TicketNotificationActiveHealthCheck | null>(null);
+  const [autoFixResult, setAutoFixResult] = useState<TicketNotificationAutoFixResult | null>(null);
+  const [autoFixRetryResult, setAutoFixRetryResult] = useState<TicketNotificationFixAndRetryResult | null>(null);
   const [deliveriesLoading, setDeliveriesLoading] = useState(false);
+  const [destinationLoading, setDestinationLoading] = useState(false);
+  const [destinationSaving, setDestinationSaving] = useState(false);
+  const [destination, setDestination] = useState<TicketNotificationDestination | null>(null);
+  const [destinationDraft, setDestinationDraft] = useState<TicketNotificationDestination | null>(null);
   const [retryingId, setRetryingId] = useState<string | null>(null);
   const [runningHealthCheck, setRunningHealthCheck] = useState(false);
+  const [runningAutoFix, setRunningAutoFix] = useState(false);
+  const [runningAutoFixRetry, setRunningAutoFixRetry] = useState(false);
+  const [ensuringSubscription, setEnsuringSubscription] = useState(false);
+  const [syncingDelta, setSyncingDelta] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -106,9 +119,23 @@ const SettingsTicketNotificationPolicySection: React.FC<SettingsTicketNotificati
     }
   };
 
+  const loadDestination = async () => {
+    setDestinationLoading(true);
+    try {
+      const value = await ticketService.getNotificationDestination(orgId);
+      setDestination(value);
+      setDestinationDraft(value);
+    } catch (error: any) {
+      dialogService.alert(error?.message || 'Could not load Teams notification destination.');
+    } finally {
+      setDestinationLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (!expanded) return;
     void loadDeliveryState();
+    void loadDestination();
   }, [expanded, orgId]);
 
   const save = async () => {
@@ -168,6 +195,86 @@ const SettingsTicketNotificationPolicySection: React.FC<SettingsTicketNotificati
       dialogService.alert(error?.message || 'Could not run health check.');
     } finally {
       setRunningHealthCheck(false);
+    }
+  };
+
+  const runAutoFix = async () => {
+    setRunningAutoFix(true);
+    try {
+      const result = await ticketService.runNotificationAutoFix(orgId);
+      setAutoFixResult(result);
+      setActiveHealth(result.health);
+      await loadDeliveryState();
+      dialogService.notice(result.health.ok ? 'Auto-fix completed and health is now good.' : 'Auto-fix ran. Some issues still need manual action.');
+    } catch (error: any) {
+      dialogService.alert(error?.message || 'Could not run auto-fix.');
+    } finally {
+      setRunningAutoFix(false);
+    }
+  };
+
+  const runAutoFixAndRetry = async () => {
+    const confirmed = await dialogService.confirm(
+      'Run auto-fix and retry dead letters now? This will retry up to 15 recent failed/dead-letter deliveries.',
+      { title: 'Auto-fix + Retry dead letters', confirmLabel: 'Run now', cancelLabel: 'Cancel' }
+    );
+    if (!confirmed) return;
+    setRunningAutoFixRetry(true);
+    try {
+      const result = await ticketService.runNotificationAutoFixAndRetryDeadLetters(orgId, { limit: 15 });
+      setAutoFixRetryResult(result);
+      setAutoFixResult(result.autoFix);
+      setActiveHealth(result.autoFix.health);
+      await loadDeliveryState();
+      dialogService.notice(
+        `Retry complete: ${result.retry.succeeded} succeeded, ${result.retry.failed} failed, ${result.retry.skipped} skipped.`
+      );
+    } catch (error: any) {
+      dialogService.alert(error?.message || 'Could not run auto-fix + retry.');
+    } finally {
+      setRunningAutoFixRetry(false);
+    }
+  };
+
+  const ensureSubscription = async () => {
+    setEnsuringSubscription(true);
+    try {
+      const result = await ticketService.ensureNotificationSubscription(orgId);
+      await loadDeliveryState();
+      dialogService.notice(`Subscription ensured. Expires ${formatIso(result.expiresAt)}.`);
+    } catch (error: any) {
+      dialogService.alert(error?.message || 'Could not ensure subscription.');
+    } finally {
+      setEnsuringSubscription(false);
+    }
+  };
+
+  const runDeltaSync = async () => {
+    setSyncingDelta(true);
+    try {
+      const result = await ticketService.runNotificationDeltaSync(orgId);
+      await loadDeliveryState();
+      dialogService.notice(`Delta sync complete. Processed ${result.processed} inbound message(s).`);
+    } catch (error: any) {
+      dialogService.alert(error?.message || 'Could not run delta sync.');
+    } finally {
+      setSyncingDelta(false);
+    }
+  };
+
+  const saveDestination = async () => {
+    if (!destinationDraft) return;
+    setDestinationSaving(true);
+    try {
+      const value = await ticketService.updateNotificationDestination(orgId, destinationDraft);
+      setDestination(value);
+      setDestinationDraft(value);
+      dialogService.notice('Teams destination updated.');
+      await loadDeliveryState();
+    } catch (error: any) {
+      dialogService.alert(error?.message || 'Could not update Teams destination.');
+    } finally {
+      setDestinationSaving(false);
     }
   };
 
@@ -364,15 +471,143 @@ const SettingsTicketNotificationPolicySection: React.FC<SettingsTicketNotificati
                 <Button
                   size="sm"
                   variant="outline"
+                  onClick={() => void ensureSubscription()}
+                  disabled={ensuringSubscription}
+                >
+                  {ensuringSubscription ? 'Ensuring...' : 'Ensure subscription'}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => void runDeltaSync()}
+                  disabled={syncingDelta}
+                >
+                  {syncingDelta ? 'Syncing...' : 'Run delta sync'}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
                   onClick={() => void runHealthCheck()}
                   disabled={runningHealthCheck}
                 >
                   {runningHealthCheck ? 'Checking...' : 'Run health check'}
                 </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => void runAutoFix()}
+                  disabled={runningAutoFix}
+                >
+                  {runningAutoFix ? 'Fixing...' : 'Auto-fix'}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => void runAutoFixAndRetry()}
+                  disabled={runningAutoFixRetry}
+                >
+                  {runningAutoFixRetry ? 'Running...' : 'Auto-fix + Retry dead letters'}
+                </Button>
+              </div>
+            </div>
+            <div className="px-3 py-2 border-b border-slate-100 bg-white">
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <p className="text-xs font-medium text-slate-700">Teams destination</p>
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-1 text-xs text-slate-700"
+                  onClick={() => void loadDestination()}
+                  disabled={destinationLoading || destinationSaving}
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${destinationLoading ? 'animate-spin' : ''}`} />
+                  Refresh
+                </button>
+              </div>
+              {destinationDraft ? (
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
+                  <label className="text-xs text-slate-600">
+                    Mode
+                    <select
+                      value={destinationDraft.mode}
+                      onChange={(event) =>
+                        setDestinationDraft((prev) =>
+                          prev
+                            ? {
+                                ...prev,
+                                mode: event.target.value as TicketNotificationDestination['mode']
+                              }
+                            : prev
+                        )
+                      }
+                      className="mt-1 h-9 w-full rounded-md border border-slate-300 px-2 text-sm"
+                    >
+                      <option value="none">Disabled</option>
+                      <option value="chat">Chat</option>
+                      <option value="channel">Channel</option>
+                    </select>
+                  </label>
+                  <label className="text-xs text-slate-600 md:col-span-1">
+                    Teams chat ID
+                    <input
+                      value={destinationDraft.teamsChatId || ''}
+                      onChange={(event) =>
+                        setDestinationDraft((prev) => (prev ? { ...prev, teamsChatId: event.target.value } : prev))
+                      }
+                      placeholder="19:...@thread.v2"
+                      className="mt-1 h-9 w-full rounded-md border border-slate-300 px-2 text-sm"
+                      disabled={destinationDraft.mode !== 'chat'}
+                    />
+                  </label>
+                  <label className="text-xs text-slate-600 md:col-span-1">
+                    Teams team ID
+                    <input
+                      value={destinationDraft.teamsTeamId || ''}
+                      onChange={(event) =>
+                        setDestinationDraft((prev) => (prev ? { ...prev, teamsTeamId: event.target.value } : prev))
+                      }
+                      placeholder="team id"
+                      className="mt-1 h-9 w-full rounded-md border border-slate-300 px-2 text-sm"
+                      disabled={destinationDraft.mode !== 'channel'}
+                    />
+                  </label>
+                  <label className="text-xs text-slate-600 md:col-span-1">
+                    Teams channel ID
+                    <input
+                      value={destinationDraft.teamsChannelId || ''}
+                      onChange={(event) =>
+                        setDestinationDraft((prev) =>
+                          prev ? { ...prev, teamsChannelId: event.target.value } : prev
+                        )
+                      }
+                      placeholder="19:...@thread.tacv2"
+                      className="mt-1 h-9 w-full rounded-md border border-slate-300 px-2 text-sm"
+                      disabled={destinationDraft.mode !== 'channel'}
+                    />
+                  </label>
+                </div>
+              ) : (
+                <p className="text-xs text-slate-500">Loading Teams destination...</p>
+              )}
+              <div className="mt-2 flex items-center justify-between gap-2">
+                <p className="text-[11px] text-slate-500">
+                  {destination
+                    ? `Current: ${destination.mode === 'none' ? 'disabled' : destination.mode}.`
+                    : 'No destination configured yet.'}
+                </p>
+                <Button size="sm" variant="outline" onClick={() => void saveDestination()} disabled={!destinationDraft || destinationSaving}>
+                  {destinationSaving ? 'Saving...' : 'Save destination'}
+                </Button>
               </div>
             </div>
             {diagnostics ? (
               <div className="px-3 py-2 border-b border-slate-100 bg-white">
+                <div className="mb-2 rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5">
+                  <p className="text-xs text-slate-700">
+                    Health summary: token <span className="font-medium">{diagnostics.microsoft.tokenStatus}</span> • subscription{' '}
+                    <span className="font-medium">{diagnostics.subscription.status}</span> • dead letters{' '}
+                    <span className="font-medium">{diagnostics.delivery.deadLetterOpen}</span>
+                  </p>
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs text-slate-600">
                   <div className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5">
                     <div className="flex items-center justify-between gap-2">
@@ -425,6 +660,42 @@ const SettingsTicketNotificationPolicySection: React.FC<SettingsTicketNotificati
                     </div>
                   ))}
                 </div>
+              </div>
+            ) : null}
+            {autoFixResult ? (
+              <div className="px-3 py-2 border-b border-slate-100 bg-white">
+                <div className="flex items-center justify-between gap-2 mb-1">
+                  <p className="text-xs font-medium text-slate-700">Auto-fix • {formatIso(autoFixResult.ranAt)}</p>
+                  <span className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] ${healthBadgeClass(autoFixResult.health.ok ? 'ok' : 'failed')}`}>
+                    {autoFixResult.health.ok ? 'fixed' : 'partial'}
+                  </span>
+                </div>
+                <div className="space-y-1">
+                  {autoFixResult.actions.map((action) => (
+                    <div key={action.key} className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5">
+                      <p className={`text-xs font-medium ${action.ok ? 'text-emerald-700' : 'text-rose-700'}`}>
+                        {action.key.replaceAll('_', ' ')}: {action.ok ? 'ok' : 'failed'}
+                      </p>
+                      <p className="text-xs text-slate-600">{action.detail}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+            {autoFixRetryResult ? (
+              <div className="px-3 py-2 border-b border-slate-100 bg-white">
+                <div className="flex items-center justify-between gap-2 mb-1">
+                  <p className="text-xs font-medium text-slate-700">Auto-fix + Retry • {formatIso(autoFixRetryResult.ranAt)}</p>
+                  <span className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] ${healthBadgeClass(autoFixRetryResult.retry.failed === 0 ? 'ok' : 'failed')}`}>
+                    {autoFixRetryResult.retry.failed === 0 ? 'stable' : 'partial'}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-600">
+                  Retried {autoFixRetryResult.retry.retried}/{autoFixRetryResult.retry.scanned} •
+                  Success {autoFixRetryResult.retry.succeeded} •
+                  Failed {autoFixRetryResult.retry.failed} •
+                  Skipped {autoFixRetryResult.retry.skipped}
+                </p>
               </div>
             ) : null}
             <div className="max-h-64 overflow-auto">

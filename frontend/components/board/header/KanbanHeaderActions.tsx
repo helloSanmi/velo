@@ -7,6 +7,8 @@ type KanbanHeaderActionsProps = Pick<
   KanbanHeaderProps,
   | 'boardView'
   | 'onChangeBoardView'
+  | 'checklistDensity'
+  | 'onChecklistDensityChange'
   | 'allowSavedViews'
   | 'onSaveView'
   | 'savedViews'
@@ -29,6 +31,8 @@ type KanbanHeaderActionsProps = Pick<
 const KanbanHeaderActions: React.FC<KanbanHeaderActionsProps> = ({
   boardView,
   onChangeBoardView,
+  checklistDensity,
+  onChecklistDensityChange,
   allowSavedViews,
   onSaveView,
   savedViews,
@@ -190,6 +194,29 @@ const KanbanHeaderActions: React.FC<KanbanHeaderActionsProps> = ({
             Stages
           </button>
         )}
+
+        {boardView === 'checklist' ? (
+          <div className="inline-flex items-center rounded-md border border-slate-200 bg-white p-0.5 shrink-0">
+            <button
+              type="button"
+              onClick={() => onChecklistDensityChange('comfortable')}
+              className={`h-9 md:h-7 px-3 md:px-2 rounded text-xs md:text-[11px] font-medium transition-colors ${
+                checklistDensity === 'comfortable' ? 'bg-slate-900 text-white' : 'text-slate-700 hover:bg-slate-50'
+              }`}
+            >
+              Comfortable
+            </button>
+            <button
+              type="button"
+              onClick={() => onChecklistDensityChange('compact')}
+              className={`h-9 md:h-7 px-3 md:px-2 rounded text-xs md:text-[11px] font-medium transition-colors ${
+                checklistDensity === 'compact' ? 'bg-slate-900 text-white' : 'text-slate-700 hover:bg-slate-50'
+              }`}
+            >
+              Compact
+            </button>
+          </div>
+        ) : null}
       </div>
 
       {selectedTaskIds.length > 0 && (

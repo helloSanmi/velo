@@ -16,5 +16,31 @@
     "comments": [],
     "createdAt": 1772057783392,
     "updatedAt": 1772057783392
+  },
+  {
+    "id": "tkt_062d93c9-3428-4966-9e8e-eab1da664840",
+    "orgId": "org-ent-001",
+    "title": "Contact Support",
+    "description": "This is to addressthe issue with the support of this solution",
+    "requesterName": "Global Admin",
+    "requesterEmail": "admin@velo.ai",
+    "requesterUserId": "demo-admin",
+    "status": "triaged",
+    "priority": "medium",
+    "tags": [],
+    "source": "workspace",
+    "comments": [
+      {
+        "id": "cmt_b1949304-ddc0-4e46-9449-f2af951638fb",
+        "userId": "demo-admin",
+        "userName": "Global Admin",
+        "text": "checking this one",
+        "createdAt": 1772144298208
+      }
+    ],
+    "createdAt": 1772144271149,
+    "updatedAt": 1772147513065,
+    "firstResponseAt": 1772144286586,
+    "projectId": "32849471-0513-48de-b607-16b96f90dc77"
   }
 ]

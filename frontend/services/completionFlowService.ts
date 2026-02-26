@@ -1,17 +1,21 @@
 import { Project, Task } from '../types';
 
 const normalize = (value?: string) => (value || '').toLowerCase().trim();
+const DONE_ALIASES = new Set(['done', 'completed', 'complete']);
+
+const isDoneLike = (value?: string) => DONE_ALIASES.has(normalize(value));
 
 export const isTaskInFinalStage = (task: Task, finalStageId: string, finalStageName?: string) => {
   const normalizedStatus = normalize(String(task.status));
   const normalizedFinalId = normalize(finalStageId);
   const normalizedFinalName = normalize(finalStageName);
+  const finalStageIsDoneLike = isDoneLike(normalizedFinalId) || isDoneLike(normalizedFinalName);
+  const taskIsDoneLike = isDoneLike(normalizedStatus);
   return (
     task.status === finalStageId ||
     normalizedStatus === normalizedFinalId ||
     (normalizedFinalName ? normalizedStatus === normalizedFinalName : false) ||
-    normalizedStatus === 'done' ||
-    normalizedStatus === 'completed'
+    (finalStageIsDoneLike && taskIsDoneLike)
   );
 };
 

@@ -14,10 +14,13 @@ export const startRetentionCleanupScheduler = () => {
     try {
       const result = await runRetentionCleanup({
         orgRetentionDays: env.RETENTION_ORG_DELETE_DAYS,
-        projectDeletionAuditRetentionDays: env.RETENTION_PROJECT_DELETE_AUDIT_DAYS
+        projectDeletionAuditRetentionDays: env.RETENTION_PROJECT_DELETE_AUDIT_DAYS,
+        ticketNotificationDeliveryRetentionDays: env.RETENTION_TICKET_NOTIFICATION_DELIVERY_DAYS,
+        ticketInboundMessageRetentionDays: env.RETENTION_TICKET_INBOUND_MESSAGE_DAYS,
+        ticketSuppressionRetentionDays: env.RETENTION_TICKET_SUPPRESSION_DAYS
       });
       console.log(
-        `[retention] ${reason}: purged ${result.purgedOrganizations} org(s), ${result.purgedProjectDeletionAudits} project deletion audit log(s).`
+        `[retention] ${reason}: purged ${result.purgedOrganizations} org(s), ${result.purgedProjectDeletionAudits} project deletion audit log(s), ${result.purgedTicketNotificationDeliveries} ticket delivery row(s), ${result.purgedTicketInboundMessages} ticket inbound row(s), ${result.purgedTicketSuppressions} ticket suppression row(s).`
       );
     } catch (error) {
       console.error('[retention] cleanup failed', error);

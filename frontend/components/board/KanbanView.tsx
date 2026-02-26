@@ -157,6 +157,12 @@ const KanbanView: React.FC<KanbanViewProps> = ({
             ? 'workload'
             : 'kanban';
   });
+  const [checklistDensity, setChecklistDensity] = useState<'comfortable' | 'compact'>(() => {
+    if (typeof window === 'undefined') return compactMode ? 'compact' : 'comfortable';
+    const saved = window.localStorage.getItem('velo_checklist_density');
+    if (saved === 'comfortable' || saved === 'compact') return saved;
+    return compactMode ? 'compact' : 'comfortable';
+  });
 
   const {
     projectStages,
@@ -257,6 +263,11 @@ const KanbanView: React.FC<KanbanViewProps> = ({
     if (typeof window === 'undefined') return;
     window.localStorage.setItem('velo_board_view', boardView);
   }, [boardView]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem('velo_checklist_density', checklistDensity);
+  }, [checklistDensity]);
 
   useEffect(() => {
     if (!showBoardOnboarding || typeof window === 'undefined') return;
@@ -367,6 +378,8 @@ const KanbanView: React.FC<KanbanViewProps> = ({
         boardView={boardView}
         onChangeBoardView={setBoardView}
         compactMode={compactMode}
+        checklistDensity={checklistDensity}
+        onChecklistDensityChange={setChecklistDensity}
         activeProject={activeProject}
         currentUserId={currentUser.id}
         totals={totals}
@@ -446,7 +459,7 @@ const KanbanView: React.FC<KanbanViewProps> = ({
           statusFilter={statusFilter}
           statusOptions={projectStages}
           allUsers={allUsers}
-          compactMode={compactMode}
+          density={checklistDensity}
           onSelectTask={setSelectedTask}
           onUpdateTask={onUpdateTask}
           onMoveTask={moveTask}

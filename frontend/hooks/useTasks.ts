@@ -221,37 +221,36 @@ export const useTasks = (user: User | null, activeProjectId?: string) => {
 
   const moveTask = (taskId: string, targetStatus: string, targetTaskId?: string) => {
     if (!user) return;
-    if (hasTaskConflict(taskId)) return;
-    historyManager.push(tasks);
-    const currentTask = tasks.find((task) => task.id === taskId);
+    const latestTasks = taskService.getTasks(user.id, user.orgId);
+    historyManager.push(latestTasks);
+    const currentTask = latestTasks.find((task) => task.id === taskId);
     if (!currentTask) return;
+    if (currentTask.status === targetStatus && (!targetTaskId || targetTaskId === taskId)) return;
     const enteringDone = !doneStageIds.includes(currentTask.status) && doneStageIds.includes(targetStatus);
     if (enteringDone) setConfettiActive(true);
-    setTasks(prevTasks => {
-      const updatedTasks = [...prevTasks];
-      const taskIndex = updatedTasks.findIndex(t => t.id === taskId);
-      if (taskIndex === -1) return prevTasks;
-      const [task] = updatedTasks.splice(taskIndex, 1);
-      task.status = targetStatus;
-      let insertionIndex = -1;
-      if (targetTaskId) {
-        insertionIndex = updatedTasks.findIndex(t => t.id === targetTaskId);
-      } 
-      if (insertionIndex === -1) {
-        let lastInColumnIndex = -1;
-        for (let i = updatedTasks.length - 1; i >= 0; i--) {
-          if (updatedTasks[i].status === targetStatus) {
-            lastInColumnIndex = i;
-            break;
-          }
+    const updatedTasks = [...latestTasks];
+    const taskIndex = updatedTasks.findIndex((t) => t.id === taskId);
+    if (taskIndex === -1) return;
+    const [task] = updatedTasks.splice(taskIndex, 1);
+    task.status = targetStatus;
+    let insertionIndex = -1;
+    if (targetTaskId) {
+      insertionIndex = updatedTasks.findIndex((t) => t.id === targetTaskId);
+    }
+    if (insertionIndex === -1) {
+      let lastInColumnIndex = -1;
+      for (let i = updatedTasks.length - 1; i >= 0; i--) {
+        if (updatedTasks[i].status === targetStatus) {
+          lastInColumnIndex = i;
+          break;
         }
-        insertionIndex = lastInColumnIndex === -1 ? updatedTasks.length : lastInColumnIndex + 1;
       }
-      updatedTasks.splice(insertionIndex, 0, task);
-      const reordered = updatedTasks.map((t, i) => ({ ...t, order: i }));
-      taskService.reorderTasks(user.orgId, reordered, user.id, user.displayName);
-      return reordered;
-    });
+      insertionIndex = lastInColumnIndex === -1 ? updatedTasks.length : lastInColumnIndex + 1;
+    }
+    updatedTasks.splice(insertionIndex, 0, task);
+    const reordered = updatedTasks.map((t, i) => ({ ...t, order: i }));
+    taskService.reorderTasks(user.orgId, reordered, user.id, user.displayName);
+    setTasks(reordered);
   };
 
   const deleteTask = (id: string) => {

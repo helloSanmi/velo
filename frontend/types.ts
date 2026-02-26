@@ -418,6 +418,13 @@ export interface TicketNotificationDiagnostics {
   };
 }
 
+export interface TicketNotificationDestination {
+  mode: 'none' | 'chat' | 'channel';
+  teamsChatId?: string;
+  teamsTeamId?: string;
+  teamsChannelId?: string;
+}
+
 export interface TicketNotificationActiveHealthCheck {
   ranAt: string;
   checks: Array<{
@@ -427,6 +434,33 @@ export interface TicketNotificationActiveHealthCheck {
     remediation?: string;
   }>;
   ok: boolean;
+}
+
+export interface TicketNotificationAutoFixResult {
+  ranAt: string;
+  actions: Array<{
+    key: 'token_refresh' | 'subscription_ensure';
+    ok: boolean;
+    detail: string;
+  }>;
+  health: TicketNotificationActiveHealthCheck;
+}
+
+export interface TicketNotificationFixAndRetryResult {
+  ranAt: string;
+  autoFix: TicketNotificationAutoFixResult;
+  retry: {
+    scanned: number;
+    retried: number;
+    succeeded: number;
+    failed: number;
+    skipped: number;
+    details: Array<{
+      deliveryId: string;
+      status: string;
+      lastError?: string | null;
+    }>;
+  };
 }
 
 export type MainViewType =

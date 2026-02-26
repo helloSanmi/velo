@@ -64,6 +64,23 @@ export interface TicketGraphActiveHealthCheck {
   ok: boolean;
 }
 
+export interface TicketGraphAutoFixResult {
+  ranAt: string;
+  actions: Array<{
+    key: 'token_refresh' | 'subscription_ensure';
+    ok: boolean;
+    detail: string;
+  }>;
+  health: TicketGraphActiveHealthCheck;
+}
+
+export interface TicketNotificationDestination {
+  mode: 'none' | 'chat' | 'channel';
+  teamsChatId?: string;
+  teamsTeamId?: string;
+  teamsChannelId?: string;
+}
+
 type GraphMessageHeader = { name?: string; value?: string };
 
 const GRAPH_BASE_URL = 'https://graph.microsoft.com/v1.0';
@@ -190,6 +207,77 @@ const buildTicketUrl = (ticketId: string): string =>
 const extractHeaderValue = (headers: GraphMessageHeader[] | undefined, name: string): string | undefined =>
   headers?.find((header) => String(header?.name || '').toLowerCase() === name.toLowerCase())?.value;
 
+const decodeHtmlEntities = (value: string): string =>
+  value
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'");
+
+const stripHtml = (value: string): string =>
+  decodeHtmlEntities(
+    value
+      .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+      .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<\/p>/gi, '\n')
+      .replace(/<[^>]+>/g, ' ')
+  );
+
+const normalizeWhitespace = (value: string): string =>
+  value
+    .replace(/\r/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .replace(/[ \t]+/g, ' ')
+    .trim();
+
+const trimQuotedReply = (value: string): string => {
+  const lines = value.split('\n');
+  const keep: string[] = [];
+  for (const rawLine of lines) {
+    const line = rawLine.trimEnd();
+    if (/^>/.test(line)) break;
+    if (/^on .+wrote:$/i.test(line)) break;
+    if (/^from:\s/i.test(line)) break;
+    if (/^sent:\s/i.test(line)) break;
+    if (/^subject:\s/i.test(line)) break;
+    if (/^to:\s/i.test(line)) break;
+    if (/^--\s*$/.test(line)) break;
+    keep.push(line);
+  }
+  return normalizeWhitespace(keep.join('\n'));
+};
+
+const extractCommentTextFromMessage = (row: any): string => {
+  const candidates: string[] = [];
+  const body = typeof row?.body?.content === 'string' ? row.body.content : '';
+  const uniqueBody = typeof row?.uniqueBody?.content === 'string' ? row.uniqueBody.content : '';
+  const preview = typeof row?.bodyPreview === 'string' ? row.bodyPreview : '';
+  if (body) candidates.push(stripHtml(body));
+  if (uniqueBody) candidates.push(stripHtml(uniqueBody));
+  if (preview) candidates.push(preview);
+  const primary = candidates.find((item) => normalizeWhitespace(item).length > 0) || '';
+  const trimmed = trimQuotedReply(primary);
+  return trimmed.slice(0, 4000).trim();
+};
+
+const tryExtractTicketId = (value: string): string | undefined => {
+  const input = String(value || '');
+  const byBracket = input.match(/\[TKT:([A-Za-z0-9_-]+)\]/i)?.[1];
+  if (byBracket) return byBracket;
+  const byHeader = input.match(/x-velo-ticket-id[:\s]+([A-Za-z0-9_-]+)/i)?.[1];
+  if (byHeader) return byHeader;
+  const byThreadKey = input.match(/ticket-([A-Za-z0-9_-]+)/i)?.[1];
+  if (byThreadKey) return byThreadKey;
+  const byUrl = input.match(/[?&]tickets=([A-Za-z0-9_-]+)/i)?.[1];
+  if (byUrl) return byUrl;
+  const byLegacy = input.match(/tkt[_-]([A-Za-z0-9_-]+)/i)?.[1];
+  if (byLegacy) return byLegacy;
+  return undefined;
+};
+
 const extractTicketIdFromMessage = (input: {
   subject?: string;
   headers?: GraphMessageHeader[];
@@ -199,14 +287,19 @@ const extractTicketIdFromMessage = (input: {
 }): string | undefined => {
   const fromHeader = extractHeaderValue(input.headers, 'x-velo-ticket-id');
   if (fromHeader && fromHeader.trim()) return fromHeader.trim();
-
-  const subject = String(input.subject || '');
-  const bySubject = subject.match(/\[TKT:([A-Za-z0-9_-]+)\]/i)?.[1];
-  if (bySubject) return bySubject;
-
-  const link = `${input.references || ''} ${input.inReplyTo || ''} ${input.conversationId || ''}`;
-  const byReference = link.match(/tkt[_-][A-Za-z0-9_-]+/i)?.[0];
-  return byReference;
+  const fromThreadHeader = extractHeaderValue(input.headers, 'x-velo-thread-key');
+  const headerBlob = (input.headers || []).map((header) => `${header?.name || ''}: ${header?.value || ''}`).join('\n');
+  const combined = [
+    String(input.subject || ''),
+    String(input.references || ''),
+    String(input.inReplyTo || ''),
+    String(input.conversationId || ''),
+    String(fromThreadHeader || ''),
+    headerBlob
+  ]
+    .filter(Boolean)
+    .join('\n');
+  return tryExtractTicketId(combined);
 };
 
 const remediationForGraphError = (message: string): string => {
@@ -227,6 +320,55 @@ const remediationForGraphError = (message: string): string => {
 };
 
 export const ticketsGraphService = {
+  async getNotificationDestination(input: { orgId: string }): Promise<TicketNotificationDestination> {
+    const { metadata } = await resolveConnection(input.orgId);
+    const teamsChatId = String(metadata.teamsChatId || '').trim();
+    const teamsTeamId = String(metadata.teamsTeamId || '').trim();
+    const teamsChannelId = String(metadata.teamsChannelId || '').trim();
+    const mode: TicketNotificationDestination['mode'] =
+      teamsChatId ? 'chat' : teamsTeamId && teamsChannelId ? 'channel' : 'none';
+    return {
+      mode,
+      teamsChatId: teamsChatId || undefined,
+      teamsTeamId: teamsTeamId || undefined,
+      teamsChannelId: teamsChannelId || undefined
+    };
+  },
+
+  async updateNotificationDestination(input: {
+    orgId: string;
+    mode: 'none' | 'chat' | 'channel';
+    teamsChatId?: string;
+    teamsTeamId?: string;
+    teamsChannelId?: string;
+  }): Promise<TicketNotificationDestination> {
+    await resolveConnection(input.orgId);
+    const teamsChatId = String(input.teamsChatId || '').trim();
+    const teamsTeamId = String(input.teamsTeamId || '').trim();
+    const teamsChannelId = String(input.teamsChannelId || '').trim();
+
+    if (input.mode === 'chat' && !teamsChatId) {
+      throw new HttpError(400, 'Teams chat ID is required when mode is chat.');
+    }
+    if (input.mode === 'channel' && (!teamsTeamId || !teamsChannelId)) {
+      throw new HttpError(400, 'Teams team ID and channel ID are required when mode is channel.');
+    }
+
+    const metadataPatch: Partial<GraphConnectionMetadata> =
+      input.mode === 'none'
+        ? { teamsChatId: undefined, teamsTeamId: undefined, teamsChannelId: undefined }
+        : input.mode === 'chat'
+          ? { teamsChatId, teamsTeamId: undefined, teamsChannelId: undefined }
+          : { teamsChatId: undefined, teamsTeamId, teamsChannelId };
+
+    await updateConnectionMetadata({
+      orgId: input.orgId,
+      metadataPatch
+    });
+
+    return this.getNotificationDestination({ orgId: input.orgId });
+  },
+
   async recordWebhookHit(input: { orgId: string }): Promise<void> {
     await updateConnectionMetadata({
       orgId: input.orgId,
@@ -461,7 +603,7 @@ export const ticketsGraphService = {
     const accessToken = await ensureProviderAccessToken({ orgId: input.orgId, provider: 'microsoft' });
     let nextUrl =
       metadata.mailDeltaLink ||
-      `${GRAPH_BASE_URL}/me/mailFolders/inbox/messages/delta?$select=id,subject,conversationId,internetMessageId,internetMessageHeaders,from,receivedDateTime,bodyPreview`;
+      `${GRAPH_BASE_URL}/me/mailFolders/inbox/messages/delta?$select=id,subject,conversationId,internetMessageId,internetMessageHeaders,from,receivedDateTime,bodyPreview,body,uniqueBody`;
 
     let processed = 0;
     let latestDeltaLink: string | undefined;
@@ -470,7 +612,10 @@ export const ticketsGraphService = {
       const payload = await withGraphRetry(async () => {
         const response = await fetch(nextUrl, {
           method: 'GET',
-          headers: { Authorization: `Bearer ${accessToken}` }
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            Prefer: 'outlook.body-content-type="text"'
+          }
         });
         if (!response.ok) {
           const retryAfterMs = getRetryAfterMs(response);
@@ -512,7 +657,7 @@ export const ticketsGraphService = {
 
         const senderAddress = String(row?.from?.emailAddress?.address || '').trim().toLowerCase();
         const senderName = String(row?.from?.emailAddress?.name || senderAddress || 'Email user');
-        const commentText = String(row?.bodyPreview || '').trim();
+        const commentText = extractCommentTextFromMessage(row);
         if (!commentText) continue;
 
         const nextComments = [
@@ -796,6 +941,62 @@ export const ticketsGraphService = {
       ranAt: new Date().toISOString(),
       checks,
       ok: checks.every((row) => row.ok)
+    };
+  },
+
+  async runAutoFix(input: { orgId: string; queue: { queued: number; digestPending: number } }): Promise<TicketGraphAutoFixResult> {
+    const actions: TicketGraphAutoFixResult['actions'] = [];
+    const diagnostics = await this.getDiagnostics(input);
+
+    try {
+      await ensureProviderAccessToken({ orgId: input.orgId, provider: 'microsoft' });
+      actions.push({
+        key: 'token_refresh',
+        ok: true,
+        detail: 'Token refresh/access token retrieval succeeded.'
+      });
+    } catch (error: any) {
+      actions.push({
+        key: 'token_refresh',
+        ok: false,
+        detail: error?.message || 'Token refresh failed.'
+      });
+    }
+
+    try {
+      const shouldEnsure =
+        diagnostics.subscription.status === 'missing' ||
+        diagnostics.subscription.status === 'expired' ||
+        diagnostics.subscription.status === 'expiring' ||
+        !diagnostics.webhook.clientStateConfigured;
+      if (shouldEnsure) {
+        const ensured = await this.ensureMailSubscription({ orgId: input.orgId });
+        actions.push({
+          key: 'subscription_ensure',
+          ok: true,
+          detail: `Subscription ensured (${ensured.subscriptionId}) expiring ${ensured.expiresAt}.`
+        });
+      } else {
+        actions.push({
+          key: 'subscription_ensure',
+          ok: true,
+          detail: 'Subscription is already healthy; no action needed.'
+        });
+      }
+    } catch (error: any) {
+      actions.push({
+        key: 'subscription_ensure',
+        ok: false,
+        detail: error?.message || 'Could not ensure subscription.'
+      });
+    }
+
+    const queue = input.queue;
+    const health = await this.runActiveHealthCheck({ orgId: input.orgId, queue });
+    return {
+      ranAt: new Date().toISOString(),
+      actions,
+      health
     };
   }
 };
