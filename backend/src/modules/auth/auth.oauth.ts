@@ -21,6 +21,13 @@ type OAuthState = {
   nonce: string;
 };
 
+type OAuthConnectionMetadata = {
+  refreshTokenPresent?: boolean;
+  lastTokenRefreshAt?: string;
+  lastTokenRefreshStatus?: 'ok' | 'temporary_failure' | 'reconsent_required';
+  lastTokenRefreshError?: string;
+};
+
 const MICROSOFT_AUTH_URL = 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize';
 const MICROSOFT_TOKEN_URL = 'https://login.microsoftonline.com/common/oauth2/v2.0/token';
 const MICROSOFT_USERINFO_URL = 'https://graph.microsoft.com/v1.0/me';
@@ -79,6 +86,27 @@ const getProviderConfig = (provider: Provider) => {
 
 const toPrismaProvider = (_provider: Provider): 'microsoft' => 'microsoft';
 
+const patchOauthConnectionMetadata = async (input: {
+  orgId: string;
+  provider: Provider;
+  patch: Partial<OAuthConnectionMetadata>;
+}) => {
+  const oauthModel = (prisma as any).organizationOAuthConnection;
+  const connection = await oauthModel.findUnique({
+    where: { orgId_provider: { orgId: input.orgId, provider: toPrismaProvider(input.provider) } },
+    select: { id: true, metadata: true }
+  });
+  if (!connection) return;
+  const current =
+    connection.metadata && typeof connection.metadata === 'object'
+      ? connection.metadata as OAuthConnectionMetadata
+      : {};
+  await oauthModel.update({
+    where: { id: connection.id },
+    data: { metadata: { ...current, ...input.patch } }
+  });
+};
+
 const upsertOrgOauthConnection = async (input: {
   orgId: string;
   provider: Provider;
@@ -131,14 +159,53 @@ const exchangeRefreshToken = async (input: {
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: params.toString()
   });
-  if (!response.ok) throw new HttpError(401, `Could not refresh ${input.provider} token.`);
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({} as Record<string, unknown>));
+    const providerError = String(payload?.error || '').toLowerCase();
+    const providerDescription = String(payload?.error_description || '').trim();
+    const isPermanentReconsent = providerError === 'invalid_grant';
+    if (isPermanentReconsent) {
+      throw new HttpError(409, `${input.provider} connection requires re-consent.`, {
+        code: 'SSO_RECONNECT_REQUIRED',
+        providerError,
+        providerDescription
+      });
+    }
+    const isProviderConfigError =
+      providerError === 'unauthorized_client' || providerError === 'invalid_client';
+    if (isProviderConfigError) {
+      throw new HttpError(
+        503,
+        `${input.provider} OAuth app credentials are invalid or expired on server.`,
+        {
+          code: 'SSO_PROVIDER_CONFIG_ERROR',
+          providerError,
+          providerDescription
+        }
+      );
+    }
+    throw new HttpError(
+      503,
+      `Could not refresh ${input.provider} token right now.`,
+      {
+        code: 'SSO_REFRESH_TEMPORARY_FAILURE',
+        providerError,
+        providerDescription,
+        status: response.status
+      }
+    );
+  }
   const json = await response.json() as {
     access_token?: string;
     refresh_token?: string;
     expires_in?: number;
     scope?: string;
   };
-  if (!json.access_token) throw new HttpError(401, `Could not refresh ${input.provider} token.`);
+  if (!json.access_token) {
+    throw new HttpError(503, `Could not refresh ${input.provider} token right now.`, {
+      code: 'SSO_REFRESH_TEMPORARY_FAILURE'
+    });
+  }
   return {
     accessToken: json.access_token,
     refreshToken: json.refresh_token,
@@ -163,6 +230,16 @@ export const ensureProviderAccessToken = async (input: {
   if (stillValid) return connection.accessToken;
 
   if (!connection.refreshToken) {
+    await patchOauthConnectionMetadata({
+      orgId: input.orgId,
+      provider: input.provider,
+      patch: {
+        refreshTokenPresent: false,
+        lastTokenRefreshAt: new Date().toISOString(),
+        lastTokenRefreshStatus: 'reconsent_required',
+        lastTokenRefreshError: 'Missing refresh token'
+      }
+    }).catch(() => {});
     throw new HttpError(409, `${input.provider} connection requires re-consent.`, { code: 'SSO_RECONNECT_REQUIRED' });
   }
 
@@ -172,8 +249,41 @@ export const ensureProviderAccessToken = async (input: {
       provider: input.provider,
       refreshToken: connection.refreshToken
     });
-  } catch {
-    throw new HttpError(409, `${input.provider} connection requires re-consent.`, { code: 'SSO_RECONNECT_REQUIRED' });
+  } catch (error: any) {
+    if (error instanceof HttpError && (error as any).details?.code === 'SSO_RECONNECT_REQUIRED') {
+      const details = (error as any).details || {};
+      await patchOauthConnectionMetadata({
+        orgId: input.orgId,
+        provider: input.provider,
+        patch: {
+          refreshTokenPresent: true,
+          lastTokenRefreshAt: new Date().toISOString(),
+          lastTokenRefreshStatus: 'reconsent_required',
+          lastTokenRefreshError: String(details.providerError || error?.message || 'Re-consent required')
+        }
+      }).catch(() => {});
+      throw error;
+    }
+    await patchOauthConnectionMetadata({
+      orgId: input.orgId,
+      provider: input.provider,
+      patch: {
+        refreshTokenPresent: true,
+        lastTokenRefreshAt: new Date().toISOString(),
+        lastTokenRefreshStatus: 'temporary_failure',
+        lastTokenRefreshError: String(error?.message || 'Temporary token refresh failure')
+      }
+    }).catch(() => {});
+    // Keep production stable on transient auth failures: if token just expired recently,
+    // attempt to continue with the cached token while refresh recovers.
+    const expiredAtMs = connection.accessTokenExpiresAt ? connection.accessTokenExpiresAt.getTime() : 0;
+    const staleFallbackWindowMs = 10 * 60 * 1000;
+    if (connection.accessToken && expiredAtMs && expiredAtMs > Date.now() - staleFallbackWindowMs) {
+      return connection.accessToken;
+    }
+    throw new HttpError(503, `${input.provider} token refresh is temporarily unavailable. Retry shortly.`, {
+      code: 'SSO_REFRESH_TEMPORARY_FAILURE'
+    });
   }
   await upsertOrgOauthConnection({
     orgId: input.orgId,
@@ -183,6 +293,16 @@ export const ensureProviderAccessToken = async (input: {
     expiresInSeconds: refreshed.expiresInSeconds,
     scope: refreshed.scope
   });
+  await patchOauthConnectionMetadata({
+    orgId: input.orgId,
+    provider: input.provider,
+    patch: {
+      refreshTokenPresent: true,
+      lastTokenRefreshAt: new Date().toISOString(),
+      lastTokenRefreshStatus: 'ok',
+      lastTokenRefreshError: ''
+    }
+  }).catch(() => {});
   return refreshed.accessToken;
 };
 

@@ -4,6 +4,12 @@ import { createId } from '../../lib/ids.js';
 import { createTokenPair, verifyRefreshToken } from './auth.tokens.js';
 import { writeAudit } from '../audit/audit.service.js';
 import {
+  clearLoginFailures,
+  isLoginLocked,
+  normalizeLoginGuardKey,
+  registerLoginFailure
+} from './auth.loginLockout.js';
+import {
   buildJwtPayload,
   comparePassword,
   compareToken,
@@ -68,11 +74,26 @@ const resolveLoginUser = async (identifier: string, workspaceDomain?: string) =>
 };
 
 export const loginAuth = async (input: { identifier: string; password: string; workspaceDomain?: string; userAgent?: string; ipAddress?: string }) => {
+  const loginGuardKey = normalizeLoginGuardKey(input.identifier, input.workspaceDomain);
+  const lockState = isLoginLocked(loginGuardKey);
+  if (lockState.locked) {
+    throw new HttpError(429, `Too many failed sign-in attempts. Try again in ${lockState.retryAfterSeconds}s.`);
+  }
+
   const user = await resolveLoginUser(input.identifier, input.workspaceDomain);
-  if (!user) throw new HttpError(401, 'Invalid credentials.');
+  if (!user) {
+    registerLoginFailure(loginGuardKey);
+    throw new HttpError(401, 'Invalid credentials.');
+  }
 
   const ok = await comparePassword(input.password, user.passwordHash);
-  if (!ok) throw new HttpError(401, 'Invalid credentials.');
+  if (!ok) {
+    registerLoginFailure(loginGuardKey);
+    throw new HttpError(401, 'Invalid credentials.');
+  }
+
+  clearLoginFailures(loginGuardKey);
+
   if (!user.licenseActive) {
     throw new HttpError(403, 'No active license assigned for this account. Contact your workspace admin.', {
       code: 'LICENSE_REQUIRED'

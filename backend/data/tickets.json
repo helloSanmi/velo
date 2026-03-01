@@ -42,5 +42,86 @@
     "updatedAt": 1772147513065,
     "firstResponseAt": 1772144286586,
     "projectId": "32849471-0513-48de-b607-16b96f90dc77"
+  },
+  {
+    "id": "tkt_5c33232a-33eb-427d-8955-64feede6a72d",
+    "orgId": "org_d5e7d324-3956-40ac-adb6-9532ac025922",
+    "ticketCode": "TEC-000001",
+    "ticketNumber": 1,
+    "projectId": "36b4a28e-a12a-4482-b196-4d356fc117f5",
+    "title": "Allocation",
+    "description": "This is a description of the allocation",
+    "requesterName": "Adm",
+    "requesterEmail": "adm@techanalytics.org",
+    "requesterUserId": "usr_777fef5a-4137-49ce-9a7c-cd5c0df3e474",
+    "assigneeId": "usr_15a711f2-969c-44c8-8b8b-0f4857b6283d",
+    "status": "new",
+    "priority": "medium",
+    "tags": [],
+    "source": "workspace",
+    "comments": [],
+    "createdAt": 1772312600306,
+    "updatedAt": 1772312600306
+  },
+  {
+    "id": "tkt_1246f498-d0d3-4fd1-8654-5d75e6178d30",
+    "orgId": "org_d5e7d324-3956-40ac-adb6-9532ac025922",
+    "ticketCode": "TEC-000002",
+    "ticketNumber": 2,
+    "title": "Mail Notification",
+    "description": "",
+    "requesterName": "Adm",
+    "requesterEmail": "adm@techanalytics.org",
+    "requesterUserId": "usr_777fef5a-4137-49ce-9a7c-cd5c0df3e474",
+    "assigneeId": "usr_15a711f2-969c-44c8-8b8b-0f4857b6283d",
+    "status": "new",
+    "priority": "medium",
+    "tags": [],
+    "source": "email",
+    "comments": [
+      {
+        "id": "cmt_101f982c-f667-4719-baa0-53655f84101d",
+        "userId": "usr_777fef5a-4137-49ce-9a7c-cd5c0df3e474",
+        "userName": "Adm",
+        "text": "hello",
+        "createdAt": 1772401400294
+      },
+      {
+        "id": "cmt_88a48eef-7ac7-4b92-9e1a-7bf547a839c0",
+        "userId": "email:sanmi@nestanalytics.org",
+        "userName": "Sanmi Idowu",
+        "text": "checking\n________________________________",
+        "createdAt": 1772404366280
+      },
+      {
+        "id": "cmt_c52163b7-c99b-4200-8ae8-fca31e71a745",
+        "userId": "email:sanmi@nestanalytics.org",
+        "userName": "Sanmi Idowu",
+        "text": "thanks\n________________________________",
+        "createdAt": 1772404366358
+      }
+    ],
+    "createdAt": 1772401369851,
+    "updatedAt": 1772404366358
+  },
+  {
+    "id": "tkt_ae5e1052-97d8-40b6-8813-c25c3f78db42",
+    "orgId": "org_d5e7d324-3956-40ac-adb6-9532ac025922",
+    "ticketCode": "TEC-000003",
+    "ticketNumber": 3,
+    "projectId": "36b4a28e-a12a-4482-b196-4d356fc117f5",
+    "title": "Check",
+    "description": "",
+    "requesterName": "Global Admin",
+    "requesterEmail": "adm@techanalytics.org",
+    "requesterUserId": "usr_777fef5a-4137-49ce-9a7c-cd5c0df3e474",
+    "assigneeId": "usr_15a711f2-969c-44c8-8b8b-0f4857b6283d",
+    "status": "triaged",
+    "priority": "medium",
+    "tags": [],
+    "source": "workspace",
+    "comments": [],
+    "createdAt": 1772403604168,
+    "updatedAt": 1772403604168
   }
 ]

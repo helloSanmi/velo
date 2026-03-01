@@ -21,6 +21,7 @@ interface ApiResponse<T> {
 
 const getAccessToken = (): string | null => localStorage.getItem(ACCESS_TOKEN_KEY);
 const getRefreshToken = (): string | null => localStorage.getItem(REFRESH_TOKEN_KEY);
+let refreshInFlight: Promise<boolean> | null = null;
 
 export const setAuthTokens = (tokens: { accessToken: string; refreshToken: string }): void => {
   localStorage.setItem(ACCESS_TOKEN_KEY, tokens.accessToken);
@@ -33,6 +34,8 @@ export const clearAuthTokens = (): void => {
 };
 
 const refreshAccessToken = async (): Promise<boolean> => {
+  if (refreshInFlight) return refreshInFlight;
+  refreshInFlight = (async () => {
   const refreshToken = getRefreshToken();
   if (!refreshToken) return false;
 
@@ -47,6 +50,11 @@ const refreshAccessToken = async (): Promise<boolean> => {
   if (!json.success || !json.data?.tokens) return false;
   setAuthTokens(json.data.tokens);
   return true;
+  })()
+    .finally(() => {
+      refreshInFlight = null;
+    });
+  return refreshInFlight;
 };
 
 export const apiRequest = async <T>(path: string, options: RequestOptions = {}): Promise<T> => {

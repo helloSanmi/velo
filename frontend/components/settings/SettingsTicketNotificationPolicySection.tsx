@@ -1,13 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, BellRing, CheckCircle2, RefreshCw } from 'lucide-react';
+import { BellRing, CheckCircle2, Mail } from 'lucide-react';
 import {
-  TicketNotificationActiveHealthCheck,
-  TicketNotificationAutoFixResult,
-  TicketNotificationFixAndRetryResult,
-  TicketNotificationDelivery,
-  TicketNotificationDiagnostics,
-  TicketNotificationDestination,
-  TicketNotificationDeliveryStatus,
+  NotificationSetupGuide,
+  NotificationSenderPreflightResult,
+  Organization,
   TicketNotificationEventType,
   TicketNotificationPolicy
 } from '../../types';
@@ -16,60 +12,86 @@ import Button from '../ui/Button';
 import { dialogService } from '../../services/dialogService';
 
 interface SettingsTicketNotificationPolicySectionProps {
-  orgId: string;
+  org: Organization;
+  onUpdateOrganizationSettings: (
+    patch: Partial<Pick<Organization, 'notificationSenderEmail'>>
+  ) => Promise<void>;
 }
 
-const toggleClass = (active: boolean) => `w-10 h-5 rounded-full p-1 transition-colors ${active ? 'bg-slate-900' : 'bg-slate-300'}`;
-const thumbClass = (active: boolean) => `block w-3 h-3 rounded-full bg-white transition-transform ${active ? 'translate-x-5' : ''}`;
+const toggleClass = (active: boolean) =>
+  `w-10 h-5 rounded-full p-1 transition-colors ${active ? 'bg-slate-900' : 'bg-slate-300'}`;
+const thumbClass = (active: boolean) =>
+  `block w-3 h-3 rounded-full bg-white transition-transform ${active ? 'translate-x-5' : ''}`;
 
-const EVENT_LABELS: Record<TicketNotificationEventType, string> = {
-  ticket_created: 'Ticket created',
-  ticket_assigned: 'Ticket assigned',
-  ticket_status_changed: 'Status changed',
-  ticket_commented: 'Comment added',
-  ticket_sla_breach: 'SLA breach',
-  ticket_approval_required: 'Approval required'
-};
+const EVENT_ROWS: Array<{ key: TicketNotificationEventType; label: string; help: string }> = [
+  { key: 'ticket_created', label: 'New tickets', help: 'Notify when a new ticket is created.' },
+  { key: 'ticket_assigned', label: 'Assignments', help: 'Notify when tickets are assigned/reassigned.' },
+  { key: 'ticket_status_changed', label: 'Status changes', help: 'Notify on ticket status movement.' },
+  { key: 'ticket_commented', label: 'Comments & replies', help: 'Notify on ticket comments and responses.' },
+  { key: 'ticket_sla_breach', label: 'SLA alerts', help: 'Notify when ticket SLA is at risk or breached.' },
+  { key: 'ticket_approval_required', label: 'Ticket approvals', help: 'Notify when ticket approval action is needed.' },
+  {
+    key: 'project_completion_actions',
+    label: 'Project completion actions',
+    help: 'Notify owner/admin on completion requests and completion approvals.'
+  },
+  { key: 'task_assignment', label: 'Task assignment', help: 'Notify assigned users when tasks are assigned.' },
+  { key: 'task_due_overdue', label: 'Task due/overdue', help: 'Notify assigned users when tasks are due soon or overdue.' },
+  { key: 'task_status_changes', label: 'Task status updates', help: 'Notify assigned users when task status changes.' },
+  {
+    key: 'security_admin_alerts',
+    label: 'Security/admin alerts',
+    help: 'Notify admins on sensitive workspace/user/team changes.'
+  },
+  {
+    key: 'user_lifecycle',
+    label: 'User lifecycle updates',
+    help: 'Notify users when they are licensed, unlicensed, added/removed from team, or removed from workspace.'
+  }
+];
 
 const clonePolicy = (policy: TicketNotificationPolicy): TicketNotificationPolicy =>
   JSON.parse(JSON.stringify(policy)) as TicketNotificationPolicy;
 
-const SettingsTicketNotificationPolicySection: React.FC<SettingsTicketNotificationPolicySectionProps> = ({ orgId }) => {
-  const [policy, setPolicy] = useState<TicketNotificationPolicy | null>(null);
-  const [draft, setDraft] = useState<TicketNotificationPolicy | null>(null);
+const isEventEnabled = (policy: TicketNotificationPolicy, eventType: TicketNotificationEventType): boolean => {
+  const event = policy.events[eventType];
+  return Boolean(event?.immediate || event?.digest);
+};
+
+const SettingsTicketNotificationPolicySection: React.FC<SettingsTicketNotificationPolicySectionProps> = ({
+  org,
+  onUpdateOrganizationSettings
+}) => {
+  const [expanded, setExpanded] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [expanded, setExpanded] = useState(false);
-  const [queueStatus, setQueueStatus] = useState<{ queued: number; digestPending: number } | null>(null);
-  const [deliveries, setDeliveries] = useState<TicketNotificationDelivery[]>([]);
-  const [diagnostics, setDiagnostics] = useState<TicketNotificationDiagnostics | null>(null);
-  const [activeHealth, setActiveHealth] = useState<TicketNotificationActiveHealthCheck | null>(null);
-  const [autoFixResult, setAutoFixResult] = useState<TicketNotificationAutoFixResult | null>(null);
-  const [autoFixRetryResult, setAutoFixRetryResult] = useState<TicketNotificationFixAndRetryResult | null>(null);
-  const [deliveriesLoading, setDeliveriesLoading] = useState(false);
-  const [destinationLoading, setDestinationLoading] = useState(false);
-  const [destinationSaving, setDestinationSaving] = useState(false);
-  const [destination, setDestination] = useState<TicketNotificationDestination | null>(null);
-  const [destinationDraft, setDestinationDraft] = useState<TicketNotificationDestination | null>(null);
-  const [retryingId, setRetryingId] = useState<string | null>(null);
-  const [runningHealthCheck, setRunningHealthCheck] = useState(false);
-  const [runningAutoFix, setRunningAutoFix] = useState(false);
-  const [runningAutoFixRetry, setRunningAutoFixRetry] = useState(false);
-  const [ensuringSubscription, setEnsuringSubscription] = useState(false);
-  const [syncingDelta, setSyncingDelta] = useState(false);
+  const [policy, setPolicy] = useState<TicketNotificationPolicy | null>(null);
+  const [draft, setDraft] = useState<TicketNotificationPolicy | null>(null);
+
+  const [senderDraft, setSenderDraft] = useState(org.notificationSenderEmail || '');
+  const [senderSaving, setSenderSaving] = useState(false);
+  const [preflightRunning, setPreflightRunning] = useState(false);
+  const [preflightRecipient, setPreflightRecipient] = useState('');
+  const [preflightResult, setPreflightResult] = useState<NotificationSenderPreflightResult | null>(null);
+  const [setupLoading, setSetupLoading] = useState(false);
+  const [setupGuide, setSetupGuide] = useState<NotificationSetupGuide | null>(null);
+
+  useEffect(() => {
+    setSenderDraft(org.notificationSenderEmail || '');
+  }, [org.notificationSenderEmail]);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     ticketService
-      .getNotificationPolicy(orgId)
+      .getNotificationPolicy(org.id)
       .then((value) => {
         if (cancelled) return;
         setPolicy(value);
         setDraft(clonePolicy(value));
       })
       .catch((error) => {
-        dialogService.alert(error?.message || 'Could not load ticket notification policy.');
+        dialogService.alert(error?.message || 'Could not load notification settings.');
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -77,225 +99,125 @@ const SettingsTicketNotificationPolicySection: React.FC<SettingsTicketNotificati
     return () => {
       cancelled = true;
     };
-  }, [orgId]);
+  }, [org.id]);
 
-  const hasChanges = useMemo(() => {
+  const hasPolicyChanges = useMemo(() => {
     if (!policy || !draft) return false;
     return JSON.stringify(policy) !== JSON.stringify(draft);
   }, [policy, draft]);
 
-  const updateEvent = (eventType: TicketNotificationEventType, path: 'immediate' | 'digest' | 'email' | 'teams') => {
+  const hasSenderChanges = useMemo(
+    () => senderDraft.trim().toLowerCase() !== String(org.notificationSenderEmail || '').trim().toLowerCase(),
+    [senderDraft, org.notificationSenderEmail]
+  );
+
+  const toggleRoot = (path: 'enabled' | 'email' | 'teams') => {
     if (!draft) return;
     const next = clonePolicy(draft);
-    if (path === 'email' || path === 'teams') next.events[eventType].channels[path] = !next.events[eventType].channels[path];
-    else next.events[eventType][path] = !next.events[eventType][path];
+    if (path === 'enabled') next.enabled = !next.enabled;
+    if (path === 'email') next.channels.email = !next.channels.email;
+    if (path === 'teams') next.channels.teams = !next.channels.teams;
     setDraft(next);
   };
 
-  const toggleRoot = (path: 'enabled' | 'quietHoursEnabled' | 'email' | 'teams') => {
+  const toggleEvent = (eventType: TicketNotificationEventType) => {
     if (!draft) return;
     const next = clonePolicy(draft);
-    if (path === 'email' || path === 'teams') next.channels[path] = !next.channels[path];
-    else next[path] = !next[path];
+    const currentlyEnabled = isEventEnabled(next, eventType);
+    next.events[eventType].immediate = !currentlyEnabled;
+    next.events[eventType].digest = !currentlyEnabled;
+    next.events[eventType].channels.email = !currentlyEnabled;
+    next.events[eventType].channels.teams = !currentlyEnabled;
     setDraft(next);
   };
 
-  const loadDeliveryState = async () => {
-    setDeliveriesLoading(true);
-    try {
-      const [queue, health, failed, sent] = await Promise.all([
-        ticketService.getNotificationQueueStatus(orgId),
-        ticketService.getNotificationDiagnostics(orgId),
-        ticketService.getNotificationDeliveries(orgId, { status: 'dead_letter', limit: 20 }),
-        ticketService.getNotificationDeliveries(orgId, { status: 'sent', limit: 20 })
-      ]);
-      setQueueStatus(queue);
-      setDiagnostics(health);
-      setDeliveries([...failed, ...sent].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)));
-    } catch (error: any) {
-      dialogService.alert(error?.message || 'Could not load notification delivery status.');
-    } finally {
-      setDeliveriesLoading(false);
-    }
-  };
-
-  const loadDestination = async () => {
-    setDestinationLoading(true);
-    try {
-      const value = await ticketService.getNotificationDestination(orgId);
-      setDestination(value);
-      setDestinationDraft(value);
-    } catch (error: any) {
-      dialogService.alert(error?.message || 'Could not load Teams notification destination.');
-    } finally {
-      setDestinationLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (!expanded) return;
-    void loadDeliveryState();
-    void loadDestination();
-  }, [expanded, orgId]);
-
-  const save = async () => {
+  const savePolicy = async () => {
     if (!draft) return;
     setSaving(true);
     try {
-      const updated = await ticketService.updateNotificationPolicy(orgId, {
+      const updated = await ticketService.updateNotificationPolicy(org.id, {
         enabled: draft.enabled,
-        quietHoursEnabled: draft.quietHoursEnabled,
-        quietHoursStartHour: draft.quietHoursStartHour,
-        quietHoursEndHour: draft.quietHoursEndHour,
-        timezoneOffsetMinutes: draft.timezoneOffsetMinutes,
         channels: draft.channels,
-        digest: draft.digest,
         events: draft.events
       });
       setPolicy(updated);
       setDraft(clonePolicy(updated));
-      dialogService.notice('Ticket notification policy updated.');
+      dialogService.notice('Notification toggles updated.');
     } catch (error: any) {
-      dialogService.alert(error?.message || 'Could not save ticket notification policy.');
+      dialogService.alert(error?.message || 'Could not save notification toggles.');
     } finally {
       setSaving(false);
     }
   };
 
-  if (loading) {
-    return (
-      <div className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-500">
-        Loading ticket notification policy...
-      </div>
-    );
-  }
-  if (!draft) return null;
-
-  const retryDelivery = async (deliveryId: string) => {
-    setRetryingId(deliveryId);
+  const saveSender = async () => {
+    const value = senderDraft.trim().toLowerCase();
+    if (value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+      dialogService.alert('Enter a valid sender email, e.g. project@acme.ng');
+      return;
+    }
+    setSenderSaving(true);
     try {
-      await ticketService.retryNotificationDelivery(orgId, deliveryId);
-      dialogService.notice('Notification retry triggered.');
-      await loadDeliveryState();
+      await onUpdateOrganizationSettings({ notificationSenderEmail: value || undefined });
+      setSetupGuide(null);
+      dialogService.notice('Notification sender mailbox updated.');
     } catch (error: any) {
-      dialogService.alert(error?.message || 'Could not retry notification.');
+      dialogService.alert(error?.message || 'Could not update sender mailbox.');
     } finally {
-      setRetryingId(null);
+      setSenderSaving(false);
     }
   };
 
-  const runHealthCheck = async () => {
-    setRunningHealthCheck(true);
+  const runPreflight = async () => {
+    setPreflightRunning(true);
     try {
-      const result = await ticketService.runNotificationHealthCheck(orgId);
-      setActiveHealth(result);
-      await loadDeliveryState();
-      dialogService.notice(result.ok ? 'Health check passed.' : 'Health check found issues. Review remediation steps.');
+      const result = await ticketService.runNotificationSenderPreflight(org.id, {
+        testRecipientEmail: preflightRecipient.trim() || undefined
+      });
+      setPreflightResult(result);
+      dialogService.notice(result.ok ? 'Sender preflight passed.' : 'Sender preflight found issues.');
     } catch (error: any) {
-      dialogService.alert(error?.message || 'Could not run health check.');
+      dialogService.alert(error?.message || 'Could not run sender preflight.');
     } finally {
-      setRunningHealthCheck(false);
+      setPreflightRunning(false);
     }
   };
 
-  const runAutoFix = async () => {
-    setRunningAutoFix(true);
+  const loadSetupGuide = async () => {
+    setSetupLoading(true);
     try {
-      const result = await ticketService.runNotificationAutoFix(orgId);
-      setAutoFixResult(result);
-      setActiveHealth(result.health);
-      await loadDeliveryState();
-      dialogService.notice(result.health.ok ? 'Auto-fix completed and health is now good.' : 'Auto-fix ran. Some issues still need manual action.');
+      const guide = await ticketService.getNotificationSetupGuide(org.id);
+      setSetupGuide(guide);
+      setPreflightResult(guide.preflight);
+      dialogService.notice(guide.ready ? 'Notification setup is ready.' : 'Setup steps generated.');
     } catch (error: any) {
-      dialogService.alert(error?.message || 'Could not run auto-fix.');
+      dialogService.alert(error?.message || 'Could not generate setup script.');
     } finally {
-      setRunningAutoFix(false);
+      setSetupLoading(false);
     }
   };
 
-  const runAutoFixAndRetry = async () => {
-    const confirmed = await dialogService.confirm(
-      'Run auto-fix and retry dead letters now? This will retry up to 15 recent failed/dead-letter deliveries.',
-      { title: 'Auto-fix + Retry dead letters', confirmLabel: 'Run now', cancelLabel: 'Cancel' }
-    );
-    if (!confirmed) return;
-    setRunningAutoFixRetry(true);
+  const copySetupScript = async () => {
+    if (!setupGuide?.script) return;
     try {
-      const result = await ticketService.runNotificationAutoFixAndRetryDeadLetters(orgId, { limit: 15 });
-      setAutoFixRetryResult(result);
-      setAutoFixResult(result.autoFix);
-      setActiveHealth(result.autoFix.health);
-      await loadDeliveryState();
-      dialogService.notice(
-        `Retry complete: ${result.retry.succeeded} succeeded, ${result.retry.failed} failed, ${result.retry.skipped} skipped.`
-      );
-    } catch (error: any) {
-      dialogService.alert(error?.message || 'Could not run auto-fix + retry.');
-    } finally {
-      setRunningAutoFixRetry(false);
+      await navigator.clipboard.writeText(setupGuide.script);
+      dialogService.notice('PowerShell setup script copied.');
+    } catch {
+      dialogService.alert('Could not copy script.');
     }
   };
 
-  const ensureSubscription = async () => {
-    setEnsuringSubscription(true);
-    try {
-      const result = await ticketService.ensureNotificationSubscription(orgId);
-      await loadDeliveryState();
-      dialogService.notice(`Subscription ensured. Expires ${formatIso(result.expiresAt)}.`);
-    } catch (error: any) {
-      dialogService.alert(error?.message || 'Could not ensure subscription.');
-    } finally {
-      setEnsuringSubscription(false);
-    }
-  };
-
-  const runDeltaSync = async () => {
-    setSyncingDelta(true);
-    try {
-      const result = await ticketService.runNotificationDeltaSync(orgId);
-      await loadDeliveryState();
-      dialogService.notice(`Delta sync complete. Processed ${result.processed} inbound message(s).`);
-    } catch (error: any) {
-      dialogService.alert(error?.message || 'Could not run delta sync.');
-    } finally {
-      setSyncingDelta(false);
-    }
-  };
-
-  const saveDestination = async () => {
-    if (!destinationDraft) return;
-    setDestinationSaving(true);
-    try {
-      const value = await ticketService.updateNotificationDestination(orgId, destinationDraft);
-      setDestination(value);
-      setDestinationDraft(value);
-      dialogService.notice('Teams destination updated.');
-      await loadDeliveryState();
-    } catch (error: any) {
-      dialogService.alert(error?.message || 'Could not update Teams destination.');
-    } finally {
-      setDestinationSaving(false);
-    }
-  };
-
-  const statusBadgeClass = (status: TicketNotificationDeliveryStatus) => {
-    if (status === 'dead_letter' || status === 'failed') return 'text-rose-700 bg-rose-50 border-rose-200';
-    if (status === 'sent') return 'text-emerald-700 bg-emerald-50 border-emerald-200';
-    if (status === 'queued') return 'text-amber-700 bg-amber-50 border-amber-200';
-    return 'text-slate-700 bg-slate-50 border-slate-200';
-  };
-
-  const healthBadgeClass = (status: string) => {
-    if (status === 'ok' || status === 'sent') return 'text-emerald-700 bg-emerald-50 border-emerald-200';
-    if (status === 'expiring' || status === 'queued') return 'text-amber-700 bg-amber-50 border-amber-200';
-    return 'text-rose-700 bg-rose-50 border-rose-200';
-  };
-
-  const formatIso = (value?: string) => {
-    if (!value) return 'n/a';
-    const ms = Date.parse(value);
-    if (!Number.isFinite(ms)) return 'n/a';
-    return new Date(ms).toLocaleString();
+  const downloadSetupScript = () => {
+    if (!setupGuide?.script) return;
+    const blob = new Blob([setupGuide.script], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = setupGuide.filename || 'velo-mailbox-policy.ps1';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -307,432 +229,145 @@ const SettingsTicketNotificationPolicySection: React.FC<SettingsTicketNotificati
       >
         <div className="inline-flex items-center gap-2">
           <BellRing className="w-4 h-4 text-slate-500" />
-          <span className="text-sm font-semibold text-slate-900">Ticket notifications policy</span>
+          <span className="text-sm font-semibold text-slate-900">Workspace notifications</span>
         </div>
         <span className="text-xs text-slate-500">{expanded ? 'Hide' : 'Show'}</span>
       </button>
 
       {expanded ? (
         <div className="p-4 space-y-3">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 flex items-center justify-between">
-              <p className="text-sm font-medium text-slate-800">Engine enabled</p>
-              <button type="button" onClick={() => toggleRoot('enabled')} className={toggleClass(draft.enabled)}>
-                <span className={thumbClass(draft.enabled)} />
-              </button>
+          <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+            <div className="inline-flex items-center gap-2 mb-2">
+              <Mail className="w-4 h-4 text-slate-500" />
+              <p className="text-sm font-semibold text-slate-900">Sender mailbox</p>
             </div>
-            <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 flex items-center justify-between">
-              <p className="text-sm font-medium text-slate-800">Quiet hours</p>
-              <button type="button" onClick={() => toggleRoot('quietHoursEnabled')} className={toggleClass(draft.quietHoursEnabled)}>
-                <span className={thumbClass(draft.quietHoursEnabled)} />
-              </button>
-            </div>
-            <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 flex items-center justify-between">
-              <p className="text-sm font-medium text-slate-800">Email channel</p>
-              <button type="button" onClick={() => toggleRoot('email')} className={toggleClass(draft.channels.email)}>
-                <span className={thumbClass(draft.channels.email)} />
-              </button>
-            </div>
-            <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 flex items-center justify-between">
-              <p className="text-sm font-medium text-slate-800">Teams channel</p>
-              <button type="button" onClick={() => toggleRoot('teams')} className={toggleClass(draft.channels.teams)}>
-                <span className={thumbClass(draft.channels.teams)} />
-              </button>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <label className="text-xs text-slate-600">
-              Quiet start (hour)
-              <input
-                type="number"
-                min={0}
-                max={23}
-                value={draft.quietHoursStartHour}
-                onChange={(event) => setDraft({ ...draft, quietHoursStartHour: Math.min(23, Math.max(0, Number(event.target.value) || 0)) })}
-                className="mt-1 h-10 w-full rounded-md border border-slate-300 px-2 text-sm"
-              />
-            </label>
-            <label className="text-xs text-slate-600">
-              Quiet end (hour)
-              <input
-                type="number"
-                min={0}
-                max={23}
-                value={draft.quietHoursEndHour}
-                onChange={(event) => setDraft({ ...draft, quietHoursEndHour: Math.min(23, Math.max(0, Number(event.target.value) || 0)) })}
-                className="mt-1 h-10 w-full rounded-md border border-slate-300 px-2 text-sm"
-              />
-            </label>
-            <label className="text-xs text-slate-600">
-              Timezone offset (min)
-              <input
-                type="number"
-                min={-720}
-                max={840}
-                value={draft.timezoneOffsetMinutes}
-                onChange={(event) => setDraft({ ...draft, timezoneOffsetMinutes: Math.min(840, Math.max(-720, Number(event.target.value) || 0)) })}
-                className="mt-1 h-10 w-full rounded-md border border-slate-300 px-2 text-sm"
-              />
-            </label>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 flex items-center justify-between">
-              <p className="text-sm font-medium text-slate-800">Digest enabled</p>
-              <button type="button" onClick={() => setDraft({ ...draft, digest: { ...draft.digest, enabled: !draft.digest.enabled } })} className={toggleClass(draft.digest.enabled)}>
-                <span className={thumbClass(draft.digest.enabled)} />
-              </button>
-            </div>
-            <label className="text-xs text-slate-600">
-              Digest cadence
-              <select
-                value={draft.digest.cadence}
-                onChange={(event) => setDraft({ ...draft, digest: { ...draft.digest, cadence: event.target.value as 'hourly' | 'daily' } })}
-                className="mt-1 h-10 w-full rounded-md border border-slate-300 px-2 text-sm"
-              >
-                <option value="hourly">Hourly</option>
-                <option value="daily">Daily</option>
-              </select>
-            </label>
-            <label className="text-xs text-slate-600">
-              Daily digest hour
-              <input
-                type="number"
-                min={0}
-                max={23}
-                value={draft.digest.dailyHourLocal}
-                onChange={(event) =>
-                  setDraft({
-                    ...draft,
-                    digest: {
-                      ...draft.digest,
-                      dailyHourLocal: Math.min(23, Math.max(0, Number(event.target.value) || 0))
-                    }
-                  })
-                }
-                className="mt-1 h-10 w-full rounded-md border border-slate-300 px-2 text-sm"
-              />
-            </label>
-          </div>
-
-          <div className="rounded-lg border border-slate-200 overflow-hidden">
-            <div className="grid grid-cols-5 bg-slate-50 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-              <span className="col-span-2">Event</span>
-              <span>Immediate</span>
-              <span>Email</span>
-              <span>Teams</span>
-            </div>
-            {(Object.keys(EVENT_LABELS) as TicketNotificationEventType[]).map((eventType) => (
-              <div key={eventType} className="grid grid-cols-5 px-3 py-2 border-t border-slate-100 items-center">
-                <span className="col-span-2 text-sm text-slate-800">{EVENT_LABELS[eventType]}</span>
-                <button type="button" onClick={() => updateEvent(eventType, 'immediate')} className={toggleClass(draft.events[eventType].immediate)}>
-                  <span className={thumbClass(draft.events[eventType].immediate)} />
-                </button>
-                <button type="button" onClick={() => updateEvent(eventType, 'email')} className={toggleClass(draft.events[eventType].channels.email)}>
-                  <span className={thumbClass(draft.events[eventType].channels.email)} />
-                </button>
-                <button type="button" onClick={() => updateEvent(eventType, 'teams')} className={toggleClass(draft.events[eventType].channels.teams)}>
-                  <span className={thumbClass(draft.events[eventType].channels.teams)} />
-                </button>
-              </div>
-            ))}
-          </div>
-
-          <div className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-            <span className="text-xs text-slate-500">{hasChanges ? 'Unsaved policy changes.' : 'No pending policy changes.'}</span>
+            <p className="text-xs text-slate-600 mb-2">
+              Use one org mailbox as the source for outbound notifications (example: <span className="font-medium">project@acme.ng</span>).
+            </p>
             <div className="flex items-center gap-2">
-              <Button variant="outline" onClick={() => setDraft(clonePolicy(policy!))} disabled={!hasChanges || saving}>Discard</Button>
-              <Button onClick={save} disabled={!hasChanges || saving} className="inline-flex items-center gap-1">
-                <CheckCircle2 className="w-4 h-4" /> Save policy
+              <input
+                value={senderDraft}
+                onChange={(event) => setSenderDraft(event.target.value)}
+                placeholder="project@acme.ng"
+                className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm"
+              />
+              <Button size="sm" onClick={() => void saveSender()} disabled={!hasSenderChanges || senderSaving}>
+                {senderSaving ? 'Saving...' : 'Save'}
               </Button>
             </div>
+            <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
+              <input
+                value={preflightRecipient}
+                onChange={(event) => setPreflightRecipient(event.target.value)}
+                placeholder="Optional test recipient email"
+                className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm"
+              />
+              <Button size="sm" variant="outline" onClick={() => void runPreflight()} disabled={preflightRunning}>
+                {preflightRunning ? 'Running...' : 'Run preflight'}
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => void loadSetupGuide()} disabled={setupLoading}>
+                {setupLoading ? 'Generating...' : 'Generate setup script'}
+              </Button>
+            </div>
+            {preflightResult ? (
+              <div className={`mt-2 rounded-lg border p-2 text-xs ${preflightResult.ok ? 'border-emerald-200 bg-emerald-50 text-emerald-900' : 'border-rose-200 bg-rose-50 text-rose-900'}`}>
+                <p className="font-semibold">{preflightResult.ok ? 'Sender preflight passed' : 'Sender preflight failed'}</p>
+                <ul className="mt-1 list-disc pl-4 space-y-0.5">
+                  {preflightResult.checks.map((check) => (
+                    <li key={check.key}>
+                      {check.ok ? 'OK' : 'FAIL'} - {check.message}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+            {setupGuide ? (
+              <div className="mt-2 rounded-lg border border-slate-200 bg-white p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-sm font-semibold text-slate-900">Microsoft app-only onboarding</p>
+                  <span className={`text-xs font-medium ${setupGuide.ready ? 'text-emerald-700' : 'text-amber-700'}`}>
+                    {setupGuide.ready ? 'Ready' : 'Action required'}
+                  </span>
+                </div>
+                <div className="mt-2 space-y-1">
+                  {setupGuide.checklist.map((item) => (
+                    <div key={item.key} className="text-xs text-slate-700">
+                      {item.ok ? 'OK' : 'TODO'} - {item.label}
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <Button size="sm" variant="outline" onClick={() => void copySetupScript()}>
+                    Copy PowerShell
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => downloadSetupScript()}>
+                    Download .ps1
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => void loadSetupGuide()} disabled={setupLoading}>
+                    Refresh checklist
+                  </Button>
+                </div>
+              </div>
+            ) : null}
           </div>
 
-          <div className="rounded-lg border border-slate-200 overflow-hidden">
-            <div className="px-3 py-2 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
-              <div className="inline-flex items-center gap-2 text-sm font-semibold text-slate-800">
-                <AlertTriangle className="w-4 h-4 text-slate-500" />
-                Delivery status
-              </div>
-              <div className="inline-flex items-center gap-3">
-                <span className="text-xs text-slate-600">
-                  Queue {queueStatus?.queued ?? 0} • Digest {queueStatus?.digestPending ?? 0}
-                </span>
-                <button
-                  type="button"
-                  className="inline-flex items-center gap-1 text-xs text-slate-700"
-                  onClick={() => void loadDeliveryState()}
-                  disabled={deliveriesLoading}
-                >
-                  <RefreshCw className={`w-3.5 h-3.5 ${deliveriesLoading ? 'animate-spin' : ''}`} />
-                  Refresh
-                </button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => void ensureSubscription()}
-                  disabled={ensuringSubscription}
-                >
-                  {ensuringSubscription ? 'Ensuring...' : 'Ensure subscription'}
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => void runDeltaSync()}
-                  disabled={syncingDelta}
-                >
-                  {syncingDelta ? 'Syncing...' : 'Run delta sync'}
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => void runHealthCheck()}
-                  disabled={runningHealthCheck}
-                >
-                  {runningHealthCheck ? 'Checking...' : 'Run health check'}
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => void runAutoFix()}
-                  disabled={runningAutoFix}
-                >
-                  {runningAutoFix ? 'Fixing...' : 'Auto-fix'}
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => void runAutoFixAndRetry()}
-                  disabled={runningAutoFixRetry}
-                >
-                  {runningAutoFixRetry ? 'Running...' : 'Auto-fix + Retry dead letters'}
-                </Button>
-              </div>
+          {loading || !draft ? (
+            <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500">
+              Loading notification toggles...
             </div>
-            <div className="px-3 py-2 border-b border-slate-100 bg-white">
-              <div className="flex items-center justify-between gap-2 mb-2">
-                <p className="text-xs font-medium text-slate-700">Teams destination</p>
-                <button
-                  type="button"
-                  className="inline-flex items-center gap-1 text-xs text-slate-700"
-                  onClick={() => void loadDestination()}
-                  disabled={destinationLoading || destinationSaving}
-                >
-                  <RefreshCw className={`w-3.5 h-3.5 ${destinationLoading ? 'animate-spin' : ''}`} />
-                  Refresh
-                </button>
-              </div>
-              {destinationDraft ? (
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
-                  <label className="text-xs text-slate-600">
-                    Mode
-                    <select
-                      value={destinationDraft.mode}
-                      onChange={(event) =>
-                        setDestinationDraft((prev) =>
-                          prev
-                            ? {
-                                ...prev,
-                                mode: event.target.value as TicketNotificationDestination['mode']
-                              }
-                            : prev
-                        )
-                      }
-                      className="mt-1 h-9 w-full rounded-md border border-slate-300 px-2 text-sm"
-                    >
-                      <option value="none">Disabled</option>
-                      <option value="chat">Chat</option>
-                      <option value="channel">Channel</option>
-                    </select>
-                  </label>
-                  <label className="text-xs text-slate-600 md:col-span-1">
-                    Teams chat ID
-                    <input
-                      value={destinationDraft.teamsChatId || ''}
-                      onChange={(event) =>
-                        setDestinationDraft((prev) => (prev ? { ...prev, teamsChatId: event.target.value } : prev))
-                      }
-                      placeholder="19:...@thread.v2"
-                      className="mt-1 h-9 w-full rounded-md border border-slate-300 px-2 text-sm"
-                      disabled={destinationDraft.mode !== 'chat'}
-                    />
-                  </label>
-                  <label className="text-xs text-slate-600 md:col-span-1">
-                    Teams team ID
-                    <input
-                      value={destinationDraft.teamsTeamId || ''}
-                      onChange={(event) =>
-                        setDestinationDraft((prev) => (prev ? { ...prev, teamsTeamId: event.target.value } : prev))
-                      }
-                      placeholder="team id"
-                      className="mt-1 h-9 w-full rounded-md border border-slate-300 px-2 text-sm"
-                      disabled={destinationDraft.mode !== 'channel'}
-                    />
-                  </label>
-                  <label className="text-xs text-slate-600 md:col-span-1">
-                    Teams channel ID
-                    <input
-                      value={destinationDraft.teamsChannelId || ''}
-                      onChange={(event) =>
-                        setDestinationDraft((prev) =>
-                          prev ? { ...prev, teamsChannelId: event.target.value } : prev
-                        )
-                      }
-                      placeholder="19:...@thread.tacv2"
-                      className="mt-1 h-9 w-full rounded-md border border-slate-300 px-2 text-sm"
-                      disabled={destinationDraft.mode !== 'channel'}
-                    />
-                  </label>
+          ) : (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 flex items-center justify-between">
+                  <p className="text-sm font-medium text-slate-800">Enable notifications</p>
+                  <button type="button" onClick={() => toggleRoot('enabled')} className={toggleClass(draft.enabled)}>
+                    <span className={thumbClass(draft.enabled)} />
+                  </button>
                 </div>
-              ) : (
-                <p className="text-xs text-slate-500">Loading Teams destination...</p>
-              )}
-              <div className="mt-2 flex items-center justify-between gap-2">
-                <p className="text-[11px] text-slate-500">
-                  {destination
-                    ? `Current: ${destination.mode === 'none' ? 'disabled' : destination.mode}.`
-                    : 'No destination configured yet.'}
-                </p>
-                <Button size="sm" variant="outline" onClick={() => void saveDestination()} disabled={!destinationDraft || destinationSaving}>
-                  {destinationSaving ? 'Saving...' : 'Save destination'}
-                </Button>
-              </div>
-            </div>
-            {diagnostics ? (
-              <div className="px-3 py-2 border-b border-slate-100 bg-white">
-                <div className="mb-2 rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5">
-                  <p className="text-xs text-slate-700">
-                    Health summary: token <span className="font-medium">{diagnostics.microsoft.tokenStatus}</span> • subscription{' '}
-                    <span className="font-medium">{diagnostics.subscription.status}</span> • dead letters{' '}
-                    <span className="font-medium">{diagnostics.delivery.deadLetterOpen}</span>
-                  </p>
+                <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 flex items-center justify-between">
+                  <p className="text-sm font-medium text-slate-800">Email channel</p>
+                  <button type="button" onClick={() => toggleRoot('email')} className={toggleClass(draft.channels.email)}>
+                    <span className={thumbClass(draft.channels.email)} />
+                  </button>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs text-slate-600">
-                  <div className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="font-medium text-slate-700">Microsoft token</span>
-                      <span className={`inline-flex rounded-full border px-2 py-0.5 ${healthBadgeClass(diagnostics.microsoft.tokenStatus)}`}>
-                        {diagnostics.microsoft.tokenStatus}
-                      </span>
-                    </div>
-                    <p>SSO {diagnostics.microsoft.ssoEnabled ? 'enabled' : 'disabled'} • connected {diagnostics.microsoft.connected ? 'yes' : 'no'}</p>
-                  </div>
-                  <div className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="font-medium text-slate-700">Subscription</span>
-                      <span className={`inline-flex rounded-full border px-2 py-0.5 ${healthBadgeClass(diagnostics.subscription.status)}`}>
-                        {diagnostics.subscription.status}
-                      </span>
-                    </div>
-                    <p>Expires {formatIso(diagnostics.subscription.expiresAt)}{typeof diagnostics.subscription.minutesRemaining === 'number' ? ` (${diagnostics.subscription.minutesRemaining}m)` : ''}</p>
-                  </div>
-                  <div className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5">
-                    <p className="font-medium text-slate-700">Webhook</p>
-                    <p>Last webhook {formatIso(diagnostics.webhook.lastWebhookAt)} • Last sync {formatIso(diagnostics.webhook.lastSyncAt)}</p>
-                  </div>
-                  <div className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5">
-                    <p className="font-medium text-slate-700">Delivery health</p>
-                    <p>Dead letters {diagnostics.delivery.deadLetterOpen} • Failed 24h {diagnostics.delivery.failedLast24h}</p>
-                  </div>
-                </div>
-                {diagnostics.microsoft.tokenError ? (
-                  <p className="mt-2 text-xs text-rose-600">{diagnostics.microsoft.tokenError}</p>
-                ) : null}
-              </div>
-            ) : null}
-            {activeHealth ? (
-              <div className="px-3 py-2 border-b border-slate-100 bg-white">
-                <div className="flex items-center justify-between gap-2 mb-1">
-                  <p className="text-xs font-medium text-slate-700">Active check • {formatIso(activeHealth.ranAt)}</p>
-                  <span className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] ${healthBadgeClass(activeHealth.ok ? 'ok' : 'failed')}`}>
-                    {activeHealth.ok ? 'healthy' : 'needs attention'}
-                  </span>
-                </div>
-                <div className="space-y-1">
-                  {activeHealth.checks.map((check) => (
-                    <div key={check.key} className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5">
-                      <p className={`text-xs font-medium ${check.ok ? 'text-emerald-700' : 'text-rose-700'}`}>
-                        {check.key.replaceAll('_', ' ')}: {check.ok ? 'ok' : 'failed'}
-                      </p>
-                      <p className="text-xs text-slate-600">{check.detail}</p>
-                      {check.remediation ? <p className="text-xs text-amber-700">Fix: {check.remediation}</p> : null}
-                    </div>
-                  ))}
+                <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 flex items-center justify-between">
+                  <p className="text-sm font-medium text-slate-800">Teams channel</p>
+                  <button type="button" onClick={() => toggleRoot('teams')} className={toggleClass(draft.channels.teams)}>
+                    <span className={thumbClass(draft.channels.teams)} />
+                  </button>
                 </div>
               </div>
-            ) : null}
-            {autoFixResult ? (
-              <div className="px-3 py-2 border-b border-slate-100 bg-white">
-                <div className="flex items-center justify-between gap-2 mb-1">
-                  <p className="text-xs font-medium text-slate-700">Auto-fix • {formatIso(autoFixResult.ranAt)}</p>
-                  <span className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] ${healthBadgeClass(autoFixResult.health.ok ? 'ok' : 'failed')}`}>
-                    {autoFixResult.health.ok ? 'fixed' : 'partial'}
-                  </span>
-                </div>
-                <div className="space-y-1">
-                  {autoFixResult.actions.map((action) => (
-                    <div key={action.key} className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5">
-                      <p className={`text-xs font-medium ${action.ok ? 'text-emerald-700' : 'text-rose-700'}`}>
-                        {action.key.replaceAll('_', ' ')}: {action.ok ? 'ok' : 'failed'}
-                      </p>
-                      <p className="text-xs text-slate-600">{action.detail}</p>
+
+              <div className="rounded-lg border border-slate-200 overflow-hidden">
+                {EVENT_ROWS.map((row) => {
+                  const enabled = isEventEnabled(draft, row.key);
+                  return (
+                    <div key={row.key} className="px-3 py-2 border-b border-slate-100 last:border-b-0 flex items-center justify-between gap-2">
+                      <div>
+                        <p className="text-sm font-medium text-slate-800">{row.label}</p>
+                        <p className="text-xs text-slate-500">{row.help}</p>
+                      </div>
+                      <button type="button" onClick={() => toggleEvent(row.key)} className={toggleClass(enabled)}>
+                        <span className={thumbClass(enabled)} />
+                      </button>
                     </div>
-                  ))}
+                  );
+                })}
+              </div>
+
+              <div className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                <span className="text-xs text-slate-500">{hasPolicyChanges ? 'Unsaved notification toggle changes.' : 'No pending changes.'}</span>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" onClick={() => setDraft(clonePolicy(policy!))} disabled={!hasPolicyChanges || saving}>
+                    Discard
+                  </Button>
+                  <Button onClick={() => void savePolicy()} disabled={!hasPolicyChanges || saving} className="inline-flex items-center gap-1">
+                    <CheckCircle2 className="w-4 h-4" /> Save toggles
+                  </Button>
                 </div>
               </div>
-            ) : null}
-            {autoFixRetryResult ? (
-              <div className="px-3 py-2 border-b border-slate-100 bg-white">
-                <div className="flex items-center justify-between gap-2 mb-1">
-                  <p className="text-xs font-medium text-slate-700">Auto-fix + Retry • {formatIso(autoFixRetryResult.ranAt)}</p>
-                  <span className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] ${healthBadgeClass(autoFixRetryResult.retry.failed === 0 ? 'ok' : 'failed')}`}>
-                    {autoFixRetryResult.retry.failed === 0 ? 'stable' : 'partial'}
-                  </span>
-                </div>
-                <p className="text-xs text-slate-600">
-                  Retried {autoFixRetryResult.retry.retried}/{autoFixRetryResult.retry.scanned} •
-                  Success {autoFixRetryResult.retry.succeeded} •
-                  Failed {autoFixRetryResult.retry.failed} •
-                  Skipped {autoFixRetryResult.retry.skipped}
-                </p>
-              </div>
-            ) : null}
-            <div className="max-h-64 overflow-auto">
-              {deliveries.length === 0 ? (
-                <div className="px-3 py-3 text-xs text-slate-500">No delivery records yet.</div>
-              ) : (
-                deliveries.map((row) => (
-                  <div key={row.id} className="px-3 py-2 border-b border-slate-100 last:border-b-0 flex items-center justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="text-sm text-slate-900 truncate">
-                        {row.eventType.replaceAll('_', ' ')} {row.recipientEmail ? `• ${row.recipientEmail}` : ''}
-                      </p>
-                      <p className="text-xs text-slate-500">
-                        {row.kind} • attempts {row.attempts}/{row.maxAttempts}
-                        {row.lastError ? ` • ${row.lastError}` : ''}
-                      </p>
-                    </div>
-                    <div className="inline-flex items-center gap-2 shrink-0">
-                      <span className={`text-[11px] px-2 py-1 rounded-full border ${statusBadgeClass(row.status)}`}>
-                        {row.status}
-                      </span>
-                      {row.status === 'dead_letter' || row.status === 'failed' ? (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={retryingId === row.id}
-                          onClick={() => void retryDelivery(row.id)}
-                        >
-                          Retry
-                        </Button>
-                      ) : null}
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
+            </>
+          )}
         </div>
       ) : null}
     </div>

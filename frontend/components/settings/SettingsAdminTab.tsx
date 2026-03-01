@@ -1,12 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { OrgInvite, Organization, User as UserType } from '../../types';
+import { Organization, User as UserType } from '../../types';
 import { userService } from '../../services/userService';
-import { UserSettings } from '../../services/settingsService';
+import { dialogService } from '../../services/dialogService';
 import SettingsAdminHeaderCard from './SettingsAdminHeaderCard';
 import SettingsAdminUsersSection from './SettingsAdminUsersSection';
-import SettingsAdminInviteSection from './SettingsAdminInviteSection';
 import SettingsAdminProvisionDrawer from './SettingsAdminProvisionDrawer';
-import SettingsTicketNotificationPolicySection from './SettingsTicketNotificationPolicySection';
 
 interface SettingsAdminTabProps {
   user: UserType; org: Organization | null; allUsers: UserType[]; isProvisioning: boolean; setIsProvisioning: (value: boolean) => void;
@@ -16,20 +14,17 @@ interface SettingsAdminTabProps {
   provisionError: string; handleProvision: (e: React.FormEvent) => void; seatPurchaseCount: number; setSeatPurchaseCount: (value: number) => void; handleBuyMoreSeats: () => void;
   editingUserId: string | null; editFirstNameValue: string; setEditFirstNameValue: (value: string) => void; editLastNameValue: string; setEditLastNameValue: (value: string) => void; editEmailValue: string; setEditEmailValue: (value: string) => void;
   handleCommitEdit: () => void; handleStartEdit: (targetUser: UserType) => void; handleUpdateUserRole: (userId: string, role: 'admin' | 'member') => void; handlePurgeUser: (userId: string) => void;
-  invites: OrgInvite[]; newInviteIdentifier: string; setNewInviteIdentifier: (value: string) => void; newInviteRole: 'member' | 'admin'; setNewInviteRole: (value: 'member' | 'admin') => void;
-  handleCreateInvite: () => void; handleRevokeInvite: (inviteId: string) => void; handleResendInvite: (inviteId: string) => void; onRefreshWorkspaceUsers: () => Promise<void>;
+  onRefreshWorkspaceUsers: () => Promise<void>;
   aiUsageRows: Array<{ id: string; orgId: string; dayKey: string; requestsUsed: number; tokensUsed: number; warningIssuedAt?: string | null; blockedAt?: string | null }>;
   onRefreshAiUsage: () => Promise<void>;
-  onUpdateOrganizationSettings: (patch: Partial<Pick<Organization, 'loginSubdomain' | 'allowMicrosoftAuth' | 'microsoftWorkspaceConnected'>>) => Promise<void>;
-  settings: UserSettings;
-  onUpdateSettings: (updates: Partial<UserSettings>) => void;
+  onUpdateOrganizationSettings: (patch: Partial<Pick<Organization, 'loginSubdomain' | 'allowMicrosoftAuth' | 'microsoftWorkspaceConnected' | 'notificationSenderEmail'>>) => Promise<void>;
 }
 
 type DirectoryEntry = { externalId: string; email: string; displayName: string; provider: 'microsoft'; firstName?: string; lastName?: string };
 type Row = { key: string; source: 'workspace'; displayName: string; email: string; role: 'admin' | 'member' | 'guest'; licensed: boolean; member: UserType } | { key: string; source: 'directory'; provider: 'microsoft'; displayName: string; email: string; licensed: false; entry: DirectoryEntry };
 
 const SettingsAdminTab: React.FC<SettingsAdminTabProps> = (p) => {
-  const [userSearch, setUserSearch] = useState(''); const [peopleExpanded, setPeopleExpanded] = useState(true); const [inviteExpanded, setInviteExpanded] = useState(false);
+  const [userSearch, setUserSearch] = useState(''); const [peopleExpanded, setPeopleExpanded] = useState(true);
   const [directoryLoading, setDirectoryLoading] = useState(false); const [directoryUsers, setDirectoryUsers] = useState<DirectoryEntry[]>([]); const [directoryError, setDirectoryError] = useState('');
   const directoryCacheKey = p.org ? `velo_directory_cache_${p.org.id}` : 'velo_directory_cache';
   const isFreePlan = (p.org?.plan || 'basic') === 'free'; const planLabel = (p.org?.plan || 'basic').toUpperCase(); const seatLimit = Math.max(1, p.org?.totalSeats || 1);
@@ -72,13 +67,58 @@ const SettingsAdminTab: React.FC<SettingsAdminTabProps> = (p) => {
 
   const handleLicenseRow = async (row: Row) => {
     if (!p.org) return; setDirectoryError('');
+    const targetLabel = row.displayName || row.email;
+    const confirmed = await dialogService.confirm(`Assign a paid license to ${targetLabel}?`, {
+      title: 'Assign license',
+      confirmText: 'Assign',
+      cancelText: 'Cancel'
+    });
+    if (!confirmed) return;
     if (row.source === 'workspace') { const result = await userService.updateUserLicenseRemote(p.org.id, row.member.id, true); if (!result.success) return setDirectoryError(result.error || 'Could not assign license.'); return p.onRefreshWorkspaceUsers(); }
     const result = await userService.importDirectoryUsers(p.org.id, row.provider, [{ email: row.entry.email, displayName: row.entry.displayName, firstName: row.entry.firstName, lastName: row.entry.lastName }]);
     if (!result.success) return setDirectoryError(result.error || 'Could not assign license.');
     await p.onRefreshWorkspaceUsers();
   };
-  const handleUnlicenseUser = async (member: UserType) => { if (!p.org) return; const result = await userService.updateUserLicenseRemote(p.org.id, member.id, false); if (!result.success) return setDirectoryError(result.error || 'Could not remove license.'); await p.onRefreshWorkspaceUsers(); };
-  const activeInvites = useMemo(() => p.invites.filter((invite) => !invite.revoked && invite.expiresAt > Date.now() && (invite.maxUses || 1) > invite.usedCount), [p.invites]);
+  const handleUnlicenseUser = async (member: UserType) => {
+    if (!p.org) return;
+    const targetLabel = member.displayName || member.email || 'this user';
+    const confirmed = await dialogService.confirm(`Remove license from ${targetLabel}?`, {
+      title: 'Remove license',
+      confirmText: 'Remove',
+      cancelText: 'Cancel',
+      danger: true
+    });
+    if (!confirmed) return;
+    const result = await userService.updateUserLicenseRemote(p.org.id, member.id, false);
+    if (!result.success) return setDirectoryError(result.error || 'Could not remove license.');
+    await p.onRefreshWorkspaceUsers();
+  };
+  const handleRoleChange = async (userId: string, role: 'admin' | 'member') => {
+    const target = p.allUsers.find((member) => member.id === userId);
+    if (!target) return;
+    const roleLabel = role === 'admin' ? 'Admin' : 'Member';
+    const targetLabel = target.displayName || target.email || 'this user';
+    const confirmed = await dialogService.confirm(`Change ${targetLabel} to ${roleLabel}?`, {
+      title: 'Change role',
+      confirmText: 'Update role',
+      cancelText: 'Cancel'
+    });
+    if (!confirmed) return;
+    p.handleUpdateUserRole(userId, role);
+  };
+  const handleRemoveUser = async (userId: string) => {
+    const target = p.allUsers.find((member) => member.id === userId);
+    if (!target) return;
+    const targetLabel = target.displayName || target.email || 'this user';
+    const confirmed = await dialogService.confirm(`Remove ${targetLabel} from this workspace?`, {
+      title: 'Remove user',
+      confirmText: 'Remove',
+      cancelText: 'Cancel',
+      danger: true
+    });
+    if (!confirmed) return;
+    p.handlePurgeUser(userId);
+  };
   const closeProvision = () => { p.setIsProvisioning(false); p.setNewUserName(''); p.setNewUserFirstName(''); p.setNewUserLastName(''); p.setNewUserEmail(''); p.setNewUserRole('member'); };
 
   const _unused = { editingUserId: p.editingUserId, editFirstNameValue: p.editFirstNameValue, setEditFirstNameValue: p.setEditFirstNameValue, editLastNameValue: p.editLastNameValue, setEditLastNameValue: p.setEditLastNameValue, editEmailValue: p.editEmailValue, setEditEmailValue: p.setEditEmailValue, handleCommitEdit: p.handleCommitEdit, handleStartEdit: p.handleStartEdit, aiUsageRows: p.aiUsageRows, onRefreshAiUsage: p.onRefreshAiUsage };
@@ -98,25 +138,10 @@ const SettingsAdminTab: React.FC<SettingsAdminTabProps> = (p) => {
         onTogglePeopleExpanded={() => setPeopleExpanded((prev) => !prev)}
         onUserSearchChange={setUserSearch}
         onSyncDirectory={handleSyncDirectory}
-        onUpdateUserRole={p.handleUpdateUserRole}
+        onUpdateUserRole={handleRoleChange}
         onUnlicense={handleUnlicenseUser}
         onLicenseRow={handleLicenseRow}
-        onRemoveUser={p.handlePurgeUser}
-      />
-      {p.org ? <SettingsTicketNotificationPolicySection orgId={p.org.id} /> : null}
-      <SettingsAdminInviteSection
-        settings={p.settings}
-        onUpdateSettings={p.onUpdateSettings}
-        inviteExpanded={inviteExpanded}
-        activeInvites={activeInvites}
-        newInviteIdentifier={p.newInviteIdentifier}
-        newInviteRole={p.newInviteRole}
-        setInviteExpanded={setInviteExpanded}
-        setNewInviteIdentifier={p.setNewInviteIdentifier}
-        setNewInviteRole={p.setNewInviteRole}
-        handleCreateInvite={p.handleCreateInvite}
-        handleRevokeInvite={p.handleRevokeInvite}
-        handleResendInvite={p.handleResendInvite}
+        onRemoveUser={handleRemoveUser}
       />
       <SettingsAdminProvisionDrawer
         open={p.isProvisioning}

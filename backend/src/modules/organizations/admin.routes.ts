@@ -10,6 +10,7 @@ import { HttpError } from '../../lib/httpError.js';
 import { enforce } from '../policy/policy.service.js';
 import { writeAudit } from '../audit/audit.service.js';
 import { FREE_PLAN_MAX_SEATS, isSeatLimitedPlan } from '../../lib/planLimits.js';
+import { workspaceNotificationService } from '../tickets/workspace.notification.service.js';
 
 const router = Router();
 const orgParams = z.object({ orgId: z.string().min(1) });
@@ -49,6 +50,16 @@ const importUsersSchema = z.object({
     })
   ).min(1).max(500)
 });
+
+const resolveAdminRecipients = async (orgId: string) => {
+  const admins = await prisma.user.findMany({
+    where: { orgId, role: UserRole.admin, licenseActive: true },
+    select: { id: true, email: true, displayName: true }
+  });
+  return admins
+    .filter((row) => Boolean(row.email))
+    .map((row) => ({ userId: row.id, email: row.email, displayName: row.displayName }));
+};
 
 router.post('/orgs/:orgId/seats/add', authenticate, requireOrgAccess, async (req, res, next) => {
   try {
@@ -229,6 +240,41 @@ router.patch('/orgs/:orgId/users/:userId/license', authenticate, requireOrgAcces
       metadata: { licenseActive }
     });
 
+    const actor = await prisma.user.findUnique({
+      where: { id: req.auth!.userId },
+      select: { displayName: true }
+    });
+    const actorName = actor?.displayName || 'Admin';
+    await workspaceNotificationService.notify({
+      orgId,
+      eventType: 'user_lifecycle',
+      actorUserId: req.auth!.userId,
+      title: licenseActive ? 'Your workspace license is active' : 'Your workspace license was removed',
+      summary: `${actorName} ${licenseActive ? 'activated' : 'removed'} your access license for this workspace.`,
+      recipients: [{ userId: target.id, email: target.email, displayName: target.displayName }],
+      facts: [
+        { title: 'User', value: target.displayName || target.username },
+        { title: 'License status', value: licenseActive ? 'Active' : 'Inactive' },
+        { title: 'Updated by', value: actorName }
+      ],
+      openPath: '/app?settings=users',
+      dedupeEntityKey: `license-${target.id}-${licenseActive ? 'on' : 'off'}-${updated.updatedAt.getTime()}`
+    });
+    await workspaceNotificationService.notify({
+      orgId,
+      eventType: 'security_admin_alerts',
+      actorUserId: req.auth!.userId,
+      title: `User license updated`,
+      summary: `${actorName} ${licenseActive ? 'licensed' : 'unlicensed'} ${target.displayName || target.username}.`,
+      recipients: await resolveAdminRecipients(orgId),
+      facts: [
+        { title: 'User', value: target.displayName || target.username },
+        { title: 'License', value: licenseActive ? 'Active' : 'Inactive' }
+      ],
+      openPath: '/app?settings=policy',
+      dedupeEntityKey: `security-license-${target.id}-${updated.updatedAt.getTime()}`
+    });
+
     res.json({ success: true, data: updated });
   } catch (error) {
     next(error);
@@ -257,6 +303,33 @@ router.delete('/orgs/:orgId/users/:userId', authenticate, requireOrgAccess, asyn
       action: `Deleted user ${target.username}`,
       entityType: 'user',
       entityId: target.id
+    });
+
+    const actor = await prisma.user.findUnique({
+      where: { id: req.auth!.userId },
+      select: { displayName: true }
+    });
+    const actorName = actor?.displayName || 'Admin';
+    await workspaceNotificationService.notify({
+      orgId,
+      eventType: 'user_lifecycle',
+      actorUserId: req.auth!.userId,
+      title: `Workspace access removed: ${target.displayName || target.username}`,
+      summary: `${actorName} removed your access to this workspace.`,
+      recipients: [{ email: target.email, displayName: target.displayName }],
+      facts: [{ title: 'Workspace user', value: target.displayName || target.username }],
+      dedupeEntityKey: `user-removed-${target.id}-${Date.now()}`
+    });
+    await workspaceNotificationService.notify({
+      orgId,
+      eventType: 'security_admin_alerts',
+      actorUserId: req.auth!.userId,
+      title: `Workspace user removed`,
+      summary: `${actorName} removed ${target.displayName || target.username} from the workspace.`,
+      recipients: await resolveAdminRecipients(orgId),
+      facts: [{ title: 'User', value: target.displayName || target.username }],
+      openPath: '/app?settings=policy',
+      dedupeEntityKey: `security-user-removed-${target.id}-${Date.now()}`
     });
 
     res.json({ success: true });

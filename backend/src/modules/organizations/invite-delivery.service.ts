@@ -40,8 +40,12 @@ const sendMicrosoftInvite = async (input: {
   toEmail: string;
   subject: string;
   htmlBody: string;
+  senderEmail?: string;
 }) => {
-  const response = await fetch('https://graph.microsoft.com/v1.0/me/sendMail', {
+  const endpoint = input.senderEmail
+    ? `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(input.senderEmail)}/sendMail`
+    : 'https://graph.microsoft.com/v1.0/me/sendMail';
+  const response = await fetch(endpoint, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${input.accessToken}`,
@@ -51,7 +55,14 @@ const sendMicrosoftInvite = async (input: {
       message: {
         subject: input.subject,
         body: { contentType: 'HTML', content: input.htmlBody },
-        toRecipients: [{ emailAddress: { address: input.toEmail } }]
+        toRecipients: [{ emailAddress: { address: input.toEmail } }],
+        ...(input.senderEmail
+          ? {
+              from: { emailAddress: { address: input.senderEmail } },
+              sender: { emailAddress: { address: input.senderEmail } },
+              replyTo: [{ emailAddress: { address: input.senderEmail } }]
+            }
+          : {})
       },
       saveToSentItems: false
     })
@@ -89,7 +100,7 @@ export const sendInviteByEmail = async (input: { inviteId: string }): Promise<In
   const invite = await prisma.invite.findUnique({
     where: { id: input.inviteId },
     include: {
-      organization: { select: { id: true, name: true } }
+      organization: { select: { id: true, name: true, notificationSenderEmail: true } }
     }
   });
   if (!invite) throw new HttpError(404, 'Invite not found.');
@@ -132,6 +143,7 @@ export const sendInviteByEmail = async (input: { inviteId: string }): Promise<In
   });
   const inviterName = inviter?.displayName || 'Workspace admin';
   const inviteUrl = buildInviteLink(invite.token);
+  const senderEmail = String(invite.organization.notificationSenderEmail || '').trim().toLowerCase() || undefined;
   const subject = `You're invited to ${invite.organization.name} on Velo`;
   const htmlBody = buildInviteHtml({
     orgName: invite.organization.name,
@@ -148,7 +160,8 @@ export const sendInviteByEmail = async (input: { inviteId: string }): Promise<In
       accessToken,
       toEmail: targetEmail,
       subject,
-      htmlBody
+      htmlBody,
+      senderEmail
     });
 
     await prisma.invite.update({

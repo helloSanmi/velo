@@ -1,10 +1,19 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { authenticate } from '../../middleware/authenticate.js';
+import { createRateLimitMiddleware } from '../../middleware/rateLimit.js';
 import { authService } from './auth.service.js';
 import { buildOauthConnectUrl, buildOauthDirectoryUrl, buildOauthStartUrl, completeOauthCallback, getOauthProviderAvailability, listDirectoryUsers } from './auth.oauth.js';
 
 const router = Router();
+router.use(
+  createRateLimitMiddleware({
+    windowMs: 60_000,
+    maxRequests: 60,
+    keyPrefix: 'auth',
+    message: 'Too many auth requests. Please wait a moment and try again.'
+  })
+);
 
 const loginSchema = z.object({
   identifier: z.string().min(1),

@@ -1,6 +1,7 @@
 import { promises as fs } from 'fs';
 import path from 'path';
 import { createId } from '../../lib/ids.js';
+import { parseTicketCodeSequence } from './tickets.reference.js';
 
 export type IntakeTicketStatus =
   | 'new'
@@ -24,6 +25,8 @@ export interface StoredTicketComment {
 export interface StoredIntakeTicket {
   id: string;
   orgId: string;
+  ticketCode?: string;
+  ticketNumber?: number;
   projectId?: string;
   title: string;
   description: string;
@@ -93,6 +96,8 @@ export const ticketsStore = {
     const created: StoredIntakeTicket = {
       id: createId('tkt'),
       orgId: input.orgId,
+      ticketCode: input.ticketCode,
+      ticketNumber: input.ticketNumber,
       projectId: input.projectId,
       title: input.title,
       description: input.description,
@@ -139,5 +144,23 @@ export const ticketsStore = {
     if (rows.length === next.length) return false;
     await writeAll(next);
     return true;
+  },
+
+  async findByCode(orgId: string, ticketCode: string): Promise<StoredIntakeTicket | null> {
+    const code = String(ticketCode || '').trim().toUpperCase();
+    if (!code) return null;
+    const rows = await readAll();
+    return rows.find((row) => row.orgId === orgId && String(row.ticketCode || '').toUpperCase() === code) || null;
+  },
+
+  async nextTicketNumber(orgId: string): Promise<number> {
+    const rows = await readAll();
+    const orgRows = rows.filter((row) => row.orgId === orgId);
+    const maxExisting = orgRows.reduce((acc, row) => {
+      const direct = Number(row.ticketNumber || 0);
+      const byCode = parseTicketCodeSequence(row.ticketCode);
+      return Math.max(acc, Number.isFinite(direct) ? direct : 0, byCode);
+    }, 0);
+    return maxExisting + 1;
   }
 };

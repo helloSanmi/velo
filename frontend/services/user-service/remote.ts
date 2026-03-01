@@ -37,7 +37,8 @@ const mapOrganizationFromApi = (org: any): Organization => ({
   aiDailyRequestLimit: typeof org.aiDailyRequestLimit === 'number' ? org.aiDailyRequestLimit : undefined,
   aiDailyTokenLimit: typeof org.aiDailyTokenLimit === 'number' ? org.aiDailyTokenLimit : undefined,
   allowMicrosoftAuth: Boolean(org.allowMicrosoftAuth),
-  microsoftWorkspaceConnected: Boolean(org.microsoftWorkspaceConnected)
+  microsoftWorkspaceConnected: Boolean(org.microsoftWorkspaceConnected),
+  notificationSenderEmail: org.notificationSenderEmail || undefined
 });
 
 const mapUserFromApi = (user: any): User => ({
@@ -732,7 +733,7 @@ export const provisionUserRemote = async (
 
 export const updateOrganizationSettingsRemote = async (
   orgId: string,
-  patch: Partial<Pick<Organization, 'loginSubdomain' | 'allowMicrosoftAuth' | 'microsoftWorkspaceConnected'>>
+  patch: Partial<Pick<Organization, 'loginSubdomain' | 'allowMicrosoftAuth' | 'microsoftWorkspaceConnected' | 'notificationSenderEmail'>>
 ): Promise<Organization | null> => {
   try {
     const org = await apiRequest<any>(`/orgs/${orgId}/settings`, {

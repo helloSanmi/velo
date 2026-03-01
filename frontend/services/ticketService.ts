@@ -2,13 +2,8 @@ import {
   IntakeTicket,
   IntakeTicketPriority,
   IntakeTicketStatus,
-  TicketNotificationDelivery,
-  TicketNotificationActiveHealthCheck,
-  TicketNotificationAutoFixResult,
-  TicketNotificationFixAndRetryResult,
-  TicketNotificationDiagnostics,
-  TicketNotificationDestination,
-  TicketNotificationDeliveryStatus,
+  NotificationSetupGuide,
+  NotificationSenderPreflightResult,
   TicketNotificationPolicy,
   TicketPolicy
 } from '../types';
@@ -60,86 +55,18 @@ export const ticketService = {
     return apiRequest<TicketNotificationPolicy>(`/orgs/${orgId}/tickets/notifications/policy`, { method: 'PATCH', body: patch });
   },
 
-  async getNotificationQueueStatus(orgId: string): Promise<{ queued: number; digestPending: number }> {
-    return apiRequest<{ queued: number; digestPending: number }>(`/orgs/${orgId}/tickets/notifications/queue-status`);
-  },
-
-  async ensureNotificationSubscription(orgId: string): Promise<{ subscriptionId: string; expiresAt: string }> {
-    return apiRequest<{ subscriptionId: string; expiresAt: string }>(`/orgs/${orgId}/tickets/notifications/subscriptions`, {
-      method: 'POST'
-    });
-  },
-
-  async runNotificationDeltaSync(orgId: string): Promise<{ processed: number; deltaLink?: string }> {
-    return apiRequest<{ processed: number; deltaLink?: string }>(`/orgs/${orgId}/tickets/notifications/delta-sync`, {
-      method: 'POST'
-    });
-  },
-
-  async getNotificationDestination(orgId: string): Promise<TicketNotificationDestination> {
-    return apiRequest<TicketNotificationDestination>(`/orgs/${orgId}/tickets/notifications/destination`);
-  },
-
-  async updateNotificationDestination(
+  async runNotificationSenderPreflight(
     orgId: string,
-    payload: TicketNotificationDestination
-  ): Promise<TicketNotificationDestination> {
-    return apiRequest<TicketNotificationDestination>(`/orgs/${orgId}/tickets/notifications/destination`, {
-      method: 'PATCH',
-      body: payload
-    });
-  },
-
-  async getNotificationDeliveries(
-    orgId: string,
-    input?: { status?: TicketNotificationDeliveryStatus; limit?: number }
-  ): Promise<TicketNotificationDelivery[]> {
-    const search = new URLSearchParams();
-    if (input?.status) search.set('status', input.status);
-    if (typeof input?.limit === 'number') search.set('limit', String(input.limit));
-    const query = search.toString() ? `?${search.toString()}` : '';
-    const rows = await apiRequest<TicketNotificationDelivery[]>(`/orgs/${orgId}/tickets/notifications/deliveries${query}`);
-    return rows.map((row: any) => ({
-      ...row,
-      createdAt: Date.parse(String(row.createdAt || '')) || Date.now(),
-      updatedAt: Date.parse(String(row.updatedAt || '')) || Date.now(),
-      nextAttemptAt: row.nextAttemptAt ? Date.parse(String(row.nextAttemptAt)) : undefined,
-      sentAt: row.sentAt ? Date.parse(String(row.sentAt)) : undefined,
-      resolvedAt: row.resolvedAt ? Date.parse(String(row.resolvedAt)) : undefined
-    }));
-  },
-
-  async retryNotificationDelivery(orgId: string, deliveryId: string): Promise<TicketNotificationDelivery> {
-    return apiRequest<TicketNotificationDelivery>(
-      `/orgs/${orgId}/tickets/notifications/deliveries/${encodeURIComponent(deliveryId)}/retry`,
-      { method: 'POST' }
-    );
-  },
-
-  async getNotificationDiagnostics(orgId: string): Promise<TicketNotificationDiagnostics> {
-    return apiRequest<TicketNotificationDiagnostics>(`/orgs/${orgId}/tickets/notifications/health`);
-  },
-
-  async runNotificationHealthCheck(orgId: string): Promise<TicketNotificationActiveHealthCheck> {
-    return apiRequest<TicketNotificationActiveHealthCheck>(`/orgs/${orgId}/tickets/notifications/health-check`, {
-      method: 'POST'
-    });
-  },
-
-  async runNotificationAutoFix(orgId: string): Promise<TicketNotificationAutoFixResult> {
-    return apiRequest<TicketNotificationAutoFixResult>(`/orgs/${orgId}/tickets/notifications/health-fix`, {
-      method: 'POST'
-    });
-  },
-
-  async runNotificationAutoFixAndRetryDeadLetters(
-    orgId: string,
-    input?: { limit?: number }
-  ): Promise<TicketNotificationFixAndRetryResult> {
-    return apiRequest<TicketNotificationFixAndRetryResult>(`/orgs/${orgId}/tickets/notifications/health-fix-retry`, {
+    input?: { testRecipientEmail?: string }
+  ): Promise<NotificationSenderPreflightResult> {
+    return apiRequest<NotificationSenderPreflightResult>(`/orgs/${orgId}/tickets/notifications/preflight`, {
       method: 'POST',
-      body: { confirm: true, limit: input?.limit }
+      body: input || {}
     });
+  },
+
+  async getNotificationSetupGuide(orgId: string): Promise<NotificationSetupGuide> {
+    return apiRequest<NotificationSetupGuide>(`/orgs/${orgId}/tickets/notifications/setup-script`);
   },
 
   async getTickets(orgId: string): Promise<IntakeTicket[]> {

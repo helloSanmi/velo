@@ -1,6 +1,7 @@
-import { TicketNotificationDeliveryStatus, UserRole } from '@prisma/client';
+import { UserRole } from '@prisma/client';
 import { Router } from 'express';
 import { z } from 'zod';
+import { env } from '../../config/env.js';
 import { authenticate } from '../../middleware/authenticate.js';
 import { requireOrgAccess } from '../../middleware/requireOrgAccess.js';
 import { HttpError } from '../../lib/httpError.js';
@@ -9,6 +10,7 @@ import { prisma } from '../../lib/prisma.js';
 import { writeAudit } from '../audit/audit.service.js';
 import { realtimeGateway } from '../realtime/realtime.gateway.js';
 import { ticketsStore } from './tickets.store.js';
+import { formatTicketCode, getTicketReference, toWorkspaceTicketPrefix } from './tickets.reference.js';
 import { ticketsPolicyStore, type StoredTicketPolicy } from './tickets.policy.store.js';
 import { ticketsNotificationService } from './tickets.notification.service.js';
 import { ticketsGraphService } from './tickets.graph.service.js';
@@ -85,9 +87,29 @@ const notificationPolicySchema = z.object({
       dailyHourLocal: z.number().int().min(0).max(23).optional()
     })
     .optional(),
+  health: z
+    .object({
+      deadLetterWarningThreshold: z.number().int().min(0).max(1000).optional(),
+      deadLetterErrorThreshold: z.number().int().min(1).max(1000).optional(),
+      webhookQuietWarningMinutes: z.number().int().min(5).max(10080).optional()
+    })
+    .optional(),
   events: z
     .record(
-      z.enum(['ticket_created', 'ticket_assigned', 'ticket_status_changed', 'ticket_commented', 'ticket_sla_breach', 'ticket_approval_required']),
+      z.enum([
+        'ticket_created',
+        'ticket_assigned',
+        'ticket_status_changed',
+        'ticket_commented',
+        'ticket_sla_breach',
+        'ticket_approval_required',
+        'project_completion_actions',
+        'task_assignment',
+        'task_due_overdue',
+        'task_status_changes',
+        'security_admin_alerts',
+        'user_lifecycle'
+      ]),
       z.object({
         immediate: z.boolean().optional(),
         digest: z.boolean().optional(),
@@ -99,22 +121,11 @@ const notificationPolicySchema = z.object({
     )
     .optional()
 });
-const notificationDeliveryQuerySchema = z.object({
-  status: z
-    .enum(['queued', 'sent', 'failed', 'suppressed', 'dead_letter'])
-    .optional(),
-  limit: z.coerce.number().int().min(1).max(200).optional()
+const senderPreflightSchema = z.object({
+  testRecipientEmail: z.string().email().optional()
 });
-const healthFixRetrySchema = z.object({
-  confirm: z.literal(true),
-  limit: z.number().int().min(1).max(50).optional()
-});
-const notificationDestinationSchema = z.object({
-  mode: z.enum(['none', 'chat', 'channel']),
-  teamsChatId: z.string().optional(),
-  teamsTeamId: z.string().optional(),
-  teamsChannelId: z.string().optional()
-});
+
+const toPsSingleQuoted = (value: string): string => `'${String(value || '').replace(/'/g, "''")}'`;
 
 const getProjectOwnerIds = (project: { ownerId: string; createdBy: string; metadata: unknown }): string[] => {
   const metadataOwnerIds =
@@ -260,6 +271,112 @@ router.patch('/orgs/:orgId/tickets/notifications/policy', authenticate, requireO
   }
 });
 
+router.post('/orgs/:orgId/tickets/notifications/preflight', authenticate, requireOrgAccess, async (req, res, next) => {
+  try {
+    const { orgId } = orgParamsSchema.parse(req.params);
+    if (req.auth!.role !== 'admin') throw new HttpError(403, 'Only admins can run notification sender preflight.');
+    const body = senderPreflightSchema.parse(req.body || {});
+    const result = await ticketsGraphService.senderMailboxPreflight({
+      orgId,
+      testRecipientEmail: body.testRecipientEmail
+    });
+    res.json({ success: true, data: result });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get('/orgs/:orgId/tickets/notifications/setup-script', authenticate, requireOrgAccess, async (req, res, next) => {
+  try {
+    const { orgId } = orgParamsSchema.parse(req.params);
+    if (req.auth!.role !== 'admin') throw new HttpError(403, 'Only admins can generate notification setup script.');
+
+    const org = await prisma.organization.findUnique({
+      where: { id: orgId },
+      select: {
+        name: true,
+        loginSubdomain: true,
+        notificationSenderEmail: true,
+        microsoftWorkspaceConnected: true,
+        microsoftTenantId: true
+      }
+    });
+    if (!org) throw new HttpError(404, 'Organization not found.');
+
+    const appId = String(env.MICROSOFT_OAUTH_CLIENT_ID || '').trim();
+    const senderEmail = String(org.notificationSenderEmail || '').trim().toLowerCase();
+    const scopeGroupName = `${org.loginSubdomain}-velo-mailbox-scope`;
+    const scopeGroupAlias = `${org.loginSubdomain}-velo-mail-scope`.replace(/[^a-z0-9-]/gi, '').toLowerCase();
+    const scopeGroupId = `${scopeGroupAlias}@${senderEmail.split('@')[1] || 'yourdomain.com'}`;
+
+    const preflight = senderEmail
+      ? await ticketsGraphService.senderMailboxPreflight({ orgId })
+      : { ok: false, checks: [{ key: 'sender_mailbox', ok: false, message: 'Sender mailbox is not configured.' }] };
+
+    const checklist = [
+      { key: 'workspace_connection', label: 'Microsoft workspace connected', ok: Boolean(org.microsoftWorkspaceConnected) },
+      { key: 'tenant_id', label: 'Tenant ID discovered', ok: Boolean(org.microsoftTenantId) },
+      { key: 'sender_mailbox', label: 'Sender mailbox configured', ok: Boolean(senderEmail) },
+      { key: 'app_id', label: 'App registration client ID configured on server', ok: Boolean(appId) },
+      { key: 'preflight_ok', label: 'Preflight checks', ok: Boolean(preflight.ok) }
+    ];
+
+    const script = [
+      '# Velo notification mailbox scope setup (Exchange Online)',
+      '# Run as Exchange/M365 admin in PowerShell',
+      '',
+      'Connect-ExchangeOnline',
+      '',
+      `# 1) Create (or reuse) mailbox scope group`,
+      `$scopeName = ${toPsSingleQuoted(scopeGroupName)}`,
+      `$scopeAlias = ${toPsSingleQuoted(scopeGroupAlias)}`,
+      `$scopeSmtp = ${toPsSingleQuoted(scopeGroupId)}`,
+      `$appId = ${toPsSingleQuoted(appId || '<MICROSOFT_OAUTH_CLIENT_ID>')}`,
+      `$senderMailbox = ${toPsSingleQuoted(senderEmail || 'project@yourdomain.com')}`,
+      '',
+      '$group = Get-DistributionGroup -Identity $scopeSmtp -ErrorAction SilentlyContinue',
+      'if (-not $group) {',
+      '  $group = New-DistributionGroup -Name $scopeName -Alias $scopeAlias -Type Security -PrimarySmtpAddress $scopeSmtp',
+      '}',
+      '',
+      '# 2) Ensure sender mailbox is in scope group',
+      '$existingMember = Get-DistributionGroupMember -Identity $scopeSmtp -ResultSize Unlimited | Where-Object { $_.PrimarySmtpAddress -eq $senderMailbox }',
+      'if (-not $existingMember) {',
+      '  Add-DistributionGroupMember -Identity $scopeSmtp -Member $senderMailbox',
+      '}',
+      '',
+      '# 3) Create or update Application Access Policy',
+      '$policy = Get-ApplicationAccessPolicy | Where-Object { $_.AppId -eq $appId -and $_.PolicyScopeGroupId -eq $scopeSmtp } | Select-Object -First 1',
+      'if (-not $policy) {',
+      '  New-ApplicationAccessPolicy -AppId $appId -PolicyScopeGroupId $scopeSmtp -AccessRight RestrictAccess -Description "Velo mailbox scope policy"',
+      '}',
+      '',
+      '# 4) Validate policy (should be Granted)',
+      'Test-ApplicationAccessPolicy -AppId $appId -Identity $senderMailbox',
+      '',
+      '# Optional: verify Graph app permissions/admin consent in Entra UI:',
+      '# Mail.Send (Application), Mail.Read (Application) with admin consent.'
+    ].join('\n');
+
+    res.json({
+      success: true,
+      data: {
+        ready: checklist.every((item) => item.ok),
+        appId: appId || null,
+        senderEmail: senderEmail || null,
+        scopeGroupName,
+        scopeGroupId,
+        checklist,
+        preflight,
+        script,
+        filename: `${org.loginSubdomain}-velo-mailbox-policy.ps1`
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.get('/orgs/:orgId/tickets', authenticate, requireOrgAccess, async (req, res, next) => {
   try {
     const { orgId } = orgParamsSchema.parse(req.params);
@@ -323,11 +440,20 @@ router.post('/orgs/:orgId/tickets', authenticate, requireOrgAccess, async (req, 
       : body.assigneeId || (await pickAutoAssignee({ orgId, projectId: body.projectId, policy }));
     const slaHours = policy.slaHours[body.priority];
     const slaDueAt = Date.now() + slaHours * 60 * 60 * 1000;
+    const org = await prisma.organization.findUnique({
+      where: { id: orgId },
+      select: { name: true }
+    });
+    if (!org) throw new HttpError(404, 'Organization not found.');
+    const ticketNumber = await ticketsStore.nextTicketNumber(orgId);
+    const ticketCode = formatTicketCode(toWorkspaceTicketPrefix(org.name), ticketNumber);
     const created = await ticketsStore.create({
       ...body,
       orgId,
       requesterUserId: req.auth!.userId,
       assigneeId: autoAssignee,
+      ticketCode,
+      ticketNumber,
       slaDueAt
     });
     await writeAudit({
@@ -350,6 +476,15 @@ router.post('/orgs/:orgId/tickets', authenticate, requireOrgAccess, async (req, 
         eventType: 'ticket_created',
         ticketAfter: created
       });
+      if (created.assigneeId) {
+        await ticketsNotificationService.enqueue({
+          orgId,
+          actorUserId: req.auth!.userId,
+          actorName: actor?.displayName || 'User',
+          eventType: 'ticket_assigned',
+          ticketAfter: created
+        });
+      }
     } catch {
       // Non-blocking notification path.
     }
@@ -534,7 +669,7 @@ router.post('/orgs/:orgId/tickets/:ticketId/convert', authenticate, requireOrgAc
             id: createId('audit'),
             userId: req.auth!.userId,
             displayName: 'System',
-            action: `created from ticket ${ticket.id}`,
+            action: `created from ticket ${getTicketReference(ticket)}`,
             timestamp: Date.now()
           }
         ]
@@ -557,7 +692,7 @@ router.post('/orgs/:orgId/tickets/:ticketId/convert', authenticate, requireOrgAc
       action: `Converted ticket ${ticket.title} to task`,
       entityType: 'intake_ticket',
       entityId: ticket.id,
-      metadata: { taskId: task.id, projectId: project.id }
+      metadata: { taskId: task.id, projectId: project.id, ticketReference: getTicketReference(ticket) }
     });
     realtimeGateway.publish(orgId, 'TICKETS_UPDATED', { ticketId: updated.id, action: 'converted', taskId: task.id });
     realtimeGateway.publish(orgId, 'TASKS_UPDATED', { taskId: task.id, action: 'created', projectId: project.id });
@@ -594,209 +729,6 @@ router.delete('/orgs/:orgId/tickets/:ticketId', authenticate, requireOrgAccess, 
     next(error);
   }
 });
-
-router.post('/orgs/:orgId/tickets/notifications/subscriptions', authenticate, requireOrgAccess, async (req, res, next) => {
-  try {
-    const { orgId } = orgParamsSchema.parse(req.params);
-    if (req.auth!.role !== 'admin') throw new HttpError(403, 'Only admins can manage ticket notification subscriptions.');
-    const result = await ticketsGraphService.ensureMailSubscription({ orgId });
-    res.json({ success: true, data: result });
-  } catch (error) {
-    next(error);
-  }
-});
-
-router.post('/orgs/:orgId/tickets/notifications/delta-sync', authenticate, requireOrgAccess, async (req, res, next) => {
-  try {
-    const { orgId } = orgParamsSchema.parse(req.params);
-    if (req.auth!.role !== 'admin') throw new HttpError(403, 'Only admins can run ticket mail delta sync.');
-    const result = await ticketsGraphService.syncMailDelta({ orgId });
-    res.json({ success: true, data: result });
-  } catch (error) {
-    next(error);
-  }
-});
-
-router.get('/orgs/:orgId/tickets/notifications/destination', authenticate, requireOrgAccess, async (req, res, next) => {
-  try {
-    const { orgId } = orgParamsSchema.parse(req.params);
-    if (req.auth!.role !== 'admin') throw new HttpError(403, 'Only admins can view ticket notification destination.');
-    const data = await ticketsGraphService.getNotificationDestination({ orgId });
-    res.json({ success: true, data });
-  } catch (error) {
-    next(error);
-  }
-});
-
-router.patch('/orgs/:orgId/tickets/notifications/destination', authenticate, requireOrgAccess, async (req, res, next) => {
-  try {
-    const { orgId } = orgParamsSchema.parse(req.params);
-    if (req.auth!.role !== 'admin') throw new HttpError(403, 'Only admins can update ticket notification destination.');
-    const body = notificationDestinationSchema.parse(req.body || {});
-    const data = await ticketsGraphService.updateNotificationDestination({
-      orgId,
-      mode: body.mode,
-      teamsChatId: body.teamsChatId,
-      teamsTeamId: body.teamsTeamId,
-      teamsChannelId: body.teamsChannelId
-    });
-    res.json({ success: true, data });
-  } catch (error) {
-    next(error);
-  }
-});
-
-router.get('/orgs/:orgId/tickets/notifications/queue-status', authenticate, requireOrgAccess, async (req, res, next) => {
-  try {
-    const { orgId } = orgParamsSchema.parse(req.params);
-    if (req.auth!.role !== 'admin') throw new HttpError(403, 'Only admins can view ticket queue status.');
-    const data = await ticketsNotificationService.getQueueStatus();
-    res.json({ success: true, data });
-  } catch (error) {
-    next(error);
-  }
-});
-
-router.get('/orgs/:orgId/tickets/notifications/health', authenticate, requireOrgAccess, async (req, res, next) => {
-  try {
-    const { orgId } = orgParamsSchema.parse(req.params);
-    if (req.auth!.role !== 'admin') throw new HttpError(403, 'Only admins can view ticket notification diagnostics.');
-    const queue = await ticketsNotificationService.getQueueStatus();
-    const data = await ticketsGraphService.getDiagnostics({ orgId, queue });
-    res.json({ success: true, data });
-  } catch (error) {
-    next(error);
-  }
-});
-
-router.post('/orgs/:orgId/tickets/notifications/health-check', authenticate, requireOrgAccess, async (req, res, next) => {
-  try {
-    const { orgId } = orgParamsSchema.parse(req.params);
-    if (req.auth!.role !== 'admin') throw new HttpError(403, 'Only admins can run ticket notification diagnostics.');
-    const queue = await ticketsNotificationService.getQueueStatus();
-    const data = await ticketsGraphService.runActiveHealthCheck({ orgId, queue });
-    res.json({ success: true, data });
-  } catch (error) {
-    next(error);
-  }
-});
-
-router.post('/orgs/:orgId/tickets/notifications/health-fix', authenticate, requireOrgAccess, async (req, res, next) => {
-  try {
-    const { orgId } = orgParamsSchema.parse(req.params);
-    if (req.auth!.role !== 'admin') throw new HttpError(403, 'Only admins can run ticket notification auto-fix.');
-    const queue = await ticketsNotificationService.getQueueStatus();
-    const data = await ticketsGraphService.runAutoFix({ orgId, queue });
-    res.json({ success: true, data });
-  } catch (error) {
-    next(error);
-  }
-});
-
-router.post('/orgs/:orgId/tickets/notifications/health-fix-retry', authenticate, requireOrgAccess, async (req, res, next) => {
-  try {
-    const { orgId } = orgParamsSchema.parse(req.params);
-    const { limit } = healthFixRetrySchema.parse(req.body || {});
-    if (req.auth!.role !== 'admin') throw new HttpError(403, 'Only admins can run ticket notification auto-fix.');
-
-    const queue = await ticketsNotificationService.getQueueStatus();
-    const autoFix = await ticketsGraphService.runAutoFix({ orgId, queue });
-    const retryLimit = Math.max(1, Math.min(50, limit || 15));
-    const retryCandidates = await ticketsNotificationService.listDeliveries({
-      orgId,
-      status: TicketNotificationDeliveryStatus.dead_letter,
-      limit: retryLimit
-    });
-    const failedCandidates = await ticketsNotificationService.listDeliveries({
-      orgId,
-      status: TicketNotificationDeliveryStatus.failed,
-      limit: retryLimit
-    });
-    const candidateMap = new Map<string, (typeof retryCandidates)[number]>();
-    [...retryCandidates, ...failedCandidates].forEach((row) => candidateMap.set(row.id, row));
-    const candidates = Array.from(candidateMap.values())
-      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
-      .slice(0, retryLimit);
-
-    let retried = 0;
-    let succeeded = 0;
-    let failed = 0;
-    const details: Array<{ deliveryId: string; status: string; lastError?: string | null }> = [];
-    for (const row of candidates) {
-      const result = await ticketsNotificationService.retryDeliveryNow({
-        orgId,
-        deliveryId: row.id,
-        actorUserId: req.auth!.userId
-      });
-      if (!result) continue;
-      retried += 1;
-      if (result.status === TicketNotificationDeliveryStatus.sent) succeeded += 1;
-      else failed += 1;
-      details.push({
-        deliveryId: result.id,
-        status: result.status,
-        lastError: result.lastError
-      });
-    }
-
-    res.json({
-      success: true,
-      data: {
-        ranAt: new Date().toISOString(),
-        autoFix,
-        retry: {
-          scanned: candidates.length,
-          retried,
-          succeeded,
-          failed,
-          skipped: Math.max(0, candidates.length - retried),
-          details
-        }
-      }
-    });
-  } catch (error) {
-    next(error);
-  }
-});
-
-router.get('/orgs/:orgId/tickets/notifications/deliveries', authenticate, requireOrgAccess, async (req, res, next) => {
-  try {
-    const { orgId } = orgParamsSchema.parse(req.params);
-    if (req.auth!.role !== 'admin') throw new HttpError(403, 'Only admins can view ticket notification deliveries.');
-    const { status, limit } = notificationDeliveryQuerySchema.parse(req.query);
-    const data = await ticketsNotificationService.listDeliveries({
-      orgId,
-      status: status as TicketNotificationDeliveryStatus | undefined,
-      limit
-    });
-    res.json({ success: true, data });
-  } catch (error) {
-    next(error);
-  }
-});
-
-router.post(
-  '/orgs/:orgId/tickets/notifications/deliveries/:deliveryId/retry',
-  authenticate,
-  requireOrgAccess,
-  async (req, res, next) => {
-    try {
-      const { orgId } = orgParamsSchema.parse(req.params);
-      const deliveryId = String(req.params.deliveryId || '').trim();
-      if (!deliveryId) throw new HttpError(400, 'deliveryId is required.');
-      if (req.auth!.role !== 'admin') throw new HttpError(403, 'Only admins can retry ticket notification deliveries.');
-      const data = await ticketsNotificationService.retryDeliveryNow({
-        orgId,
-        deliveryId,
-        actorUserId: req.auth!.userId
-      });
-      if (!data) throw new HttpError(404, 'Notification delivery record not found.');
-      res.json({ success: true, data });
-    } catch (error) {
-      next(error);
-    }
-  }
-);
 
 router.get('/integrations/microsoft/graph/webhook', async (req, res) => {
   const token = typeof req.query.validationToken === 'string' ? req.query.validationToken : '';

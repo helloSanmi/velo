@@ -1,5 +1,5 @@
 import React from 'react';
-import { Clock3, LifeBuoy, Mail, ShieldAlert } from 'lucide-react';
+import { CalendarCheck2, CheckCircle2, Clock3, LifeBuoy, Mail, Rocket, ShieldAlert, Users2 } from 'lucide-react';
 import Button from './ui/Button';
 import MarketingPageShell from './marketing/MarketingPageShell';
 
@@ -19,16 +19,19 @@ const supportStreams = [
   ['Account support', 'Billing, licensing, seats, and subscription operations.', 'Account ownership routing']
 ] as const;
 
-const supportProcess = [
-  ['1. Intake', 'Submit issue context and expected outcome.'],
-  ['2. Triage', 'We classify severity and assign to the right support stream.'],
-  ['3. Resolution', 'Receive actionable guidance with confirmation and follow-up.']
+const onboardingFlow = [
+  ['Step 1', 'Create workspace + admin account', 'Reserve subdomain, confirm admin identity, and activate initial seat plan.'],
+  ['Step 2', 'Connect Microsoft SSO', 'Grant tenant consent once, select sender mailbox, and verify notification readiness.'],
+  ['Step 3', 'Add and license users', 'Invite core team, assign roles, and confirm first-login access paths.'],
+  ['Step 4', 'Configure delivery model', 'Set projects, stages, workflows, and completion approval rules for governance.'],
+  ['Step 5', 'Go live with first project', 'Create first board, generate tasks, and run with alerts and audit trail enabled.']
 ] as const;
 
 const resources = [
   ['Workspace setup and template strategy', 'Get initial project structure right from day one.'],
   ['Role permissions and access controls', 'Map policy to role behavior across your teams.'],
-  ['Completion approvals and lifecycle states', 'Understand governance for completion and reopen flows.']
+  ['Completion approvals and lifecycle states', 'Understand governance for completion and reopen flows.'],
+  ['Notification sender mailbox readiness', 'Validate sender, permissions, and recipient delivery before rollout.']
 ] as const;
 
 const SupportPage: React.FC<SupportPageProps> = (props) => (
@@ -67,14 +70,45 @@ const SupportPage: React.FC<SupportPageProps> = (props) => (
     </section>
 
     <section className="rounded-3xl border border-slate-200 bg-white p-7 md:p-8">
-      <h2 className="text-[26px] font-semibold tracking-tight text-slate-900">How support works</h2>
-      <div className="mt-4 grid gap-3 md:grid-cols-3">
-        {supportProcess.map(([step, text]) => (
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-[26px] font-semibold tracking-tight text-slate-900">Onboarding guide</h2>
+        <p className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-700"><CalendarCheck2 className="h-3.5 w-3.5" />Typical setup: 1-2 business days</p>
+      </div>
+      <div className="mt-4 grid gap-3 md:grid-cols-2">
+        {onboardingFlow.map(([step, title, text]) => (
           <article key={step} className="rounded-xl border border-slate-200 bg-white p-4">
-            <p className="text-[17px] font-semibold text-slate-900">{step}</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#76003f]">{step}</p>
+            <p className="mt-1 text-[17px] font-semibold text-slate-900">{title}</p>
             <p className="mt-1.5 text-[14px] text-slate-600">{text}</p>
           </article>
         ))}
+      </div>
+    </section>
+
+    <section className="rounded-3xl border border-slate-200 bg-white p-7 md:p-8">
+      <h2 className="text-[26px] font-semibold tracking-tight text-slate-900">Day-0 rollout checklist</h2>
+      <div className="mt-4 grid gap-3 md:grid-cols-3">
+        <article className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+          <p className="inline-flex items-center gap-2 text-sm font-semibold text-slate-900"><Rocket className="h-4 w-4 text-[#76003f]" />Platform readiness</p>
+          <ul className="mt-2 space-y-1.5 text-sm text-slate-700">
+            <li className="inline-flex items-start gap-2"><CheckCircle2 className="mt-0.5 h-3.5 w-3.5 text-emerald-600" />Subdomain and org profile set</li>
+            <li className="inline-flex items-start gap-2"><CheckCircle2 className="mt-0.5 h-3.5 w-3.5 text-emerald-600" />Roles and seats verified</li>
+          </ul>
+        </article>
+        <article className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+          <p className="inline-flex items-center gap-2 text-sm font-semibold text-slate-900"><Users2 className="h-4 w-4 text-[#76003f]" />Team readiness</p>
+          <ul className="mt-2 space-y-1.5 text-sm text-slate-700">
+            <li className="inline-flex items-start gap-2"><CheckCircle2 className="mt-0.5 h-3.5 w-3.5 text-emerald-600" />Owner/admin accounts active</li>
+            <li className="inline-flex items-start gap-2"><CheckCircle2 className="mt-0.5 h-3.5 w-3.5 text-emerald-600" />Member invite path tested</li>
+          </ul>
+        </article>
+        <article className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+          <p className="inline-flex items-center gap-2 text-sm font-semibold text-slate-900"><Mail className="h-4 w-4 text-[#76003f]" />Notification readiness</p>
+          <ul className="mt-2 space-y-1.5 text-sm text-slate-700">
+            <li className="inline-flex items-start gap-2"><CheckCircle2 className="mt-0.5 h-3.5 w-3.5 text-emerald-600" />Sender mailbox configured</li>
+            <li className="inline-flex items-start gap-2"><CheckCircle2 className="mt-0.5 h-3.5 w-3.5 text-emerald-600" />Test ticket mail delivered</li>
+          </ul>
+        </article>
       </div>
     </section>
 

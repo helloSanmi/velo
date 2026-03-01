@@ -6,6 +6,7 @@ import { createId } from '../../lib/ids.js';
 import { enforce } from '../policy/policy.service.js';
 import { writeAudit } from '../audit/audit.service.js';
 import { realtimeGateway } from '../realtime/realtime.gateway.js';
+import { workspaceNotificationService } from '../tickets/workspace.notification.service.js';
 
 const parseMemberIds = (value: unknown): string[] => (Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : []);
 const parseStageDefs = (value: unknown): { id: string; name: string }[] =>
@@ -24,6 +25,26 @@ const parseOwnerIdsFromMetadata = (metadata: unknown, fallbackOwnerId?: string):
       ? ((metadata as Record<string, unknown>).ownerIds as unknown[]).filter((value): value is string => typeof value === 'string')
       : [];
   return Array.from(new Set([...(fallbackOwnerId ? [fallbackOwnerId] : []), ...ownerIds]));
+};
+
+const resolveProjectCompletionRecipients = async (input: {
+  orgId: string;
+  ownerIds: string[];
+}): Promise<Array<{ userId: string; email: string; displayName: string }>> => {
+  const users = await prisma.user.findMany({
+    where: {
+      orgId: input.orgId,
+      licenseActive: true
+    },
+    select: { id: true, email: true, displayName: true, role: true }
+  });
+  const ids = new Set([
+    ...input.ownerIds,
+    ...users.filter((row) => row.role === UserRole.admin).map((row) => row.id)
+  ]);
+  return users
+    .filter((row) => ids.has(row.id) && row.email)
+    .map((row) => ({ userId: row.id, email: row.email, displayName: row.displayName }));
 };
 
 export const projectsService = {
@@ -268,6 +289,60 @@ export const projectsService = {
         metadata: nextMetadata
       }
     });
+
+    const actor = await prisma.user.findUnique({
+      where: { id: input.actor.userId },
+      select: { displayName: true }
+    });
+    const actorName = actor?.displayName || 'User';
+    const nextMetaObj =
+      next.metadata && typeof next.metadata === 'object' ? (next.metadata as Record<string, unknown>) : {};
+    const previousMetaObj =
+      existing.metadata && typeof existing.metadata === 'object' ? (existing.metadata as Record<string, unknown>) : {};
+    const completionRequestedAt = Number(nextMetaObj.completionRequestedAt || 0);
+    const previousCompletionRequestedAt = Number(previousMetaObj.completionRequestedAt || 0);
+    const nextOwnerIds = parseOwnerIdsFromMetadata(next.metadata, next.ownerId);
+    const completionRecipients = await resolveProjectCompletionRecipients({
+      orgId: input.orgId,
+      ownerIds: nextOwnerIds
+    });
+
+    if (
+      completionRequestedAt > 0 &&
+      (previousCompletionRequestedAt <= 0 || completionRequestedAt !== previousCompletionRequestedAt)
+    ) {
+      await workspaceNotificationService.notify({
+        orgId: input.orgId,
+        eventType: 'project_completion_actions',
+        actorUserId: input.actor.userId,
+        title: `Completion requested: ${next.name}`,
+        summary: `${actorName} requested owner/admin approval to complete this project.`,
+        recipients: completionRecipients,
+        facts: [
+          { title: 'Project', value: next.name },
+          { title: 'Action', value: 'Completion approval required' }
+        ],
+        openPath: `/app?projectId=${encodeURIComponent(next.id)}`,
+        dedupeEntityKey: `project-completion-request-${next.id}-${completionRequestedAt}`
+      });
+    }
+
+    if (existing.lifecycle !== ProjectLifecycle.completed && next.lifecycle === ProjectLifecycle.completed) {
+      await workspaceNotificationService.notify({
+        orgId: input.orgId,
+        eventType: 'project_completion_actions',
+        actorUserId: input.actor.userId,
+        title: `Project completed: ${next.name}`,
+        summary: `${actorName} marked this project as completed.`,
+        recipients: completionRecipients,
+        facts: [
+          { title: 'Project', value: next.name },
+          { title: 'Lifecycle', value: 'Completed' }
+        ],
+        openPath: `/app?projectId=${encodeURIComponent(next.id)}`,
+        dedupeEntityKey: `project-completed-${next.id}-${next.updatedAt.getTime()}`
+      });
+    }
 
     await writeAudit({
       orgId: input.orgId,

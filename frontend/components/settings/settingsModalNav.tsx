@@ -21,6 +21,7 @@ export const buildSettingsNavItems = (
   if (user.role === 'admin') {
     navItems.push({ id: 'security', label: 'Security', icon: <Shield className="w-4 h-4" /> });
     navItems.push({ id: 'licenses', label: 'Users', icon: <Settings className="w-4 h-4" /> });
+    navItems.push({ id: 'policy', label: 'Policy', icon: <Bell className="w-4 h-4" /> });
     navItems.push({ id: 'integrations', label: 'Integrations', icon: <Link2 className="w-4 h-4" /> });
     navItems.push({ id: 'danger', label: 'Danger Zone', icon: <Shield className="w-4 h-4" /> });
   }

@@ -237,7 +237,8 @@ export const backendSyncService = {
         aiDailyRequestLimit: typeof orgRaw.aiDailyRequestLimit === 'number' ? orgRaw.aiDailyRequestLimit : undefined,
         aiDailyTokenLimit: typeof orgRaw.aiDailyTokenLimit === 'number' ? orgRaw.aiDailyTokenLimit : undefined,
         allowMicrosoftAuth: Boolean(orgRaw.allowMicrosoftAuth),
-        microsoftWorkspaceConnected: Boolean(orgRaw.microsoftWorkspaceConnected)
+        microsoftWorkspaceConnected: Boolean(orgRaw.microsoftWorkspaceConnected),
+        notificationSenderEmail: orgRaw.notificationSenderEmail || undefined
       };
 
       const users: User[] = usersRaw.map((u) => ({

@@ -24,11 +24,15 @@ export const getAllTasksForOrg = (orgId: string): Task[] => {
 export const getTasksForViewer = (userId: string, orgId: string): Task[] => {
   try {
     const allTasks = readStoredTasks();
-    const activeProjects = projectService.getProjects(orgId).filter((project) => isProjectActive(project));
+    const allProjects = projectService.getProjects(orgId);
+    const activeProjects = allProjects.filter((project) => isProjectActive(project));
     const activeProjectIds = new Set(activeProjects.map((project) => project.id));
     activeProjectIds.add('general');
     const allUsers = userService.getUsers(orgId);
-    const currentUser = allUsers.find((user) => user.id === userId);
+    const sessionUser = userService.getCurrentUser();
+    const currentUser =
+      allUsers.find((user) => user.id === userId) ||
+      (sessionUser && sessionUser.id === userId && sessionUser.orgId === orgId ? sessionUser : undefined);
     const isAdmin = currentUser?.role === 'admin';
     const accessibleProjectIds = getAccessibleProjectIds({
       user: currentUser,
@@ -36,12 +40,14 @@ export const getTasksForViewer = (userId: string, orgId: string): Task[] => {
       tasks: allTasks,
       activeOnly: true
     });
+    const hasProjectSnapshot = allProjects.length > 0;
+    const allowAllProjectIdsTemporarily = hasProjectSnapshot && activeProjects.length === 0;
 
     return allTasks
       .filter(
         (task) =>
           task.orgId === orgId &&
-          activeProjectIds.has(task.projectId) &&
+          (allowAllProjectIdsTemporarily || activeProjectIds.has(task.projectId)) &&
           (isAdmin ||
             task.userId === userId ||
             accessibleProjectIds.has(task.projectId) ||

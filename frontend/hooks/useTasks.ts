@@ -7,10 +7,9 @@ import { projectService } from '../services/projectService';
 import { toastService } from '../services/toastService';
 import { createId } from '../utils/id';
 import { categorizeTasks, collectUniqueTags, filterTasks, getDoneStageIds } from './taskFilters';
-import { notificationService } from '../services/notificationService';
 
 export const useTasks = (user: User | null, activeProjectId?: string) => {
-  const [tasks, setTasks] = useState<Task[]>([]);
+  const [tasks, setTasks] = useState<Task[]>(() => (user ? taskService.getTasks(user.id, user.orgId) : []));
   const [aiLoading, setAiLoading] = useState(false);
   const [aiSuggestions, setAiSuggestions] = useState<string[] | null>(null);
   const [activeTaskTitle, setActiveTaskTitle] = useState('');
@@ -30,7 +29,12 @@ export const useTasks = (user: User | null, activeProjectId?: string) => {
 
   const refreshTasks = useCallback(() => {
     if (user) {
-      setTasks(taskService.getTasks(user.id, user.orgId));
+      setTasks((prev) => {
+        const next = taskService.getTasks(user.id, user.orgId);
+        if (next.length > 0) return next;
+        const orgHasTasks = taskService.getAllTasksForOrg(user.orgId).length > 0;
+        return orgHasTasks && prev.length > 0 ? prev : next;
+      });
     }
   }, [user]);
 
@@ -154,9 +158,9 @@ export const useTasks = (user: User | null, activeProjectId?: string) => {
 
   const updateTask = (id: string, updates: Partial<Omit<Task, 'id' | 'userId' | 'createdAt' | 'order'>>, username?: string) => {
     if (!user) return;
-    if (hasTaskConflict(id)) return;
-    historyManager.push(tasks);
-    const previousTask = tasks.find((task) => task.id === id);
+    const latestTasks = taskService.getTasks(user.id, user.orgId);
+    historyManager.push(latestTasks);
+    const previousTask = latestTasks.find((task) => task.id === id);
     const updated = taskService.updateTask(user.id, user.orgId, id, updates, username);
     setTasks(updated);
     const nextTask = updated.find((task) => task.id === id);
@@ -175,32 +179,6 @@ export const useTasks = (user: User | null, activeProjectId?: string) => {
             ? [nextTask.assigneeId]
             : [];
       if (JSON.stringify(previousAssignees) !== JSON.stringify(nextAssignees)) {
-        const added = nextAssignees.filter((assigneeId) => !previousAssignees.includes(assigneeId));
-        const removed = previousAssignees.filter((assigneeId) => !nextAssignees.includes(assigneeId));
-        added.forEach((assigneeId) => {
-          notificationService.addNotification({
-            orgId: user.orgId,
-            userId: assigneeId,
-            title: 'Assignment updated',
-            message: `Assigned: ${nextTask.title}`,
-            type: 'ASSIGNMENT',
-            category: 'assigned',
-            urgent: nextTask.priority === TaskPriority.HIGH,
-            linkId: nextTask.id
-          });
-        });
-        removed.forEach((assigneeId) => {
-          notificationService.addNotification({
-            orgId: user.orgId,
-            userId: assigneeId,
-            title: 'Assignment updated',
-            message: `Unassigned: ${nextTask.title}`,
-            type: 'SYSTEM',
-            category: 'assigned',
-            urgent: false,
-            linkId: nextTask.id
-          });
-        });
         const assigneeCount = nextAssignees.length;
         toastService.success(
           assigneeCount > 0 ? 'Assignees updated' : 'Assignees cleared',

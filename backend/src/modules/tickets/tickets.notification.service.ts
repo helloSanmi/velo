@@ -14,6 +14,7 @@ import {
   ticketsNotificationPolicyStore,
   type TicketNotificationPolicy
 } from './tickets.notification.policy.store.js';
+import { getTicketReference } from './tickets.reference.js';
 
 type TicketEventType =
   | 'ticket_created'
@@ -172,33 +173,96 @@ const isWithinQuietHours = (input: {
   return localHour >= input.quietHoursStartHour || localHour < input.quietHoursEndHour;
 };
 
-const toHtmlBody = (input: { title: string; summary: string; ticket: StoredIntakeTicket }): string => `
-<div style="font-family: Segoe UI, Inter, system-ui, sans-serif; color:#0f172a; line-height:1.5;">
-  <h3 style="margin:0 0 12px;">${escapeHtml(input.title)}</h3>
-  <p style="margin:0 0 12px;">${escapeHtml(input.summary)}</p>
-  <p style="margin:0 0 8px;"><strong>Priority:</strong> ${escapeHtml(input.ticket.priority)}</p>
-  <p style="margin:0 0 8px;"><strong>Status:</strong> ${escapeHtml(input.ticket.status)}</p>
-  <p style="margin:0;"><strong>Ticket:</strong> ${escapeHtml(input.ticket.id)}</p>
-</div>`;
+const ticketUrl = (ticketId: string): string =>
+  `${env.FRONTEND_BASE_URL.replace(/\/$/, '')}/app?tickets=${encodeURIComponent(ticketId)}`;
 
-const toDigestHtmlBody = (input: { entry: DigestEntry }): string => {
+const toHtmlBody = (input: {
+  title: string;
+  summary: string;
+  ticket: StoredIntakeTicket;
+  workspaceName?: string;
+  recipientName?: string;
+}): string => {
+  const greeting = input.recipientName ? `Hi ${escapeHtml(input.recipientName)},` : 'Hi,';
+  const workspaceName = escapeHtml(input.workspaceName || 'your workspace');
+  return `
+<div style="font-family:Segoe UI,Inter,system-ui,sans-serif;background:#f8fafc;padding:20px;color:#0f172a;line-height:1.55;">
+  <div style="max-width:640px;margin:0 auto;background:#ffffff;border:1px solid #e2e8f0;border-radius:14px;overflow:hidden;">
+    <div style="padding:14px 18px;background:#0f172a;color:#ffffff;">
+      <div style="font-size:12px;letter-spacing:0.08em;text-transform:uppercase;opacity:0.85;">Velo Ticket Update</div>
+      <div style="margin-top:4px;font-size:15px;font-weight:700;">${workspaceName}</div>
+    </div>
+    <div style="padding:18px;">
+      <p style="margin:0 0 10px;color:#334155;font-size:14px;">${greeting}</p>
+      <h2 style="margin:0 0 10px;font-size:24px;line-height:1.25;color:#0f172a;">${escapeHtml(input.title)}</h2>
+      <p style="margin:0 0 14px;color:#334155;font-size:15px;">${escapeHtml(input.summary)}</p>
+      <table role="presentation" cellspacing="0" cellpadding="0" style="width:100%;border-top:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;margin:0 0 16px;">
+        <tr>
+          <td style="padding:8px 0;color:#64748b;font-size:13px;vertical-align:top;width:130px;">Reference</td>
+          <td style="padding:8px 0;color:#0f172a;font-size:14px;font-weight:600;">${escapeHtml(getTicketReference(input.ticket))}</td>
+        </tr>
+        <tr>
+          <td style="padding:8px 0;color:#64748b;font-size:13px;vertical-align:top;width:130px;">Priority</td>
+          <td style="padding:8px 0;color:#0f172a;font-size:14px;font-weight:600;text-transform:capitalize;">${escapeHtml(input.ticket.priority)}</td>
+        </tr>
+        <tr>
+          <td style="padding:8px 0;color:#64748b;font-size:13px;vertical-align:top;width:130px;">Status</td>
+          <td style="padding:8px 0;color:#0f172a;font-size:14px;font-weight:600;">${escapeHtml(input.ticket.status)}</td>
+        </tr>
+      </table>
+      <p style="margin:0 0 4px;">
+        <a href="${escapeHtml(ticketUrl(input.ticket.id))}" style="display:inline-block;background:#0f172a;color:#ffffff;text-decoration:none;padding:10px 14px;border-radius:8px;font-weight:600;">
+          Open ticket
+        </a>
+      </p>
+      <p style="margin:14px 0 0;color:#64748b;font-size:12px;">You are receiving this because ticket notifications are enabled for your workspace role.</p>
+    </div>
+  </div>
+</div>`;
+};
+
+const toDigestHtmlBody = (input: { entry: DigestEntry; workspaceName?: string; recipientName?: string }): string => {
   const ticketIdRows = Array.from(input.entry.ticketIds)
     .slice(0, 12)
-    .map((id) => `<li>${escapeHtml(id)}</li>`)
+    .map((id) => `<li style="margin:0 0 4px;">${escapeHtml(id)}</li>`)
     .join('');
   const titleRows = Array.from(input.entry.ticketTitles)
     .slice(0, 8)
-    .map((title) => `<li>${escapeHtml(title)}</li>`)
+    .map((title) => `<li style="margin:0 0 4px;">${escapeHtml(title)}</li>`)
     .join('');
+  const greeting = input.recipientName ? `Hi ${escapeHtml(input.recipientName)},` : 'Hi,';
+  const workspaceName = escapeHtml(input.workspaceName || 'your workspace');
   return `
-<div style="font-family: Segoe UI, Inter, system-ui, sans-serif; color:#0f172a; line-height:1.5;">
-  <h3 style="margin:0 0 12px;">Ticket digest: ${escapeHtml(input.entry.eventType.replaceAll('_', ' '))}</h3>
-  <p style="margin:0 0 12px;">${input.entry.count} updates in this digest window.</p>
-  <p style="margin:0 0 8px;"><strong>Last actor:</strong> ${escapeHtml(input.entry.lastActorName)}</p>
-  <p style="margin:0 0 8px;"><strong>Last status:</strong> ${escapeHtml(input.entry.lastStatus)}</p>
-  <p style="margin:0 0 8px;"><strong>Last priority:</strong> ${escapeHtml(input.entry.lastPriority)}</p>
-  <ul style="margin:0 0 12px 18px;">${ticketIdRows || '<li>No IDs captured</li>'}</ul>
-  <ul style="margin:0 0 12px 18px;">${titleRows || '<li>No titles captured</li>'}</ul>
+<div style="font-family:Segoe UI,Inter,system-ui,sans-serif;background:#f8fafc;padding:20px;color:#0f172a;line-height:1.55;">
+  <div style="max-width:640px;margin:0 auto;background:#ffffff;border:1px solid #e2e8f0;border-radius:14px;overflow:hidden;">
+    <div style="padding:14px 18px;background:#0f172a;color:#ffffff;">
+      <div style="font-size:12px;letter-spacing:0.08em;text-transform:uppercase;opacity:0.85;">Velo Ticket Digest</div>
+      <div style="margin-top:4px;font-size:15px;font-weight:700;">${workspaceName}</div>
+    </div>
+    <div style="padding:18px;">
+      <p style="margin:0 0 10px;color:#334155;font-size:14px;">${greeting}</p>
+      <h2 style="margin:0 0 10px;font-size:24px;line-height:1.25;color:#0f172a;">Ticket digest: ${escapeHtml(input.entry.eventType.replaceAll('_', ' '))}</h2>
+      <p style="margin:0 0 14px;color:#334155;font-size:15px;">${input.entry.count} updates in this digest window.</p>
+      <table role="presentation" cellspacing="0" cellpadding="0" style="width:100%;border-top:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;margin:0 0 16px;">
+        <tr>
+          <td style="padding:8px 0;color:#64748b;font-size:13px;vertical-align:top;width:130px;">Last actor</td>
+          <td style="padding:8px 0;color:#0f172a;font-size:14px;font-weight:600;">${escapeHtml(input.entry.lastActorName)}</td>
+        </tr>
+        <tr>
+          <td style="padding:8px 0;color:#64748b;font-size:13px;vertical-align:top;width:130px;">Last status</td>
+          <td style="padding:8px 0;color:#0f172a;font-size:14px;font-weight:600;">${escapeHtml(input.entry.lastStatus)}</td>
+        </tr>
+        <tr>
+          <td style="padding:8px 0;color:#64748b;font-size:13px;vertical-align:top;width:130px;">Last priority</td>
+          <td style="padding:8px 0;color:#0f172a;font-size:14px;font-weight:600;text-transform:capitalize;">${escapeHtml(input.entry.lastPriority)}</td>
+        </tr>
+      </table>
+      <p style="margin:0 0 8px;color:#334155;font-size:13px;font-weight:600;">References</p>
+      <ul style="margin:0 0 12px 18px;color:#334155;">${ticketIdRows || '<li>No references captured</li>'}</ul>
+      <p style="margin:0 0 8px;color:#334155;font-size:13px;font-weight:600;">Ticket titles</p>
+      <ul style="margin:0 0 4px 18px;color:#334155;">${titleRows || '<li>No titles captured</li>'}</ul>
+    </div>
+  </div>
 </div>`;
 };
 
@@ -207,17 +271,6 @@ const serializeDigestEntry = (entry: DigestEntry): SerializedDigestEntry => ({
   ticketIds: Array.from(entry.ticketIds),
   ticketTitles: Array.from(entry.ticketTitles)
 });
-
-const deserializeDigestEntry = (value: unknown): DigestEntry | null => {
-  if (!value || typeof value !== 'object') return null;
-  const row = value as SerializedDigestEntry;
-  if (!row.orgId || !row.recipient?.email || !row.eventType) return null;
-  return {
-    ...row,
-    ticketIds: new Set(Array.isArray(row.ticketIds) ? row.ticketIds : []),
-    ticketTitles: new Set(Array.isArray(row.ticketTitles) ? row.ticketTitles : [])
-  };
-};
 
 const computeDigestDueAt = (input: {
   now: number;
@@ -251,15 +304,17 @@ const resolveRecipients = async (input: {
   });
   const byId = new Map(users.map((user) => [user.id, user]));
   const recipientIds = new Set<string>();
-  const add = (userId?: string) => {
-    if (!userId || userId === input.actorUserId) return;
+  const add = (userId?: string, options?: { allowActor?: boolean }) => {
+    if (!userId) return;
+    if (!options?.allowActor && userId === input.actorUserId) return;
     if (byId.has(userId)) recipientIds.add(userId);
   };
   if (input.eventType === 'ticket_created') {
-    add(input.ticketAfter.assigneeId);
+    // If creator assigns ticket to self, still notify for explicit assignment trail.
+    add(input.ticketAfter.assigneeId, { allowActor: true });
     users.filter((user) => user.role === 'admin').forEach((user) => add(user.id));
   }
-  if (input.eventType === 'ticket_assigned') add(input.ticketAfter.assigneeId);
+  if (input.eventType === 'ticket_assigned') add(input.ticketAfter.assigneeId, { allowActor: true });
   if (input.eventType === 'ticket_status_changed' || input.eventType === 'ticket_commented') {
     add(input.ticketAfter.requesterUserId);
     add(input.ticketAfter.assigneeId);
@@ -359,6 +414,10 @@ const processDispatch = async (
   if (!shouldNotifyEvent(input.eventType, input.ticketAfter)) return { delivered: 0, suppressed: 0 };
   const policy = await ticketsNotificationPolicyStore.get(input.orgId);
   if (!policy.enabled) return { delivered: 0, suppressed: 0 };
+  const org = await prisma.organization.findUnique({
+    where: { id: input.orgId },
+    select: { name: true }
+  });
   const eventPolicy = policy.events[input.eventType];
   if (!eventPolicy || (!eventPolicy.immediate && !eventPolicy.digest)) return { delivered: 0, suppressed: 0 };
 
@@ -390,7 +449,7 @@ const processDispatch = async (
   const dedupWindowMs = DEDUP_WINDOWS[input.eventType];
 
   for (const recipient of recipients) {
-    const allowImmediateEmail =
+      const allowImmediateEmail =
       policy.channels.email &&
       eventPolicy.channels.email &&
       eventPolicy.immediate &&
@@ -415,8 +474,15 @@ const processDispatch = async (
             orgId: input.orgId,
             to: [recipient.email],
             subject: title,
-            htmlBody: toHtmlBody({ title, summary, ticket: input.ticketAfter }),
-            ticketId: input.ticketAfter.id
+            htmlBody: toHtmlBody({
+              title,
+              summary,
+              ticket: input.ticketAfter,
+              workspaceName: org?.name,
+              recipientName: recipient.displayName
+            }),
+            ticketId: input.ticketAfter.id,
+            ticketCode: input.ticketAfter.ticketCode
           });
           await ticketsNotificationStore.markSent({ orgId: input.orgId, suppressionKey });
           delivered += 1;
@@ -496,7 +562,7 @@ const processDispatch = async (
         summary,
         ticketId: input.ticketAfter.id,
         facts: [
-          { title: 'Ticket', value: input.ticketAfter.id },
+          { title: 'Reference', value: getTicketReference(input.ticketAfter) },
           { title: 'Status', value: input.ticketAfter.status },
           { title: 'Priority', value: input.ticketAfter.priority }
         ]
@@ -571,11 +637,19 @@ const flushDigest = async (): Promise<void> => {
         continue;
       }
       try {
+        const digestOrg = await prisma.organization.findUnique({
+          where: { id: entry.orgId },
+          select: { name: true }
+        });
         await ticketsGraphService.sendTicketEmail({
           orgId: entry.orgId,
           to: [entry.recipient.email],
           subject: `Ticket digest (${entry.eventType.replaceAll('_', ' ')})`,
-          htmlBody: toDigestHtmlBody({ entry }),
+          htmlBody: toDigestHtmlBody({
+            entry,
+            workspaceName: digestOrg?.name,
+            recipientName: entry.recipient.displayName
+          }),
           ticketId: Array.from(entry.ticketIds)[0] || 'digest'
         });
         await createDeliveryRecord({
@@ -658,82 +732,5 @@ export const ticketsNotificationService = {
       payload: { dispatch: input }
     });
     return { queued: true, queueDepth: queue.length };
-  },
-  async getQueueStatus(): Promise<{ queued: number; digestPending: number }> {
-    return { queued: queue.length, digestPending: digestEntries.size };
-  },
-  async listDeliveries(input: {
-    orgId: string;
-    status?: TicketNotificationDeliveryStatus;
-    limit?: number;
-  }) {
-    const limit = Math.max(1, Math.min(200, input.limit || 50));
-    return prisma.ticketNotificationDelivery.findMany({
-      where: { orgId: input.orgId, ...(input.status ? { status: input.status } : {}) },
-      orderBy: { createdAt: 'desc' },
-      take: limit
-    });
-  },
-  async retryDeliveryNow(input: { orgId: string; deliveryId: string; actorUserId: string }) {
-    const row = await prisma.ticketNotificationDelivery.findFirst({
-      where: { id: input.deliveryId, orgId: input.orgId }
-    });
-    if (!row) return null;
-    if (
-      row.status !== TicketNotificationDeliveryStatus.dead_letter &&
-      row.status !== TicketNotificationDeliveryStatus.failed
-    ) {
-      return row;
-    }
-
-    try {
-      if (row.kind === TicketNotificationDeliveryKind.immediate) {
-        const payload = (row.payload as any)?.dispatch as DispatchInput | undefined;
-        if (!payload) throw new Error('Missing dispatch payload.');
-        await processDispatch(payload, row.attempts);
-      } else {
-        const digest = deserializeDigestEntry((row.payload as any)?.digest);
-        if (!digest) throw new Error('Missing digest payload.');
-        await ticketsGraphService.sendTicketEmail({
-          orgId: digest.orgId,
-          to: [digest.recipient.email],
-          subject: `Ticket digest (${digest.eventType.replaceAll('_', ' ')})`,
-          htmlBody: toDigestHtmlBody({ entry: digest }),
-          ticketId: Array.from(digest.ticketIds)[0] || 'digest'
-        });
-      }
-
-      const updated = await prisma.ticketNotificationDelivery.update({
-        where: { id: row.id },
-        data: {
-          status: TicketNotificationDeliveryStatus.sent,
-          attempts: row.attempts + 1,
-          resolvedAt: new Date(),
-          sentAt: new Date(),
-          lastError: null
-        }
-      });
-
-      await writeAudit({
-        orgId: input.orgId,
-        userId: input.actorUserId,
-        actionType: 'task_updated',
-        action: 'Retried dead-letter ticket notification',
-        entityType: 'ticket_notification_delivery',
-        entityId: row.id
-      });
-
-      return updated;
-    } catch (error: any) {
-      const updated = await prisma.ticketNotificationDelivery.update({
-        where: { id: row.id },
-        data: {
-          status: TicketNotificationDeliveryStatus.dead_letter,
-          attempts: row.attempts + 1,
-          lastError: String(error?.message || error)
-        }
-      });
-      return updated;
-    }
   }
 };

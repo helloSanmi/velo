@@ -16,7 +16,7 @@ import {
 import SettingsModalContent from './settings/SettingsModalContent';
 import { buildSettingsNavItems } from './settings/settingsModalNav';
 
-export type SettingsTabType = 'profile' | 'general' | 'notifications' | 'security' | 'appearance' | 'teams' | 'licenses' | 'automation' | 'integrations' | 'projects' | 'danger';
+export type SettingsTabType = 'profile' | 'general' | 'notifications' | 'security' | 'appearance' | 'teams' | 'licenses' | 'policy' | 'automation' | 'integrations' | 'projects' | 'danger';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -371,7 +371,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   };
 
   const handleUpdateOrganizationSettings = async (
-    patch: Partial<Pick<Organization, 'loginSubdomain' | 'allowMicrosoftAuth' | 'microsoftWorkspaceConnected'>>
+    patch: Partial<Pick<Organization, 'loginSubdomain' | 'allowMicrosoftAuth' | 'microsoftWorkspaceConnected' | 'notificationSenderEmail'>>
   ) => {
     if (!user || user.role !== 'admin' || !org) return;
     const updated = await userService.updateOrganizationSettingsRemote(org.id, patch);

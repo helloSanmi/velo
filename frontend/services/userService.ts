@@ -391,7 +391,7 @@ export const userService = {
 
   updateOrganizationSettingsRemote: async (
     orgId: string,
-    patch: Partial<Pick<Organization, 'loginSubdomain' | 'allowMicrosoftAuth' | 'microsoftWorkspaceConnected'>>
+    patch: Partial<Pick<Organization, 'loginSubdomain' | 'allowMicrosoftAuth' | 'microsoftWorkspaceConnected' | 'notificationSenderEmail'>>
   ): Promise<Organization | null> => updateOrganizationSettingsRemote(orgId, patch),
 
   provisionUserRemote: async (

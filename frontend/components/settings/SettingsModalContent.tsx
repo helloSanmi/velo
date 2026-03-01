@@ -5,6 +5,7 @@ import SettingsTeamsTab from './SettingsTeamsTab';
 import SettingsCoreTabs from './SettingsCoreTabs';
 import SettingsAdminTab from './SettingsAdminTab';
 import SettingsDangerTab from './SettingsDangerTab';
+import SettingsPolicyTab from './SettingsPolicyTab';
 import IntegrationHub from '../IntegrationHub';
 import { SettingsModalContentProps } from './SettingsModalContent.types';
 
@@ -121,20 +122,28 @@ const SettingsModalContent: React.FC<SettingsModalContentProps> = (props) => {
           handleStartEdit={props.handleStartEdit}
           handleUpdateUserRole={props.handleUpdateUserRole}
           handlePurgeUser={props.handlePurgeUser}
-          invites={props.invites}
-          newInviteIdentifier={props.newInviteIdentifier}
-          setNewInviteIdentifier={props.setNewInviteIdentifier}
-          newInviteRole={props.newInviteRole}
-          setNewInviteRole={props.setNewInviteRole}
-          handleCreateInvite={props.handleCreateInvite}
-          handleRevokeInvite={props.handleRevokeInvite}
-          handleResendInvite={props.handleResendInvite}
           onRefreshWorkspaceUsers={props.refreshWorkspaceUsers}
           aiUsageRows={props.aiUsageRows}
           onRefreshAiUsage={props.refreshAiUsage}
           onUpdateOrganizationSettings={props.onUpdateOrganizationSettings}
+        />
+      );
+    case 'policy':
+      return (
+        <SettingsPolicyTab
+          user={props.user}
+          org={props.org}
           settings={props.settings}
           onUpdateSettings={props.onUpdateSettings}
+          invites={props.invites}
+          newInviteIdentifier={props.newInviteIdentifier}
+          newInviteRole={props.newInviteRole}
+          setNewInviteIdentifier={props.setNewInviteIdentifier}
+          setNewInviteRole={props.setNewInviteRole}
+          handleCreateInvite={props.handleCreateInvite}
+          handleRevokeInvite={props.handleRevokeInvite}
+          handleResendInvite={props.handleResendInvite}
+          onUpdateOrganizationSettings={props.onUpdateOrganizationSettings}
         />
       );
     case 'danger':

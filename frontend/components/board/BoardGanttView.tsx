@@ -280,6 +280,15 @@ const BoardGanttView: React.FC<BoardGanttViewProps> = ({
     return { dayIndex, dueDate: timelineStart + dayIndex * DAY_MS };
   };
 
+  const resolveDraggedTaskId = (event: React.DragEvent<HTMLElement>) => {
+    return (
+      event.dataTransfer.getData('text/task-id') ||
+      event.dataTransfer.getData('text/plain') ||
+      draggingTaskId ||
+      ''
+    );
+  };
+
   return (
     <main className={`flex-1 min-h-0 overflow-y-auto ${BOARD_OUTER_WRAP_CLASS} pb-4 md:pb-8`}>
       <div className={`${BOARD_INNER_WRAP_CLASS} h-full`}>
@@ -354,6 +363,7 @@ const BoardGanttView: React.FC<BoardGanttViewProps> = ({
                     draggable
                     onDragStart={(event) => {
                       event.dataTransfer.setData('text/task-id', task.id);
+                      event.dataTransfer.setData('text/plain', task.id);
                       setDraggingTaskId(task.id);
                     }}
                     onDragEnd={() => {
@@ -407,7 +417,28 @@ const BoardGanttView: React.FC<BoardGanttViewProps> = ({
                 </div>
               </div>
 
-              <div className="relative" style={{ width: `${320 + lanePixelWidth}px` }}>
+              <div
+                className="relative"
+                style={{ width: `${320 + lanePixelWidth}px` }}
+                onDragOver={(event) => {
+                  event.preventDefault();
+                  if (!draggingTaskId) return;
+                  const { dayIndex } = resolveDueDateFromDrop(event as unknown as React.DragEvent<HTMLDivElement>);
+                  setDropPreviewDayIndex(dayIndex);
+                }}
+                onDragLeave={() => {
+                  setDropPreviewDayIndex(null);
+                }}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  const taskId = resolveDraggedTaskId(event);
+                  if (!taskId) return;
+                  const { dueDate } = resolveDueDateFromDrop(event as unknown as React.DragEvent<HTMLDivElement>);
+                  onUpdateTask(taskId, { dueDate });
+                  setDraggingTaskId(null);
+                  setDropPreviewDayIndex(null);
+                }}
+              >
                 {scheduledTasks.map((task) => {
                   const span = getTaskSpan(task, previewSpans[task.id]);
                   if (!span) return null;
@@ -448,27 +479,7 @@ const BoardGanttView: React.FC<BoardGanttViewProps> = ({
                           </div>
                         </div>
                       </div>
-                      <div
-                        className="relative flex items-center"
-                        style={{ width: `${lanePixelWidth}px` }}
-                        onDragOver={(event) => {
-                          event.preventDefault();
-                          if (!draggingTaskId) return;
-                          const { dayIndex } = resolveDueDateFromDrop(event);
-                          setDropPreviewDayIndex(dayIndex);
-                        }}
-                        onDragLeave={() => {
-                          setDropPreviewDayIndex(null);
-                        }}
-                        onDrop={(event) => {
-                          const taskId = event.dataTransfer.getData('text/task-id');
-                          if (!taskId) return;
-                          const { dueDate } = resolveDueDateFromDrop(event);
-                          onUpdateTask(taskId, { dueDate });
-                          setDraggingTaskId(null);
-                          setDropPreviewDayIndex(null);
-                        }}
-                      >
+                      <div className="relative flex items-center" style={{ width: `${lanePixelWidth}px` }}>
                         {draggingTaskId && dropPreviewDayIndex !== null ? (
                           <div
                             className="absolute top-0 bottom-0 w-[2px] bg-emerald-500/90 pointer-events-none"
@@ -583,8 +594,30 @@ const BoardGanttView: React.FC<BoardGanttViewProps> = ({
               </div>
 
               {scheduledTasks.length === 0 ? (
-                <div className="h-36 flex items-center justify-center text-sm text-slate-500">
-                  No scheduled tasks in this filter. Drag unscheduled tasks onto the timeline to place them.
+                <div className="px-3 py-3">
+                  <div
+                    className={`rounded-lg border-2 border-dashed p-6 text-center transition ${
+                      draggingTaskId ? 'border-emerald-400 bg-emerald-50/60' : 'border-slate-300 bg-slate-50'
+                    }`}
+                    onDragOver={(event) => {
+                      event.preventDefault();
+                      const { dayIndex } = resolveDueDateFromDrop(event as unknown as React.DragEvent<HTMLDivElement>);
+                      setDropPreviewDayIndex(dayIndex);
+                    }}
+                    onDragLeave={() => setDropPreviewDayIndex(null)}
+                    onDrop={(event) => {
+                      event.preventDefault();
+                      const taskId = resolveDraggedTaskId(event);
+                      if (!taskId) return;
+                      const { dueDate } = resolveDueDateFromDrop(event as unknown as React.DragEvent<HTMLDivElement>);
+                      onUpdateTask(taskId, { dueDate });
+                      setDraggingTaskId(null);
+                      setDropPreviewDayIndex(null);
+                    }}
+                  >
+                    <p className="text-sm font-medium text-slate-700">No scheduled tasks yet</p>
+                    <p className="mt-1 text-xs text-slate-500">Drag an unscheduled task here to place it on the timeline.</p>
+                  </div>
                 </div>
               ) : null}
             </div>

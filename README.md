@@ -75,6 +75,74 @@ npm run dev
 
 Backend runs at `http://localhost:4000` by default.
 
+## Local HTTPS Tunnel (Cloudflare)
+
+Use this when Microsoft Graph/OAuth/webhooks need a public HTTPS callback during local development.
+
+1. Install Cloudflare tunnel client:
+
+```bash
+brew install cloudflared
+```
+
+2. Start backend locally:
+
+```bash
+cd backend
+npm run dev
+```
+
+3. Start public tunnel to backend:
+
+```bash
+cloudflared tunnel --url http://localhost:4000
+```
+
+4. Copy the generated `https://*.trycloudflare.com` URL and set `APP_BASE_URL` in `backend/.env`:
+
+```bash
+APP_BASE_URL=https://your-subdomain.trycloudflare.com
+```
+
+5. Restart backend so env changes apply:
+
+```bash
+cd backend
+npm run dev
+```
+
+6. Verify from internet:
+
+Open `https://your-subdomain.trycloudflare.com/api/v1/health` and confirm success JSON.
+
+Notes:
+- Keep `cloudflared` running while testing.
+- The temporary URL changes each run unless you create a named/stable Cloudflare tunnel.
+
+## Kubernetes Edge Security (WAF + Edge Rate Limit)
+
+Use ingress-nginx for edge protection so traffic is filtered before app pods.
+
+1. Apply backend/frontend deployments and services:
+
+```bash
+kubectl apply -f k8s/backend-deployment.yaml
+kubectl apply -f k8s/frontend-deployment.yaml
+kubectl apply -f k8s/backend-service.yaml
+kubectl apply -f k8s/frontend-service.yaml
+```
+
+2. Apply edge ingress policies (WAF + OWASP CRS + edge rate limits):
+
+```bash
+kubectl apply -f k8s/edge-ingress.yaml
+```
+
+Notes:
+- `k8s/edge-ingress.yaml` assumes host `app.velo.ai` and TLS secret `velo-tls`. Update both to your environment.
+- `/api/v1/auth/*` is configured with stricter edge limits than the rest of `/api/v1/*`.
+- Services are `ClusterIP` so only ingress is internet-facing.
+
 ## Seeded Credentials
 
 - Password for seeded users: `Password`

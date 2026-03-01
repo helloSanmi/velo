@@ -1,13 +1,21 @@
 import { createId } from '../../lib/ids.js';
 import { prisma } from '../../lib/prisma.js';
 
-export type TicketNotificationEventType =
+export type NotificationEventType =
   | 'ticket_created'
   | 'ticket_assigned'
   | 'ticket_status_changed'
   | 'ticket_commented'
   | 'ticket_sla_breach'
-  | 'ticket_approval_required';
+  | 'ticket_approval_required'
+  | 'project_completion_actions'
+  | 'task_assignment'
+  | 'task_due_overdue'
+  | 'task_status_changes'
+  | 'security_admin_alerts'
+  | 'user_lifecycle';
+
+export type TicketNotificationEventType = NotificationEventType;
 
 export type TicketNotificationChannel = 'email' | 'teams';
 
@@ -27,8 +35,13 @@ export interface TicketNotificationPolicy {
     cadence: 'hourly' | 'daily';
     dailyHourLocal: number;
   };
+  health: {
+    deadLetterWarningThreshold: number;
+    deadLetterErrorThreshold: number;
+    webhookQuietWarningMinutes: number;
+  };
   events: Record<
-    TicketNotificationEventType,
+    NotificationEventType,
     {
       immediate: boolean;
       digest: boolean;
@@ -41,7 +54,7 @@ export interface TicketNotificationPolicy {
   updatedAt: number;
 }
 
-type TicketNotificationEventPatch = {
+type NotificationEventPatch = {
   immediate?: boolean;
   digest?: boolean;
   channels?: Partial<{
@@ -51,12 +64,13 @@ type TicketNotificationEventPatch = {
 };
 
 type TicketNotificationPolicyPatch = Omit<
-  Partial<Omit<TicketNotificationPolicy, 'orgId' | 'updatedAt' | 'events' | 'channels' | 'digest'>>,
+  Partial<Omit<TicketNotificationPolicy, 'orgId' | 'updatedAt' | 'events' | 'channels' | 'digest' | 'health'>>,
   never
 > & {
   channels?: Partial<TicketNotificationPolicy['channels']>;
   digest?: Partial<TicketNotificationPolicy['digest']>;
-  events?: Partial<Record<TicketNotificationEventType, TicketNotificationEventPatch>>;
+  health?: Partial<TicketNotificationPolicy['health']>;
+  events?: Partial<Record<NotificationEventType, NotificationEventPatch>>;
 };
 
 const defaultEvents = (): TicketNotificationPolicy['events'] => ({
@@ -65,7 +79,13 @@ const defaultEvents = (): TicketNotificationPolicy['events'] => ({
   ticket_status_changed: { immediate: true, digest: true, channels: { email: true, teams: false } },
   ticket_commented: { immediate: true, digest: true, channels: { email: true, teams: false } },
   ticket_sla_breach: { immediate: true, digest: true, channels: { email: true, teams: true } },
-  ticket_approval_required: { immediate: true, digest: true, channels: { email: true, teams: true } }
+  ticket_approval_required: { immediate: true, digest: true, channels: { email: true, teams: true } },
+  project_completion_actions: { immediate: true, digest: false, channels: { email: true, teams: false } },
+  task_assignment: { immediate: true, digest: false, channels: { email: true, teams: false } },
+  task_due_overdue: { immediate: true, digest: false, channels: { email: true, teams: false } },
+  task_status_changes: { immediate: true, digest: false, channels: { email: true, teams: false } },
+  security_admin_alerts: { immediate: true, digest: false, channels: { email: true, teams: false } },
+  user_lifecycle: { immediate: true, digest: false, channels: { email: true, teams: false } }
 });
 
 const defaultPolicy = (orgId: string): TicketNotificationPolicy => ({
@@ -84,6 +104,11 @@ const defaultPolicy = (orgId: string): TicketNotificationPolicy => ({
     cadence: 'hourly',
     dailyHourLocal: 9
   },
+  health: {
+    deadLetterWarningThreshold: 1,
+    deadLetterErrorThreshold: 5,
+    webhookQuietWarningMinutes: 120
+  },
   events: defaultEvents(),
   updatedAt: Date.now()
 });
@@ -100,9 +125,9 @@ const normalizeChannels = (value: unknown): TicketNotificationPolicy['channels']
 const normalizeEvents = (value: unknown): TicketNotificationPolicy['events'] => {
   const defaults = defaultEvents();
   if (!value || typeof value !== 'object') return defaults;
-  const row = value as Partial<Record<TicketNotificationEventType, Partial<(typeof defaults)[TicketNotificationEventType]>>>;
+  const row = value as Partial<Record<NotificationEventType, Partial<(typeof defaults)[NotificationEventType]>>>;
   const merged = { ...defaults };
-  (Object.keys(defaults) as TicketNotificationEventType[]).forEach((eventType) => {
+  (Object.keys(defaults) as NotificationEventType[]).forEach((eventType) => {
     const event = row[eventType];
     if (!event) return;
     merged[eventType] = {
@@ -137,6 +162,23 @@ const normalizeDigest = (value: unknown): TicketNotificationPolicy['digest'] => 
   };
 };
 
+const normalizeHealth = (value: unknown): TicketNotificationPolicy['health'] => {
+  const fallback = { deadLetterWarningThreshold: 1, deadLetterErrorThreshold: 5, webhookQuietWarningMinutes: 120 };
+  if (!value || typeof value !== 'object') return fallback;
+  const row = value as { deadLetterWarningThreshold?: unknown; deadLetterErrorThreshold?: unknown; webhookQuietWarningMinutes?: unknown };
+  const warning = typeof row.deadLetterWarningThreshold === 'number' ? Math.max(0, Math.trunc(row.deadLetterWarningThreshold)) : fallback.deadLetterWarningThreshold;
+  const error = typeof row.deadLetterErrorThreshold === 'number' ? Math.max(1, Math.trunc(row.deadLetterErrorThreshold)) : fallback.deadLetterErrorThreshold;
+  const webhookQuietWarningMinutes =
+    typeof row.webhookQuietWarningMinutes === 'number'
+      ? Math.max(5, Math.min(10080, Math.trunc(row.webhookQuietWarningMinutes)))
+      : fallback.webhookQuietWarningMinutes;
+  return {
+    deadLetterWarningThreshold: Math.min(warning, error),
+    deadLetterErrorThreshold: Math.max(error, warning || 1),
+    webhookQuietWarningMinutes
+  };
+};
+
 const toPolicy = (input: {
   orgId: string;
   enabled: boolean;
@@ -160,6 +202,10 @@ const toPolicy = (input: {
     input.events && typeof input.events === 'object'
       ? normalizeDigest((input.events as Record<string, unknown>).__digest)
       : defaultPolicy(input.orgId).digest,
+  health:
+    input.events && typeof input.events === 'object'
+      ? normalizeHealth((input.events as Record<string, unknown>).__health)
+      : defaultPolicy(input.orgId).health,
   events: normalizeEvents(input.events),
   updatedAt: input.updatedAt.getTime()
 });
@@ -204,58 +250,36 @@ export const ticketsNotificationPolicyStore = {
             ? Math.max(0, Math.min(23, Math.trunc(input.patch.digest.dailyHourLocal)))
             : current.digest.dailyHourLocal
       },
-      events: {
-        ticket_created: {
-          ...current.events.ticket_created,
-          ...(input.patch.events?.ticket_created || {}),
-          channels: {
-            ...current.events.ticket_created.channels,
-            ...(input.patch.events?.ticket_created?.channels || {})
-          }
-        },
-        ticket_assigned: {
-          ...current.events.ticket_assigned,
-          ...(input.patch.events?.ticket_assigned || {}),
-          channels: {
-            ...current.events.ticket_assigned.channels,
-            ...(input.patch.events?.ticket_assigned?.channels || {})
-          }
-        },
-        ticket_status_changed: {
-          ...current.events.ticket_status_changed,
-          ...(input.patch.events?.ticket_status_changed || {}),
-          channels: {
-            ...current.events.ticket_status_changed.channels,
-            ...(input.patch.events?.ticket_status_changed?.channels || {})
-          }
-        },
-        ticket_commented: {
-          ...current.events.ticket_commented,
-          ...(input.patch.events?.ticket_commented || {}),
-          channels: {
-            ...current.events.ticket_commented.channels,
-            ...(input.patch.events?.ticket_commented?.channels || {})
-          }
-        },
-        ticket_sla_breach: {
-          ...current.events.ticket_sla_breach,
-          ...(input.patch.events?.ticket_sla_breach || {}),
-          channels: {
-            ...current.events.ticket_sla_breach.channels,
-            ...(input.patch.events?.ticket_sla_breach?.channels || {})
-          }
-        },
-        ticket_approval_required: {
-          ...current.events.ticket_approval_required,
-          ...(input.patch.events?.ticket_approval_required || {}),
-          channels: {
-            ...current.events.ticket_approval_required.channels,
-            ...(input.patch.events?.ticket_approval_required?.channels || {})
-          }
-        }
+      health: {
+        deadLetterWarningThreshold:
+          typeof input.patch.health?.deadLetterWarningThreshold === 'number'
+            ? Math.max(0, Math.trunc(input.patch.health.deadLetterWarningThreshold))
+            : current.health.deadLetterWarningThreshold,
+        deadLetterErrorThreshold:
+          typeof input.patch.health?.deadLetterErrorThreshold === 'number'
+            ? Math.max(1, Math.trunc(input.patch.health.deadLetterErrorThreshold))
+            : current.health.deadLetterErrorThreshold,
+        webhookQuietWarningMinutes:
+          typeof input.patch.health?.webhookQuietWarningMinutes === 'number'
+            ? Math.max(5, Math.min(10080, Math.trunc(input.patch.health.webhookQuietWarningMinutes)))
+            : current.health.webhookQuietWarningMinutes
       },
+      events: (Object.keys(current.events) as NotificationEventType[]).reduce((acc, eventType) => {
+        acc[eventType] = {
+          ...current.events[eventType],
+          ...(input.patch.events?.[eventType] || {}),
+          channels: {
+            ...current.events[eventType].channels,
+            ...(input.patch.events?.[eventType]?.channels || {})
+          }
+        };
+        return acc;
+      }, {} as TicketNotificationPolicy['events']),
       updatedAt: now
     };
+    if (next.health.deadLetterWarningThreshold > next.health.deadLetterErrorThreshold) {
+      next.health.deadLetterWarningThreshold = next.health.deadLetterErrorThreshold;
+    }
 
     const updated = await prisma.ticketNotificationPolicy.upsert({
       where: { orgId: input.orgId },
@@ -268,7 +292,7 @@ export const ticketsNotificationPolicyStore = {
         quietHoursEndHour: next.quietHoursEndHour,
         timezoneOffsetMinutes: next.timezoneOffsetMinutes,
         channels: next.channels,
-        events: { ...(next.events as Record<string, unknown>), __digest: next.digest }
+        events: { ...(next.events as Record<string, unknown>), __digest: next.digest, __health: next.health }
       },
       update: {
         enabled: next.enabled,
@@ -277,7 +301,7 @@ export const ticketsNotificationPolicyStore = {
         quietHoursEndHour: next.quietHoursEndHour,
         timezoneOffsetMinutes: next.timezoneOffsetMinutes,
         channels: next.channels,
-        events: { ...(next.events as Record<string, unknown>), __digest: next.digest }
+        events: { ...(next.events as Record<string, unknown>), __digest: next.digest, __health: next.health }
       }
     });
 

@@ -30,6 +30,7 @@ export interface Organization {
   aiDailyTokenLimit?: number;
   allowMicrosoftAuth?: boolean;
   microsoftWorkspaceConnected?: boolean;
+  notificationSenderEmail?: string;
 }
 
 export interface OrgInvite {
@@ -277,6 +278,8 @@ export type IntakeTicketPriority = 'low' | 'medium' | 'high' | 'urgent';
 export interface IntakeTicket {
   id: string;
   orgId: string;
+  ticketCode?: string;
+  ticketNumber?: number;
   projectId?: string;
   title: string;
   description: string;
@@ -331,7 +334,13 @@ export type TicketNotificationEventType =
   | 'ticket_status_changed'
   | 'ticket_commented'
   | 'ticket_sla_breach'
-  | 'ticket_approval_required';
+  | 'ticket_approval_required'
+  | 'project_completion_actions'
+  | 'task_assignment'
+  | 'task_due_overdue'
+  | 'task_status_changes'
+  | 'security_admin_alerts'
+  | 'user_lifecycle';
 
 export interface TicketNotificationPolicy {
   orgId: string;
@@ -349,6 +358,11 @@ export interface TicketNotificationPolicy {
     cadence: 'hourly' | 'daily';
     dailyHourLocal: number;
   };
+  health: {
+    deadLetterWarningThreshold: number;
+    deadLetterErrorThreshold: number;
+    webhookQuietWarningMinutes: number;
+  };
   events: Record<
     TicketNotificationEventType,
     {
@@ -363,104 +377,30 @@ export interface TicketNotificationPolicy {
   updatedAt: number;
 }
 
-export type TicketNotificationDeliveryStatus = 'queued' | 'sent' | 'failed' | 'suppressed' | 'dead_letter';
-
-export interface TicketNotificationDelivery {
-  id: string;
-  orgId: string;
-  kind: 'immediate' | 'digest';
-  eventType: string;
-  status: TicketNotificationDeliveryStatus;
-  ticketId?: string;
-  recipientUserId?: string;
-  recipientEmail?: string;
-  attempts: number;
-  maxAttempts: number;
-  nextAttemptAt?: number;
-  lastError?: string;
-  createdAt: number;
-  updatedAt: number;
-  sentAt?: number;
-  resolvedAt?: number;
-}
-
-export interface TicketNotificationDiagnostics {
-  orgId: string;
-  microsoft: {
-    connected: boolean;
-    ssoEnabled: boolean;
-    tenantId?: string;
-    hasRefreshToken: boolean;
-    accessTokenExpiresAt?: string;
-    tokenStatus: 'ok' | 'expiring' | 'expired' | 'missing' | 'error';
-    tokenError?: string;
-  };
-  subscription: {
-    id?: string;
-    expiresAt?: string;
-    minutesRemaining?: number;
-    status: 'ok' | 'expiring' | 'expired' | 'missing' | 'unknown';
-  };
-  webhook: {
-    clientStateConfigured: boolean;
-    lastSyncAt?: string;
-    lastWebhookAt?: string;
-    inboundSeenLast24h: number;
-    inboundSeenTotal: number;
-  };
-  delivery: {
-    queued: number;
-    digestPending: number;
-    failedLast24h: number;
-    deadLetterOpen: number;
-    lastSentAt?: string;
-    lastFailureAt?: string;
-  };
-}
-
-export interface TicketNotificationDestination {
-  mode: 'none' | 'chat' | 'channel';
-  teamsChatId?: string;
-  teamsTeamId?: string;
-  teamsChannelId?: string;
-}
-
-export interface TicketNotificationActiveHealthCheck {
-  ranAt: string;
-  checks: Array<{
-    key: 'connection' | 'token_refresh' | 'graph_me' | 'subscription_read' | 'webhook_client_state' | 'delivery_dead_letter';
-    ok: boolean;
-    detail: string;
-    remediation?: string;
-  }>;
+export interface NotificationSenderPreflightResult {
   ok: boolean;
-}
-
-export interface TicketNotificationAutoFixResult {
-  ranAt: string;
-  actions: Array<{
-    key: 'token_refresh' | 'subscription_ensure';
+  senderEmail?: string;
+  checks: Array<{
+    key: string;
     ok: boolean;
-    detail: string;
+    message: string;
   }>;
-  health: TicketNotificationActiveHealthCheck;
 }
 
-export interface TicketNotificationFixAndRetryResult {
-  ranAt: string;
-  autoFix: TicketNotificationAutoFixResult;
-  retry: {
-    scanned: number;
-    retried: number;
-    succeeded: number;
-    failed: number;
-    skipped: number;
-    details: Array<{
-      deliveryId: string;
-      status: string;
-      lastError?: string | null;
-    }>;
-  };
+export interface NotificationSetupGuide {
+  ready: boolean;
+  appId: string | null;
+  senderEmail: string | null;
+  scopeGroupName: string;
+  scopeGroupId: string;
+  checklist: Array<{
+    key: string;
+    label: string;
+    ok: boolean;
+  }>;
+  preflight: NotificationSenderPreflightResult;
+  script: string;
+  filename: string;
 }
 
 export type MainViewType =

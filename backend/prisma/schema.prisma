@@ -52,6 +52,7 @@ model Organization {
   id                 String   @id
   name               String
   loginSubdomain     String   @unique
+  notificationSenderEmail String?
   plan               String   @default("basic")
   totalSeats         Int
   seatPrice          Int      @default(0)

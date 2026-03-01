@@ -3,7 +3,8 @@ kind: Service
 metadata:
   name: frontend-service
 spec:
-  type: LoadBalancer
+  # Expose through ingress only; do not publish frontend directly.
+  type: ClusterIP
   selector:
     app: frontend
   ports:

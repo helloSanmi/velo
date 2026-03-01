@@ -13,7 +13,8 @@ const deleteSchema = z.object({ confirmation: z.string().min(1) });
 const settingsSchema = z.object({
   loginSubdomain: z.string().min(2).max(40).optional(),
   allowMicrosoftAuth: z.boolean().optional(),
-  microsoftWorkspaceConnected: z.boolean().optional()
+  microsoftWorkspaceConnected: z.boolean().optional(),
+  notificationSenderEmail: z.string().email().nullable().optional()
 });
 
 router.get('/orgs/:orgId', authenticate, requireOrgAccess, async (req, res, next) => {

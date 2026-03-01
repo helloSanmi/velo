@@ -81,6 +81,7 @@ export const organizationsService = {
       loginSubdomain?: string;
       allowMicrosoftAuth?: boolean;
       microsoftWorkspaceConnected?: boolean;
+      notificationSenderEmail?: string | null;
     };
   }) {
     enforce('org:usage-read', {
@@ -107,12 +108,20 @@ export const organizationsService = {
       if (conflict) throw new HttpError(409, 'Workspace domain already in use.');
     }
 
+    const nextNotificationSenderEmail =
+      typeof input.patch.notificationSenderEmail === 'string'
+        ? input.patch.notificationSenderEmail.trim().toLowerCase() || null
+        : input.patch.notificationSenderEmail === null
+          ? null
+          : undefined;
+
     const updated = await prisma.organization.update({
       where: { id: input.orgId },
       data: {
         loginSubdomain: nextSubdomain,
         allowMicrosoftAuth: input.patch.allowMicrosoftAuth,
-        microsoftWorkspaceConnected: input.patch.microsoftWorkspaceConnected
+        microsoftWorkspaceConnected: input.patch.microsoftWorkspaceConnected,
+        notificationSenderEmail: nextNotificationSenderEmail
       }
     });
 
@@ -127,12 +136,14 @@ export const organizationsService = {
         before: {
           loginSubdomain: org.loginSubdomain,
           allowMicrosoftAuth: org.allowMicrosoftAuth,
-          microsoftWorkspaceConnected: org.microsoftWorkspaceConnected
+          microsoftWorkspaceConnected: org.microsoftWorkspaceConnected,
+          notificationSenderEmail: org.notificationSenderEmail
         },
         after: {
           loginSubdomain: updated.loginSubdomain,
           allowMicrosoftAuth: updated.allowMicrosoftAuth,
-          microsoftWorkspaceConnected: updated.microsoftWorkspaceConnected
+          microsoftWorkspaceConnected: updated.microsoftWorkspaceConnected,
+          notificationSenderEmail: updated.notificationSenderEmail
         }
       }
     });

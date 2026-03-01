@@ -35,6 +35,7 @@ const PRIORITY_OPTIONS: Array<{ value: IntakeTicketPriority; label: string }> = 
 ];
 
 const openStatuses = new Set<IntakeTicketStatus>(['new', 'triaged', 'planned', 'in-progress']);
+const ticketReference = (ticket: IntakeTicket): string => ticket.ticketCode || ticket.id;
 
 const toDateTimeLocalInput = (value?: number) => {
   if (!value) return '';
@@ -151,7 +152,9 @@ const TicketsView: React.FC<TicketsViewProps> = ({
       const matchesProject = projectFilter === 'all' || ticket.projectId === projectFilter;
       const matchesQuery =
         normalized.length === 0 ||
-        `${ticket.title} ${ticket.description} ${ticket.requesterName} ${ticket.requesterEmail || ''}`.toLowerCase().includes(normalized);
+        `${ticket.title} ${ticket.description} ${ticket.requesterName} ${ticket.requesterEmail || ''} ${ticket.ticketCode || ''}`
+          .toLowerCase()
+          .includes(normalized);
       return matchesStatus && matchesProject && matchesQuery;
     });
   }, [tickets, query, statusFilter, projectFilter]);
@@ -410,7 +413,7 @@ const TicketsView: React.FC<TicketsViewProps> = ({
                         >
                           <div className="truncate text-sm font-medium text-slate-900">{ticket.title}</div>
                           <div className="mt-1 text-xs text-slate-500">
-                            {ticket.status} • {ticket.priority}
+                            {ticketReference(ticket)} • {ticket.status} • {ticket.priority}
                           </div>
                           {overSla ? <div className="mt-1 text-[11px] font-medium text-rose-600">SLA overdue</div> : null}
                         </button>
@@ -431,6 +434,7 @@ const TicketsView: React.FC<TicketsViewProps> = ({
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
                       <h3 className="text-lg font-semibold text-slate-900">{selectedTicket.title}</h3>
+                      <p className="mt-0.5 text-xs font-medium text-slate-500">Reference: {ticketReference(selectedTicket)}</p>
                       <p className="mt-1 text-sm text-slate-600">{selectedTicket.description || 'No description'}</p>
                       <p className="mt-2 text-xs text-slate-500">
                         Requested by {selectedTicket.requesterName}
