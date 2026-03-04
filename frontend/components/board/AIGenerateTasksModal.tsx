@@ -2,16 +2,10 @@ import React, { useMemo, useState } from 'react';
 import { Sparkles, X } from 'lucide-react';
 import { aiService } from '../../services/aiService';
 import { Task, TaskPriority, TaskStatus, User } from '../../types';
-import { userService } from '../../services/userService';
 import Button from '../ui/Button';
-
-interface GeneratedTaskDraft {
-  title: string;
-  description: string;
-  priority: TaskPriority;
-  tags: string[];
-  assigneeIds?: string[];
-}
+import AIGenerateAssignmentQuickActions from './ai-generate/AIGenerateAssignmentQuickActions';
+import { GeneratedTaskDraft } from './ai-generate/types';
+import { useAIGenerateTaskPlan } from './ai-generate/useAIGenerateTaskPlan';
 
 interface AIGenerateTasksModalProps {
   isOpen: boolean;
@@ -38,15 +32,8 @@ const AIGenerateTasksModal: React.FC<AIGenerateTasksModalProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const helperText = useMemo(
-    () => (projectDescription?.trim() ? projectDescription : 'Add a short delivery brief so AI can create focused tasks.'),
-    [projectDescription]
-  );
-  const currentUser = useMemo(() => userService.getCurrentUser(), []);
-  const currentUserCandidate = useMemo(
-    () => assigneeCandidates.find((candidate) => candidate.id === currentUser?.id),
-    [assigneeCandidates, currentUser?.id]
-  );
+  const { helperText, currentUserCandidate, isWorkloadInstruction, isUnassignedInstruction, applyAssignmentPlan } =
+    useAIGenerateTaskPlan(assigneeCandidates, projectTasks, projectDescription);
 
   if (!isOpen) return null;
 
@@ -57,71 +44,6 @@ const AIGenerateTasksModal: React.FC<AIGenerateTasksModalProps> = ({
     setTaskCount(6);
     setError('');
     onClose();
-  };
-
-  const isWorkloadInstruction = (value: string) =>
-    /workload|least busy|lightest|balance|auto[- ]?assign|smart assign/i.test(value);
-
-  const findExplicitAssignees = (value: string): User[] => {
-    const normalized = value.toLowerCase();
-    return assigneeCandidates.filter((candidate) => {
-      const aliases = [candidate.displayName, candidate.username, candidate.email]
-        .filter(Boolean)
-        .map((item) => String(item).trim().toLowerCase())
-        .filter((item) => item.length > 1);
-      return aliases.some((alias) => normalized.includes(alias));
-    });
-  };
-
-  const buildWorkloadOrder = (): User[] => {
-    const loadByUser = new Map<string, number>();
-    assigneeCandidates.forEach((candidate) => loadByUser.set(candidate.id, 0));
-    projectTasks.forEach((task) => {
-      if (task.status === TaskStatus.DONE) return;
-      const ids = Array.isArray(task.assigneeIds) ? task.assigneeIds : task.assigneeId ? [task.assigneeId] : [];
-      ids.forEach((id) => {
-        if (!loadByUser.has(id)) return;
-        loadByUser.set(id, (loadByUser.get(id) || 0) + 1);
-      });
-    });
-    return assigneeCandidates.slice().sort((a, b) => {
-      const aLoad = loadByUser.get(a.id) || 0;
-      const bLoad = loadByUser.get(b.id) || 0;
-      if (aLoad !== bLoad) return aLoad - bLoad;
-      return a.displayName.localeCompare(b.displayName);
-    });
-  };
-
-  const applyAssignmentPlan = (tasks: GeneratedTaskDraft[], instruction: string): GeneratedTaskDraft[] => {
-    const normalized = instruction.trim();
-    if (!normalized) return tasks;
-    if (/leave unassigned|unassigned|no assign/i.test(normalized)) return tasks;
-    if (/assign to me|for me|to me/i.test(normalized)) {
-      if (!currentUserCandidate) return tasks;
-      return tasks.map((task) => ({ ...task, assigneeIds: [currentUserCandidate.id] }));
-    }
-    if (assigneeCandidates.length === 0) return tasks;
-
-    const assignerPool = isWorkloadInstruction(normalized) ? buildWorkloadOrder() : findExplicitAssignees(normalized);
-    if (assignerPool.length === 0) return tasks;
-
-    const rollingLoads = new Map(assignerPool.map((user, index) => [user.id, index]));
-    return tasks.map((task, index) => {
-      const candidate =
-        isWorkloadInstruction(normalized)
-          ? assignerPool
-              .slice()
-              .sort((a, b) => {
-                const aLoad = rollingLoads.get(a.id) || 0;
-                const bLoad = rollingLoads.get(b.id) || 0;
-                if (aLoad !== bLoad) return aLoad - bLoad;
-                return a.displayName.localeCompare(b.displayName);
-              })[0]
-          : assignerPool[index % assignerPool.length];
-      if (!candidate) return task;
-      rollingLoads.set(candidate.id, (rollingLoads.get(candidate.id) || 0) + 1);
-      return { ...task, assigneeIds: [candidate.id] };
-    });
   };
 
   const handleGenerate = async () => {
@@ -146,7 +68,7 @@ const AIGenerateTasksModal: React.FC<AIGenerateTasksModalProps> = ({
       if (
         assignmentInstruction.trim() &&
         !isWorkloadInstruction(assignmentInstruction) &&
-        !/leave unassigned|unassigned|no assign/i.test(assignmentInstruction) &&
+        !isUnassignedInstruction(assignmentInstruction) &&
         enriched.every((task) => !task.assigneeIds?.length)
       ) {
         setError('No assignee matched your instruction. Use display name, username, or write "assign by workload".');
@@ -203,35 +125,10 @@ const AIGenerateTasksModal: React.FC<AIGenerateTasksModalProps> = ({
               className="w-full h-10 rounded-lg border border-slate-300 px-3 text-sm outline-none focus:ring-2 focus:ring-slate-300"
               placeholder='Example: assign to "Sarah Chen" and "Michael Scott", or "assign by workload".'
             />
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              <button
-                type="button"
-                onClick={() => setAssignmentInstruction('assign by workload')}
-                className="h-7 rounded-full border border-slate-300 bg-white px-3 text-[11px] text-slate-700 hover:bg-slate-50"
-              >
-                Assign by workload
-              </button>
-              <button
-                type="button"
-                onClick={() =>
-                  setAssignmentInstruction(
-                    currentUserCandidate
-                      ? `assign to ${currentUserCandidate.displayName}`
-                      : 'assign to me'
-                  )
-                }
-                className="h-7 rounded-full border border-slate-300 bg-white px-3 text-[11px] text-slate-700 hover:bg-slate-50"
-              >
-                Assign to me
-              </button>
-              <button
-                type="button"
-                onClick={() => setAssignmentInstruction('leave unassigned')}
-                className="h-7 rounded-full border border-slate-300 bg-white px-3 text-[11px] text-slate-700 hover:bg-slate-50"
-              >
-                Leave unassigned
-              </button>
-            </div>
+            <AIGenerateAssignmentQuickActions
+              currentUserCandidate={currentUserCandidate}
+              onSelectInstruction={setAssignmentInstruction}
+            />
           </div>
 
           <div className="w-full sm:w-40">

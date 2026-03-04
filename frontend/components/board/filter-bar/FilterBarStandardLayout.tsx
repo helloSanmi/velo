@@ -21,6 +21,7 @@ const FilterBarStandardLayout: React.FC<FilterBarStandardLayoutProps> = ({
     <SearchFilterControl value={props.searchQuery} onChange={props.onSearchChange} className={controlClass} />
     <FilterBarControls
       controlClass={controlClass}
+      showProjectFilter={props.showProjectFilter}
       dueFrom={props.dueFrom}
       dueTo={props.dueTo}
       projectFilter={props.projectFilter}

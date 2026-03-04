@@ -137,7 +137,7 @@ export const useWorkspaceConnection = ({
       if (event.orgId && event.orgId !== user.orgId) return;
 
       if (event.type === 'TASKS_UPDATED') {
-        userService.hydrateWorkspaceFromBackend(user.orgId).then(() => {
+        userService.hydrateWorkspaceFromBackend(user.orgId, { force: true }).then(() => {
           refreshTasks();
           setSelectedTask((prev) => {
             if (!prev) return null;

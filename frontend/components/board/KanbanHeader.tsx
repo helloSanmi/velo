@@ -128,6 +128,7 @@ const KanbanHeader: React.FC<KanbanHeaderProps> = ({
           />
 
           <KanbanHeaderFilters
+            activeProject={activeProject}
             searchQuery={searchQuery}
             projectFilter={projectFilter}
             dueStatusFilter={dueStatusFilter}

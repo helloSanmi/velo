@@ -85,7 +85,7 @@ const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
   }, [isResizing, resize, stopResizing]);
 
   return (
-    <div className={`h-[100dvh] min-h-[100dvh] w-screen flex flex-col bg-slate-50 overflow-hidden ${themeClass} ${compactMode ? 'compact-layout' : ''} ${isResizing ? 'cursor-col-resize select-none' : ''}`}>
+    <div className={`h-[100dvh] min-h-[100dvh] w-screen flex flex-col bg-[#f7f3f6] overflow-hidden ${themeClass} ${compactMode ? 'compact-layout' : ''} ${isResizing ? 'cursor-col-resize select-none' : ''}`}>
       <Header 
         user={user} 
         onLogout={onLogout} 
@@ -161,7 +161,7 @@ const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
           />
         </div>
         
-        <div className="flex-1 flex flex-col min-w-0 min-h-0 bg-slate-50 relative">
+        <div className="flex-1 flex flex-col min-w-0 min-h-0 bg-[#f7f3f6] relative">
           <div className={`flex-1 flex flex-col overflow-y-auto overflow-x-hidden relative ${isResizing ? 'pointer-events-none' : ''}`}>
              {children}
           </div>

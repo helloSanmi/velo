@@ -52,7 +52,8 @@ const mapUserFromApi = (user: any): User => ({
   avatar: user.avatar || undefined,
   role: user.role,
   licenseActive: user.licenseActive !== false,
-  mustChangePassword: Boolean(user.mustChangePassword)
+  mustChangePassword: Boolean(user.mustChangePassword),
+  microsoftSubject: user.microsoftSubject || undefined
 });
 
 export const loginWithPasswordRemote = async (
@@ -749,7 +750,7 @@ export const updateOrganizationSettingsRemote = async (
 export const importDirectoryUsersRemote = async (
   orgId: string,
   provider: 'microsoft',
-  users: Array<{ email: string; displayName: string; firstName?: string; lastName?: string }>
+  users: Array<{ externalId?: string; email: string; displayName: string; firstName?: string; lastName?: string }>
 ): Promise<{
   success: boolean;
   created?: Array<{ id: string; email: string; displayName: string }>;

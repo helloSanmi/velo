@@ -43,6 +43,75 @@ import {
 import { clearOrganizationStorage, clearSessionForOrganization, emitUsersUpdated, inferOrgEmailDomain } from './user-service/helpers';
 
 const PROJECTS_KEY = 'velo_projects';
+const isOnMicrosoftAlias = (email?: string): boolean => (email || '').toLowerCase().endsWith('.onmicrosoft.com');
+const normalizeName = (value?: string): string => (value || '').trim().toLowerCase().replace(/\s+/g, ' ');
+const normalizeLocalPart = (email?: string): string => {
+  const normalized = (email || '').trim().toLowerCase();
+  const at = normalized.indexOf('@');
+  return at >= 0 ? normalized.slice(0, at) : normalized;
+};
+
+const shouldReplaceWithCandidate = (current: User, candidate: User): boolean => {
+  const currentOnMicrosoft = isOnMicrosoftAlias(current.email);
+  const candidateOnMicrosoft = isOnMicrosoftAlias(candidate.email);
+  if (currentOnMicrosoft !== candidateOnMicrosoft) return currentOnMicrosoft;
+  const currentLicensed = current.licenseActive !== false;
+  const candidateLicensed = candidate.licenseActive !== false;
+  if (currentLicensed !== candidateLicensed) return candidateLicensed;
+  if (current.role !== candidate.role) return current.role !== 'admin' && candidate.role === 'admin';
+  return false;
+};
+
+const dedupeUsers = (users: User[]): User[] => {
+  const bySubject = new Map<string, User>();
+  const deduped: User[] = [];
+  const fallbackKeyToUser = new Map<string, User>();
+
+  for (const user of users) {
+    const subject = (user.microsoftSubject || '').trim();
+    if (subject) {
+      const existing = bySubject.get(subject);
+      if (!existing) {
+        bySubject.set(subject, user);
+        deduped.push(user);
+        continue;
+      }
+      if (shouldReplaceWithCandidate(existing, user)) {
+        const existingIndex = deduped.findIndex((candidate) => candidate.id === existing.id);
+        if (existingIndex >= 0) deduped[existingIndex] = user;
+        bySubject.set(subject, user);
+      }
+      continue;
+    }
+
+    const fallbackKey = `${normalizeName(user.displayName)}|${normalizeLocalPart(user.email)}`;
+    if (fallbackKey === '|') {
+      deduped.push(user);
+      continue;
+    }
+    const existing = fallbackKeyToUser.get(fallbackKey);
+    if (!existing) {
+      fallbackKeyToUser.set(fallbackKey, user);
+      deduped.push(user);
+      continue;
+    }
+    // Only collapse fallback duplicates when this looks like alias duplication.
+    const aliasPair =
+      (isOnMicrosoftAlias(existing.email) && !isOnMicrosoftAlias(user.email)) ||
+      (!isOnMicrosoftAlias(existing.email) && isOnMicrosoftAlias(user.email));
+    if (!aliasPair) {
+      deduped.push(user);
+      continue;
+    }
+    if (shouldReplaceWithCandidate(existing, user)) {
+      const existingIndex = deduped.findIndex((candidate) => candidate.id === existing.id);
+      if (existingIndex >= 0) deduped[existingIndex] = user;
+      fallbackKeyToUser.set(fallbackKey, user);
+    }
+  }
+
+  return deduped;
+};
 
 export const userService = {
   getCurrentUser: (): User | null => {
@@ -125,8 +194,8 @@ export const userService = {
 
   getUsers: (orgId?: string): User[] => {
     const allUsers: User[] = JSON.parse(localStorage.getItem(USERS_KEY) || '[]');
-    if (orgId) return allUsers.filter(u => u.orgId === orgId);
-    return allUsers;
+    if (orgId) return dedupeUsers(allUsers.filter(u => u.orgId === orgId));
+    return dedupeUsers(allUsers);
   },
 
   updateUser: (userId: string, updates: Partial<User>): User[] => {
@@ -319,7 +388,7 @@ export const userService = {
   importDirectoryUsers: async (
     orgId: string,
     provider: 'microsoft',
-    users: Array<{ email: string; displayName: string; firstName?: string; lastName?: string }>
+    users: Array<{ externalId?: string; email: string; displayName: string; firstName?: string; lastName?: string }>
   ): Promise<{
     success: boolean;
     created?: Array<{ id: string; email: string; displayName: string }>;
@@ -429,7 +498,12 @@ export const userService = {
   deleteOrganizationRemote: async (orgId: string): Promise<{ success: boolean; error?: string }> =>
     deleteOrganizationRemote(orgId),
 
-  hydrateWorkspaceFromBackend: async (orgId: string): Promise<{ users: User[]; projects: any[] } | null> => {
+  hydrateWorkspaceFromBackend: async (
+    orgId: string,
+    options?: {
+      force?: boolean;
+    }
+  ): Promise<{ users: User[]; projects: any[] } | null> => {
     try {
       const localProjectsSnapshot = JSON.parse(localStorage.getItem(PROJECTS_KEY) || '[]') as Array<any>;
       const localProjectsById = new Map(
@@ -437,7 +511,7 @@ export const userService = {
           .filter((project) => project?.orgId === orgId && project?.id)
           .map((project) => [project.id, project])
       );
-      const result = await backendSyncService.hydrateWorkspace(orgId);
+      const result = await backendSyncService.hydrateWorkspace(orgId, options);
       const mergedProjects = result.projects.map((project) => {
         const localProject = localProjectsById.get(project.id);
         if (!localProject) return project;

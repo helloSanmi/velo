@@ -65,6 +65,7 @@ export interface User {
   role?: 'admin' | 'member' | 'guest';
   licenseActive?: boolean;
   mustChangePassword?: boolean;
+  microsoftSubject?: string;
 }
 
 export type SecurityGroupScope = 'global' | 'project';

@@ -208,13 +208,19 @@ const hydrateInFlightByOrg = new Map<string, Promise<WorkspaceSnapshot>>();
 const hydrateCacheByOrg = new Map<string, { at: number; snapshot: WorkspaceSnapshot }>();
 
 export const backendSyncService = {
-  async hydrateWorkspace(orgId: string): Promise<WorkspaceSnapshot> {
+  async hydrateWorkspace(
+    orgId: string,
+    options?: {
+      force?: boolean;
+    }
+  ): Promise<WorkspaceSnapshot> {
+    const force = Boolean(options?.force);
     const cached = hydrateCacheByOrg.get(orgId);
-    if (cached && Date.now() - cached.at < HYDRATE_DEDUP_WINDOW_MS) {
+    if (!force && cached && Date.now() - cached.at < HYDRATE_DEDUP_WINDOW_MS) {
       return cached.snapshot;
     }
     const inFlight = hydrateInFlightByOrg.get(orgId);
-    if (inFlight) return inFlight;
+    if (!force && inFlight) return inFlight;
 
     const hydrationPromise = (async () => {
       const [orgRaw, usersRaw, projectsRaw, tasksRaw] = await Promise.all([
@@ -252,7 +258,8 @@ export const backendSyncService = {
         avatar: u.avatar,
         role: u.role,
         licenseActive: u.licenseActive !== false,
-        mustChangePassword: Boolean(u.mustChangePassword)
+        mustChangePassword: Boolean(u.mustChangePassword),
+        microsoftSubject: typeof u.microsoftSubject === 'string' ? u.microsoftSubject : undefined
       }));
 
       const projects = projectsRaw.map(mapProject);

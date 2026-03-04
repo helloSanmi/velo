@@ -118,7 +118,7 @@ const ProjectsLifecycleView: React.FC<ProjectsLifecycleViewProps> = ({
   };
 
   return (
-    <div className="flex-1 overflow-y-auto bg-slate-50 p-3 md:p-8 custom-scrollbar">
+    <div className="flex-1 overflow-y-auto bg-[#f7f3f6] p-3 md:p-8 custom-scrollbar">
       <div className="max-w-7xl mx-auto space-y-5">
         <ProjectsLifecycleHeader counts={counts} statusFilter={statusFilter} setStatusFilter={setStatusFilter} />
 

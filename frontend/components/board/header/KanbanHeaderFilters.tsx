@@ -4,6 +4,7 @@ import { KanbanHeaderProps } from './types';
 
 type KanbanHeaderFiltersProps = Pick<
   KanbanHeaderProps,
+  | 'activeProject'
   | 'searchQuery'
   | 'projectFilter'
   | 'dueStatusFilter'
@@ -31,6 +32,7 @@ type KanbanHeaderFiltersProps = Pick<
 >;
 
 const KanbanHeaderFilters: React.FC<KanbanHeaderFiltersProps> = ({
+  activeProject,
   searchQuery,
   projectFilter,
   dueStatusFilter,
@@ -61,6 +63,7 @@ const KanbanHeaderFilters: React.FC<KanbanHeaderFiltersProps> = ({
       <FilterBar
         embedded
         compact
+        showProjectFilter={!activeProject}
         searchQuery={searchQuery}
         projectFilter={projectFilter}
         dueStatusFilter={dueStatusFilter}

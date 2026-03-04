@@ -24,6 +24,7 @@ router.get('/orgs/:orgId/users', authenticate, requireOrgAccess, async (req, res
         role: true,
         licenseActive: true,
         mustChangePassword: true,
+        microsoftSubject: true,
         createdAt: true,
         updatedAt: true
       },

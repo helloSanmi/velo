@@ -15,7 +15,7 @@ const TemplatesView: React.FC<TemplatesViewProps> = ({
   onUseTemplate
 }) => {
   return (
-    <div className="flex-1 overflow-y-auto bg-slate-50 p-4 md:p-8 custom-scrollbar">
+    <div className="flex-1 overflow-y-auto bg-[#f7f3f6] p-4 md:p-8 custom-scrollbar">
       <div className="max-w-6xl mx-auto space-y-5">
         <div>
           <h2 className="text-xl md:text-3xl font-semibold tracking-tight text-slate-900">Templates</h2>

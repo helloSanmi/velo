@@ -22,7 +22,7 @@ const FilterBar: React.FC<FilterBarProps> = (props) => {
 
   const activeFilterCount = useMemo(() => {
     let count = 0;
-    if (props.projectFilter !== 'All') count += 1;
+    if (props.showProjectFilter !== false && props.projectFilter !== 'All') count += 1;
     if (props.statusFilter !== 'All') count += 1;
     if (props.priorityFilter !== 'All') count += 1;
     if (props.assigneeFilter !== 'All') count += 1;
@@ -31,7 +31,7 @@ const FilterBar: React.FC<FilterBarProps> = (props) => {
     if (!props.includeUnscheduled) count += 1;
     if (props.dueFrom || props.dueTo) count += 1;
     return count;
-  }, [props.assigneeFilter, props.dueFrom, props.dueStatusFilter, props.dueTo, props.includeUnscheduled, props.priorityFilter, props.projectFilter, props.statusFilter, props.tagFilter]);
+  }, [props.assigneeFilter, props.dueFrom, props.dueStatusFilter, props.dueTo, props.includeUnscheduled, props.priorityFilter, props.projectFilter, props.showProjectFilter, props.statusFilter, props.tagFilter]);
 
   const selectOptions = useMemo(
     () => buildFilterBarSelectOptions(props),

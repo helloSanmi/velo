@@ -58,12 +58,16 @@ import {
 import { isWorkspaceSubdomainHost } from './utils/workspaceHost';
 
 const App: React.FC = () => {
-  const parseWorkspaceTicketRoute = () => {
+  const parseWorkspaceRoute = () => {
     const pathname = window.location.pathname.replace(/\/+$/, '') || '/';
     if (pathname === '/tickets') return { view: 'tickets' as MainViewType, ticketId: null as string | null };
     const ticketMatch = pathname.match(/^\/tickets\/([^/]+)$/);
     if (ticketMatch) {
       return { view: 'tickets' as MainViewType, ticketId: decodeURIComponent(ticketMatch[1]) };
+    }
+    const viewParam = new URLSearchParams(window.location.search).get('view');
+    if (viewParam && isMainViewType(viewParam) && viewParam !== 'tickets') {
+      return { view: viewParam as MainViewType, ticketId: null as string | null };
     }
     return { view: null as MainViewType | null, ticketId: null as string | null };
   };
@@ -101,9 +105,11 @@ const App: React.FC = () => {
     const current = userService.getCurrentUser();
     return current ? teamService.getTeams(current.orgId) : [];
   });
+  const initialRoute = parseWorkspaceRoute();
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
-  const [currentView, setCurrentView] = useState<MainViewType>('board');
-  const [routeTicketId, setRouteTicketId] = useState<string | null>(null);
+  const [currentView, setCurrentView] = useState<MainViewType>(() => initialRoute.view || 'board');
+  const [routeTicketId, setRouteTicketId] = useState<string | null>(() => initialRoute.ticketId);
+  const hasHydratedRouteRef = useRef(false);
   const hasHydratedCurrentViewRef = useRef(false);
   const hasHydratedTaskContextRef = useRef(false);
   const reopenReleaseAttemptRef = useRef<Record<string, string>>({});
@@ -249,6 +255,8 @@ const App: React.FC = () => {
     if (!user) return;
     if (hasHydratedCurrentViewRef.current) return;
     hasHydratedCurrentViewRef.current = true;
+    const route = parseWorkspaceRoute();
+    if (route.view) return;
     const stored = localStorage.getItem(getCurrentViewStorageKey(user));
     if (stored && isMainViewType(stored)) {
       setCurrentView(stored);
@@ -262,33 +270,43 @@ const App: React.FC = () => {
 
   useEffect(() => {
     if (!user) return;
+    hasHydratedRouteRef.current = false;
     const applyRoute = () => {
-      const parsed = parseWorkspaceTicketRoute();
+      const parsed = parseWorkspaceRoute();
       if (parsed.view === 'tickets') {
         setCurrentView('tickets');
         setRouteTicketId(parsed.ticketId);
+      } else if (parsed.view) {
+        setRouteTicketId(null);
+        setCurrentView(parsed.view);
       } else {
         setRouteTicketId(null);
       }
+      hasHydratedRouteRef.current = true;
     };
     applyRoute();
     window.addEventListener('popstate', applyRoute);
     return () => window.removeEventListener('popstate', applyRoute);
   }, [user]);
 
-  const pushWorkspaceRoute = useCallback((nextPath: string) => {
-    if (window.location.pathname === nextPath) return;
-    window.history.pushState({}, '', nextPath);
+  const pushWorkspaceRoute = useCallback((nextUrl: string) => {
+    const current = `${window.location.pathname}${window.location.search}`;
+    if (current === nextUrl) return;
+    window.history.pushState({}, '', nextUrl);
   }, []);
 
   useEffect(() => {
     if (!user) return;
+    if (!hasHydratedRouteRef.current) return;
     const targetPath = currentView === 'tickets'
       ? routeTicketId
         ? `/tickets/${encodeURIComponent(routeTicketId)}`
         : '/tickets'
-      : '/';
-    if (window.location.pathname !== targetPath) {
+      : currentView === 'board'
+        ? '/'
+        : `/?view=${encodeURIComponent(currentView)}`;
+    const current = `${window.location.pathname}${window.location.search}`;
+    if (current !== targetPath) {
       window.history.replaceState({}, '', targetPath);
     }
   }, [user, currentView, routeTicketId]);
@@ -302,7 +320,7 @@ const App: React.FC = () => {
     }
     setRouteTicketId(null);
     setCurrentView(view);
-    pushWorkspaceRoute('/');
+    pushWorkspaceRoute(view === 'board' ? '/' : `/?view=${encodeURIComponent(view)}`);
   }, [pushWorkspaceRoute]);
 
   const handleOpenTicketRoute = useCallback((ticketId: string | null) => {

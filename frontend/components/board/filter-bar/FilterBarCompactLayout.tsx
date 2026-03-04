@@ -20,8 +20,13 @@ const FilterBarCompactLayout: React.FC<FilterBarCompactLayoutProps> = ({
   options,
   onToggleMobileFilters,
   props
-}) => (
-  <>
+}) => {
+  const desktopGridClass = props.showProjectFilter === false
+    ? 'hidden md:grid md:grid-cols-2 xl:grid-cols-[minmax(220px,1.35fr)_repeat(5,minmax(120px,1fr))_minmax(110px,max-content)_minmax(180px,1fr)] gap-2 items-center'
+    : 'hidden md:grid md:grid-cols-2 xl:grid-cols-[minmax(220px,1.35fr)_repeat(6,minmax(120px,1fr))_minmax(110px,max-content)_minmax(180px,1fr)] gap-2 items-center';
+
+  return (
+    <>
     <div className="md:hidden flex items-center gap-2 mb-2">
       <div className="flex-1 min-w-0">
         <SearchFilterControl value={props.searchQuery} onChange={props.onSearchChange} className={controlClass} />
@@ -38,6 +43,7 @@ const FilterBarCompactLayout: React.FC<FilterBarCompactLayoutProps> = ({
     <div className={`${mobileFiltersOpen ? 'grid' : 'hidden'} md:hidden grid-cols-1 sm:grid-cols-2 gap-2`}>
       <FilterBarControls
         controlClass={controlClass}
+        showProjectFilter={props.showProjectFilter}
         dueFrom={props.dueFrom}
         dueTo={props.dueTo}
         projectFilter={props.projectFilter}
@@ -60,10 +66,11 @@ const FilterBarCompactLayout: React.FC<FilterBarCompactLayoutProps> = ({
       />
     </div>
 
-    <div className="hidden md:grid md:grid-cols-2 xl:grid-cols-[minmax(240px,1.5fr)_repeat(6,minmax(120px,1fr))_minmax(170px,1fr)_minmax(250px,1.35fr)] gap-2 items-center">
+    <div className={desktopGridClass}>
       <SearchFilterControl value={props.searchQuery} onChange={props.onSearchChange} className={controlClass} />
       <FilterBarControls
         controlClass={controlClass}
+        showProjectFilter={props.showProjectFilter}
         dueFrom={props.dueFrom}
         dueTo={props.dueTo}
         projectFilter={props.projectFilter}
@@ -86,6 +93,7 @@ const FilterBarCompactLayout: React.FC<FilterBarCompactLayoutProps> = ({
       />
     </div>
   </>
-);
+  );
+};
 
 export default FilterBarCompactLayout;

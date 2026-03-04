@@ -2,6 +2,7 @@ import { TaskPriority, User } from '../../../types';
 
 export interface FilterBarProps {
   searchQuery: string;
+  showProjectFilter?: boolean;
   projectFilter: string | 'All';
   dueStatusFilter: 'All' | 'Scheduled' | 'Unscheduled';
   includeUnscheduled: boolean;

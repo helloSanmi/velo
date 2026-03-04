@@ -22,6 +22,18 @@ export const createApp = () => {
   <head>
     <meta charset="utf-8" />
     <title>Velo OAuth</title>
+    <style>
+      html, body { height: 100%; margin: 0; }
+      body {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+        color: #64748b;
+        font-size: 12px;
+        background: #ffffff;
+      }
+    </style>
   </head>
   <body>
     <script>
@@ -56,7 +68,7 @@ export const createApp = () => {
         setTimeout(function () { window.close(); }, 250);
       })();
     </script>
-    Finalizing sign-in...
+    Completing sign-in...
   </body>
 </html>`);
   });

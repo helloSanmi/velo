@@ -54,14 +54,14 @@
     "requesterName": "Adm",
     "requesterEmail": "adm@techanalytics.org",
     "requesterUserId": "usr_777fef5a-4137-49ce-9a7c-cd5c0df3e474",
-    "assigneeId": "usr_15a711f2-969c-44c8-8b8b-0f4857b6283d",
-    "status": "new",
+    "status": "in-progress",
     "priority": "medium",
     "tags": [],
     "source": "workspace",
     "comments": [],
     "createdAt": 1772312600306,
-    "updatedAt": 1772312600306
+    "updatedAt": 1772459914775,
+    "assigneeId": "usr_15a711f2-969c-44c8-8b8b-0f4857b6283d"
   },
   {
     "id": "tkt_1246f498-d0d3-4fd1-8654-5d75e6178d30",
@@ -73,8 +73,7 @@
     "requesterName": "Adm",
     "requesterEmail": "adm@techanalytics.org",
     "requesterUserId": "usr_777fef5a-4137-49ce-9a7c-cd5c0df3e474",
-    "assigneeId": "usr_15a711f2-969c-44c8-8b8b-0f4857b6283d",
-    "status": "new",
+    "status": "closed",
     "priority": "medium",
     "tags": [],
     "source": "email",
@@ -102,7 +101,8 @@
       }
     ],
     "createdAt": 1772401369851,
-    "updatedAt": 1772404366358
+    "updatedAt": 1772458494634,
+    "resolvedAt": 1772458494633
   },
   {
     "id": "tkt_ae5e1052-97d8-40b6-8813-c25c3f78db42",

@@ -6,6 +6,7 @@ import { FilterBarSelectOptions } from './filterOptions';
 
 interface FilterBarControlsProps {
   controlClass: string;
+  showProjectFilter?: boolean;
   dueFrom?: number;
   dueTo?: number;
   projectFilter: string | 'All';
@@ -29,6 +30,7 @@ interface FilterBarControlsProps {
 
 const FilterBarControls: React.FC<FilterBarControlsProps> = ({
   controlClass,
+  showProjectFilter = true,
   dueFrom,
   dueTo,
   projectFilter,
@@ -50,12 +52,14 @@ const FilterBarControls: React.FC<FilterBarControlsProps> = ({
   onDueToChange
 }) => (
   <>
-    <SelectFilterControl
-      value={projectFilter}
-      onChange={onProjectChange}
-      className={controlClass}
-      options={options.projectOptions}
-    />
+    {showProjectFilter ? (
+      <SelectFilterControl
+        value={projectFilter}
+        onChange={onProjectChange}
+        className={controlClass}
+        options={options.projectOptions}
+      />
+    ) : null}
     <SelectFilterControl
       value={statusFilter}
       onChange={(value) => onStatusChange(value as string | 'All')}
@@ -86,7 +90,7 @@ const FilterBarControls: React.FC<FilterBarControlsProps> = ({
       className={controlClass}
       options={options.dueStatusOptions}
     />
-    <label className="inline-flex items-center gap-1.5 text-[11px] text-slate-600 px-1 whitespace-nowrap">
+    <label className="inline-flex items-center gap-1.5 text-[11px] text-slate-600 px-1 min-w-0">
       <input
         type="checkbox"
         checked={includeUnscheduled}
@@ -95,12 +99,14 @@ const FilterBarControls: React.FC<FilterBarControlsProps> = ({
       />
       Unscheduled
     </label>
-    <DueDateRangeControl
-      dueFrom={dueFrom}
-      dueTo={dueTo}
-      onDueFromChange={onDueFromChange}
-      onDueToChange={onDueToChange}
-    />
+    <div className="min-w-[180px] max-w-full xl:min-w-[190px]">
+      <DueDateRangeControl
+        dueFrom={dueFrom}
+        dueTo={dueTo}
+        onDueFromChange={onDueFromChange}
+        onDueToChange={onDueToChange}
+      />
+    </div>
   </>
 );
 
