@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import Button from './ui/Button';
 
 interface LandingPageProps {
@@ -11,32 +11,135 @@ interface LandingPageProps {
   onOpenContact: () => void;
 }
 
-const useCaseCards = [
+const heroSlides = [
   {
-    title: 'Campaign management',
-    body: 'Plan timelines, manage approvals, and keep campaign delivery visible end to end.',
-    outcomes: ['Clear owners per step', 'Approval checkpoints', 'On-time delivery tracking']
+    title: 'Work moves faster when ownership is clear',
+    body: 'One clean workspace for planning, execution, and reporting.'
   },
   {
-    title: 'Creative production',
-    body: 'Run briefs, review cycles, and handoffs in one trackable execution flow.',
-    outcomes: ['Shared brief context', 'Review cycle control', 'Handoff accountability']
+    title: 'Less status noise, more real progress',
+    body: 'See what is moving, what is blocked, and what needs a decision.'
   },
   {
-    title: 'Project intake',
-    body: 'Standardize incoming requests, set priority fast, and assign clear ownership.',
-    outcomes: ['Consistent intake format', 'Fast triage decisions', 'Owner assignment by rule']
+    title: 'Reliable delivery without process clutter',
+    body: 'Keep teams aligned with simple boards, approvals, and focused updates.'
+  }
+] as const;
+
+const capabilityCards = [
+  {
+    title: 'Boards',
+    body: 'Track work by stage with clean handoffs.'
   },
   {
-    title: 'Product launches',
-    body: 'Coordinate product, engineering, and go-to-market work against one launch plan.',
-    outcomes: ['Cross-team dependency view', 'Launch readiness checks', 'Single status source']
+    title: 'Approvals',
+    body: 'Control sensitive transitions.'
+  },
+  {
+    title: 'AI Copilot',
+    body: 'Get context-based recommendations.'
+  },
+  {
+    title: 'Reporting',
+    body: 'See risk, throughput, and progress.'
+  }
+];
+
+const proofBullets = [
+  'Clear ownership on every task',
+  'Approval checkpoints before completion',
+  'Live status without manual reporting'
+];
+
+const showcaseSections = [
+  {
+    id: 'execution-board',
+    eyebrow: 'Execution board',
+    title: 'Plan and run work in one live workspace',
+    body: 'Teams can see stage flow, ownership, workload, and delivery risk without jumping between tools.',
+    bullets: ['Kanban, checklist, table, calendar, and Gantt views', 'Real-time task updates and comments', 'Quick filters for assignees, status, and due state'],
+    align: 'left' as const,
+    image: '/landing/execution-board.png',
+    imageAlt: 'Velo execution board screenshot'
+  },
+  {
+    id: 'governance',
+    eyebrow: 'Governance and control',
+    title: 'Approve high-impact changes with full context',
+    body: 'Use approval checkpoints and activity history to keep delivery decisions controlled and auditable.',
+    bullets: ['Completion and reopen approvals', 'Clear activity trail for every major action', 'Controlled transitions for sensitive tasks'],
+    align: 'right' as const,
+    image: '/landing/governance-approval.png',
+    imageAlt: 'Velo task governance and approvals screenshot'
+  }
+];
+
+const weeklyFlow = [
+  {
+    step: '01',
+    title: 'Plan clearly',
+    body: 'Define scope, owners, and due dates in one place.'
+  },
+  {
+    step: '02',
+    title: 'Execute daily',
+    body: 'Move tasks forward with live updates, comments, and approvals.'
+  },
+  {
+    step: '03',
+    title: 'Report quickly',
+    body: 'See progress, risk, and workload without manual status meetings.'
+  }
+];
+
+const leadershipCards = [
+  {
+    title: 'Delivery confidence',
+    body: 'Track whether the team is likely to finish on time.'
+  },
+  {
+    title: 'Workload balance',
+    body: 'Spot who is overloaded and reassign work early.'
+  },
+  {
+    title: 'Approval control',
+    body: 'Keep high impact transitions gated and auditable.'
+  },
+  {
+    title: 'Operational speed',
+    body: 'Reduce admin work and keep teams focused on delivery.'
+  }
+];
+
+const faqItems = [
+  {
+    question: 'Can we start with one team first?',
+    answer: 'Yes. Most workspaces start with one project team, then expand after setup is proven.'
+  },
+  {
+    question: 'Can we keep Microsoft sign in and notifications?',
+    answer: 'Yes. Velo supports Microsoft SSO and Microsoft mailbox based notifications for workspace events.'
+  },
+  {
+    question: 'Can we control who can approve changes?',
+    answer: 'Yes. Approval workflows can be restricted to project owners or workspace admins.'
   }
 ];
 
 const footerLinks = ['Product', 'Solutions', 'Pricing', 'Support', 'Privacy', 'Terms'];
 
-const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onLogin, onOpenProduct, onOpenSolutions, onOpenPricing, onOpenSupport, onOpenContact }) => (
+const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onLogin, onOpenProduct, onOpenSolutions, onOpenPricing, onOpenSupport, onOpenContact }) => {
+  const [activeSlide, setActiveSlide] = useState(0);
+  const slideCount = useMemo(() => heroSlides.length, []);
+
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      setActiveSlide((previous) => (previous + 1) % slideCount);
+    }, 4800);
+    return () => window.clearInterval(id);
+  }, [slideCount]);
+
+  return (
     <div className="min-h-screen bg-[#efefef] text-slate-900">
       <header className="sticky top-0 z-30 border-b border-slate-300 bg-white">
         <div className="mx-auto grid h-16 w-full max-w-7xl grid-cols-[auto_1fr_auto] items-center px-5 md:px-6">
@@ -57,98 +160,218 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onLogin, onOpen
       </header>
 
       <main>
-        <section className="bg-[#76003f] px-5 pb-9 pt-9 text-center text-white md:px-6 md:pb-12 md:pt-12">
-          <div className="mx-auto max-w-[1120px]">
-            <h1 className="mx-auto max-w-[920px] text-[32px] font-semibold leading-[1.06] tracking-tight sm:text-[40px] md:text-[48px] lg:text-[54px]">
-              Run projects with clarity, speed, and control
-            </h1>
-            <p className="mx-auto mt-4 max-w-[760px] text-[16px] leading-relaxed text-white/90 md:text-[18px]">
-              Velo unifies planning, execution, collaboration, and AI guidance so teams deliver reliably at scale.
-            </p>
-            <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
-              <Button
-                onClick={onGetStarted}
-                className="h-11 rounded-full !bg-white px-7 !text-[#5b0733] shadow-[0_10px_24px_rgba(8,15,44,0.28)] hover:!bg-[#fff3f8] md:h-12 md:px-9 md:text-[16px]"
-              >
-                Get started
-              </Button>
-              <Button
-                variant="primary"
-                onClick={onOpenContact}
-                className="h-11 rounded-full !border !border-white/75 !bg-transparent px-7 !text-white shadow-none hover:!bg-white/12 md:h-12 md:px-9 md:text-[16px]"
-              >
-                Request demo
-              </Button>
-            </div>
-
-            <div className="mt-8 rounded-[28px] border border-white/15 bg-white/10 p-4 md:mt-10 md:p-5">
-              <div className="rounded-[20px] bg-white p-4 text-left text-slate-900 md:p-5">
-                <p className="text-[16px] font-semibold md:text-[18px]">Velo execution workspace</p>
-                <div className="mt-3 grid grid-cols-1 gap-2.5 md:grid-cols-3">
-                  <div className="rounded-lg border border-slate-200 p-3 text-[13px] text-slate-700 md:text-[14px]">Live project board with role-based workflow controls</div>
-                  <div className="rounded-lg border border-slate-200 p-3 text-[13px] text-slate-700 md:text-[14px]">Completion approvals, audit trail, and lifecycle history</div>
-                  <div className="rounded-lg border border-slate-200 p-3 text-[13px] text-slate-700 md:text-[14px]">AI copilots that suggest actions from real project context</div>
+        <section className="overflow-hidden bg-[#76003f] px-5 text-white md:px-6">
+          <div className="mx-auto max-w-7xl">
+            <div className="landing-slide-shell relative min-h-[420px] pb-14 pt-24 md:min-h-[470px] md:pb-16 md:pt-28">
+              <div className="relative mx-auto max-w-4xl">
+                {heroSlides.map((slide, index) => (
+                  <article
+                    key={slide.title}
+                    className={`absolute inset-0 transition-opacity duration-[1400ms] ease-in-out ${index === activeSlide ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
+                  >
+                    <div className="text-center">
+                      <h1 className="text-[34px] font-semibold leading-[1.08] tracking-tight sm:text-[44px] md:text-[58px]">
+                        {slide.title}
+                      </h1>
+                      <p className="mx-auto mt-4 max-w-2xl text-[17px] leading-relaxed text-white/90 md:text-[20px]">
+                        {slide.body}
+                      </p>
+                    </div>
+                  </article>
+                ))}
+                <div className="invisible">
+                  <h1 className="text-[34px] font-semibold leading-[1.08] tracking-tight sm:text-[44px] md:text-[58px]">
+                    {heroSlides[0].title}
+                  </h1>
+                  <p className="mx-auto mt-4 max-w-2xl text-[17px] leading-relaxed text-white/90 md:text-[20px]">
+                    {heroSlides[0].body}
+                  </p>
                 </div>
               </div>
-            </div>
-          </div>
-        </section>
-
-        <section className="px-5 py-9 md:px-6 md:py-10">
-          <div className="mx-auto max-w-7xl">
-            <div className="grid items-center gap-5 md:grid-cols-[1.1fr_1.9fr]">
-              <p className="text-[22px] font-semibold leading-snug tracking-tight text-slate-900 md:text-[28px]">
-                Built for teams that need predictable, accountable delivery
-              </p>
-              <div className="grid grid-cols-2 gap-2 text-center text-[15px] font-medium text-slate-700 md:grid-cols-5 md:text-[16px]">
-                {['Plan with structure', 'Execute in real time', 'Control access clearly', 'Approve with audit trail', 'Report with AI context'].map((item) => (
-                  <div key={item} className="rounded-lg border border-slate-300 bg-white px-2 py-4">{item}</div>
+              <div className="absolute inset-x-0 bottom-6 flex items-center justify-center gap-2 md:bottom-8">
+                {heroSlides.map((slide, index) => (
+                  <button
+                    key={slide.title}
+                    type="button"
+                    onClick={() => setActiveSlide(index)}
+                    className={`h-1.5 rounded-full transition-all ${index === activeSlide ? 'w-8 bg-white/95' : 'w-4 bg-white/35 hover:bg-white/55'}`}
+                    aria-label={`Go to slide ${index + 1}`}
+                  />
                 ))}
               </div>
             </div>
           </div>
         </section>
 
-        <section className="px-5 py-2 md:px-6">
-          <div className="mx-auto max-w-7xl rounded-3xl bg-[#efdce3] p-6 md:p-8">
-            <div className="max-w-4xl">
-              <h2 className="text-[28px] font-semibold leading-[1.05] tracking-tight text-[#76003f] md:text-[36px]">
-                Set a stronger operating rhythm for your teams
-              </h2>
-              <p className="mt-3 text-[17px] leading-relaxed text-[#76003f]/90 md:text-[20px]">
-                Align priorities, enforce workflow standards, and surface delivery risk before it impacts outcomes.
-              </p>
-              <Button onClick={onGetStarted} className="mt-6 rounded-full bg-[#76003f] px-7 py-3 text-white hover:bg-[#640035] md:text-[16px]">Get started</Button>
+        <section className="bg-white px-5 py-9 md:px-6 md:py-10">
+          <div className="mx-auto max-w-7xl">
+            <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
+              <article className="rounded-2xl border border-slate-200 bg-white p-6">
+                <h2 className="text-[30px] font-semibold leading-tight tracking-tight text-slate-900">Built for teams that run real delivery</h2>
+                <ul className="mt-5 space-y-3 text-[16px] text-slate-700">
+                  {proofBullets.map((item) => (
+                    <li key={item} className="flex items-start gap-2.5">
+                      <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-slate-500" />
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </article>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {capabilityCards.map((card, index) => (
+                  <article
+                    key={card.title}
+                    className="landing-reveal rounded-xl border border-slate-200 bg-white p-4"
+                    style={{ animationDelay: `${index * 90}ms` }}
+                  >
+                    <p className="text-[17px] font-semibold text-slate-900">{card.title}</p>
+                    <p className="mt-1.5 text-[14px] leading-relaxed text-slate-600">{card.body}</p>
+                  </article>
+                ))}
+              </div>
             </div>
           </div>
         </section>
 
-        <section className="px-5 pb-12 pt-10 md:px-6 md:pt-12">
+        <section className="bg-[#efefef] px-5 py-9 md:px-6 md:py-10">
+          <div className="mx-auto max-w-7xl space-y-5 md:space-y-7">
+            {showcaseSections.map((section) => (
+              <article key={section.id} className="rounded-2xl border border-slate-200 bg-white p-5 md:p-7">
+                <div className={`grid gap-5 lg:items-center ${section.align === 'right' ? 'lg:grid-cols-[1.05fr_0.95fr]' : 'lg:grid-cols-[0.95fr_1.05fr]'}`}>
+                  <div className={section.align === 'right' ? 'lg:order-2' : ''}>
+                    <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#76003f]">{section.eyebrow}</p>
+                    <h3 className="mt-2 text-[28px] font-semibold leading-tight tracking-tight text-slate-900 md:text-[36px]">{section.title}</h3>
+                    <p className="mt-3 max-w-2xl text-[16px] leading-relaxed text-slate-600 md:text-[18px]">{section.body}</p>
+                    <ul className="mt-4 space-y-2.5 text-[15px] text-slate-700">
+                      {section.bullets.map((item) => (
+                        <li key={item} className="flex items-start gap-2.5">
+                          <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-slate-500" />
+                          <span>{item}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  <div className={section.align === 'right' ? 'lg:order-1' : ''}>
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 md:p-4">
+                      <img
+                        src={section.image}
+                        alt={section.imageAlt}
+                        className="h-auto w-full rounded-xl border border-slate-200 bg-white object-cover shadow-sm"
+                        loading="lazy"
+                        onError={(event) => {
+                          const img = event.currentTarget as HTMLImageElement;
+                          if (section.imageFallback && img.src !== section.imageFallback) {
+                            img.src = section.imageFallback;
+                            return;
+                          }
+                          img.style.display = 'none';
+                          const fallback = img.nextElementSibling as HTMLElement | null;
+                          if (fallback) fallback.style.display = 'block';
+                        }}
+                      />
+                      <div className="hidden rounded-xl border border-dashed border-slate-300 bg-white/70 p-5 text-center">
+                        <p className="text-sm font-medium text-slate-700">Add screenshot</p>
+                        <p className="mt-1 text-xs text-slate-500">{section.image}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section className="bg-white px-5 py-9 md:px-6 md:py-10">
           <div className="mx-auto max-w-7xl">
-            <h2 className="max-w-5xl text-[30px] font-semibold leading-[1.05] tracking-tight text-slate-900 md:text-[40px]">
-              Use Velo across every execution workflow
-            </h2>
-            <p className="mt-3 max-w-3xl text-[16px] text-slate-600 md:text-[18px]">
-              Each workflow combines planning structure, live execution visibility, and measurable outcomes.
-            </p>
-            <div className="mt-8 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-              {useCaseCards.map((card) => (
-                <article key={card.title} className="rounded-2xl border border-slate-300 bg-white p-6">
-                  <p className="text-[22px] font-semibold leading-tight tracking-tight text-slate-900 md:text-[24px]">{card.title}</p>
-                  <p className="mt-3 text-[15px] leading-relaxed text-slate-600 md:text-[16px]">{card.body}</p>
-                  <ul className="mt-4 space-y-2 text-[14px] text-slate-700 md:text-[15px]">
-                    {card.outcomes.map((outcome) => (
-                      <li key={outcome} className="flex items-start gap-2">
-                        <span className="mt-[7px] h-1.5 w-1.5 rounded-full bg-[#76003f]" />
-                        <span>{outcome}</span>
-                      </li>
-                    ))}
-                  </ul>
+            <div className="mx-auto max-w-3xl text-center">
+              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#76003f]">Weekly flow</p>
+              <h2 className="mt-2 text-[30px] font-semibold leading-tight tracking-tight text-slate-900 md:text-[40px]">
+                A simple rhythm teams can run every week
+              </h2>
+              <p className="mt-3 text-[16px] text-slate-600 md:text-[18px]">
+                Keep planning, execution, and reporting in one connected workflow.
+              </p>
+            </div>
+            <div className="mt-5 grid gap-4 md:mt-7 md:grid-cols-3">
+              {weeklyFlow.map((item) => (
+                <article key={item.step} className="rounded-2xl border border-slate-200 bg-slate-50 p-5 md:p-6">
+                  <p className="text-sm font-semibold tracking-[0.08em] text-[#76003f]">{item.step}</p>
+                  <h3 className="mt-2 text-[24px] font-semibold tracking-tight text-slate-900">{item.title}</h3>
+                  <p className="mt-2 text-[15px] leading-relaxed text-slate-600">{item.body}</p>
                 </article>
               ))}
             </div>
           </div>
         </section>
+
+        <section className="bg-[#efefef] px-5 py-9 md:px-6 md:py-10">
+          <div className="mx-auto max-w-7xl rounded-2xl border border-slate-200 bg-white p-6 md:p-8">
+            <div className="max-w-3xl">
+              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#76003f]">Leadership view</p>
+              <h2 className="mt-2 text-[30px] font-semibold leading-tight tracking-tight text-slate-900 md:text-[40px]">
+                Clear signals for delivery decisions
+              </h2>
+              <p className="mt-3 text-[16px] text-slate-600 md:text-[18px]">
+                Give project owners and leadership one shared source of truth.
+              </p>
+            </div>
+            <div className="mt-6 grid gap-3 md:mt-7 md:grid-cols-2">
+              {leadershipCards.map((card) => (
+                <article key={card.title} className="rounded-xl border border-slate-200 bg-white p-4 md:p-5">
+                  <h3 className="text-[20px] font-semibold tracking-tight text-slate-900">{card.title}</h3>
+                  <p className="mt-1.5 text-[15px] leading-relaxed text-slate-600">{card.body}</p>
+                </article>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="bg-white px-5 py-9 md:px-6 md:py-10">
+          <div className="mx-auto grid max-w-7xl gap-6 lg:grid-cols-[1.05fr_0.95fr]">
+            <article className="rounded-2xl border border-slate-200 bg-white p-6 md:p-7">
+              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#76003f]">Common questions</p>
+              <h2 className="mt-2 text-[30px] font-semibold leading-tight tracking-tight text-slate-900 md:text-[38px]">
+                Built for practical rollout in real teams
+              </h2>
+              <div className="mt-5 space-y-3">
+                {faqItems.map((item) => (
+                  <div key={item.question} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                    <h3 className="text-[18px] font-semibold text-slate-900">{item.question}</h3>
+                    <p className="mt-1.5 text-[15px] leading-relaxed text-slate-600">{item.answer}</p>
+                  </div>
+                ))}
+              </div>
+            </article>
+            <article className="rounded-2xl border border-slate-200 bg-[#f7f2f4] p-6 md:p-7">
+              <h3 className="text-[26px] font-semibold leading-tight tracking-tight text-[#76003f]">
+                Need a guided rollout plan?
+              </h3>
+              <p className="mt-3 text-[16px] leading-relaxed text-slate-700">
+                We can help you define workspace setup, approval policy, and team onboarding steps.
+              </p>
+              <div className="mt-5 flex flex-wrap gap-2">
+                <span className="rounded-full border border-[#76003f]/20 bg-white px-3 py-1 text-sm text-[#76003f]">Workspace setup</span>
+                <span className="rounded-full border border-[#76003f]/20 bg-white px-3 py-1 text-sm text-[#76003f]">Role model</span>
+                <span className="rounded-full border border-[#76003f]/20 bg-white px-3 py-1 text-sm text-[#76003f]">Notification model</span>
+              </div>
+              <div className="mt-6">
+                <Button onClick={onOpenContact} className="rounded-full !bg-[#76003f] px-7 py-3 !text-white hover:!bg-[#640035]">
+                  Contact sales
+                </Button>
+              </div>
+              <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-3 md:mt-7 md:p-4">
+                <img
+                  src="/landing/rollout-plan.svg"
+                  alt="Illustration of workspace rollout plan"
+                  className="h-auto w-full rounded-xl"
+                  loading="lazy"
+                />
+              </div>
+            </article>
+          </div>
+        </section>
+
       </main>
 
       <footer className="border-t border-slate-300 bg-[#1b0a14] text-white">
@@ -178,7 +401,34 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onLogin, onOpen
           </div>
         </div>
       </footer>
+      <style>
+        {`
+          .landing-reveal {
+            animation: landingReveal 550ms ease both;
+          }
+
+          .landing-slide-shell {
+            animation: landingReveal 500ms ease both;
+          }
+
+          .landing-slide-track article {
+            backface-visibility: hidden;
+          }
+
+          @keyframes landingReveal {
+            from {
+              opacity: 0;
+              transform: translate3d(0, 8px, 0);
+            }
+            to {
+              opacity: 1;
+              transform: translate3d(0, 0, 0);
+            }
+          }
+        `}
+      </style>
     </div>
-);
+  );
+};
 
 export default LandingPage;

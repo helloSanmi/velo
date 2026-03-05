@@ -18,20 +18,20 @@ const plans = [
     name: 'Free',
     price: '$0',
     unit: 'per user / month',
-    features: ['Up to 3 licensed users', 'Boards, projects, roadmap', 'Core collaboration']
+    features: ['Up to 3 licensed users', 'Boards and projects', 'Core team collaboration']
   },
   {
     name: 'Basic',
     price: '$5',
     unit: 'per user / month',
-    features: ['Unlimited users', 'Analytics + integrations', 'Advanced filters and saved views'],
+    features: ['Unlimited users', 'Analytics and integrations', 'Saved filters and views'],
     highlighted: true
   },
   {
     name: 'Pro',
     price: '$7',
     unit: 'per user / month',
-    features: ['Everything in Basic', 'Workflow automation + approvals', 'AI copilot + governance']
+    features: ['Everything in Basic', 'Workflow automation and approvals', 'Full AI copilot']
   }
 ] as const;
 
@@ -53,19 +53,24 @@ const featureMatrix = [
   ['Priority support path', 'Standard', 'Standard', 'Priority']
 ] as const;
 
+const billingNotes = [
+  ['Transparent scaling', 'Seat based pricing with no hidden add-on requirements for core workflow usage.'],
+  ['Fast onboarding', 'Start with one project, then scale usage team by team as adoption grows.']
+] as const;
+
 const PricingPage: React.FC<PricingPageProps> = (props) => (
   <MarketingPageShell
     activeNav="pricing"
     heroEyebrow="Pricing"
-    heroTitle="Simple pricing, built for serious teams"
-    heroDescription="Start lightweight, scale when needed, and keep your delivery operations predictable at every stage."
+    heroTitle="Simple pricing for growing teams"
+    heroDescription="Start small, scale when needed, and keep project delivery controlled at every stage."
     heroAside={(
       <article className="rounded-2xl border border-white/20 bg-white/10 p-4 md:p-5">
-        <p className="text-sm font-medium text-white/80">Included in every plan</p>
+        <p className="text-sm font-medium text-white/80">Included in all plans</p>
         <ul className="mt-3 space-y-2 text-sm text-white/90">
           <li className="inline-flex items-center gap-2"><Check className="h-4 w-4" />Secure workspace access</li>
           <li className="inline-flex items-center gap-2"><Check className="h-4 w-4" />Role-based project visibility</li>
-          <li className="inline-flex items-center gap-2"><Check className="h-4 w-4" />Fast onboarding for teams</li>
+          <li className="inline-flex items-center gap-2"><Check className="h-4 w-4" />Fast team onboarding</li>
         </ul>
       </article>
     )}
@@ -78,11 +83,20 @@ const PricingPage: React.FC<PricingPageProps> = (props) => (
     onSignIn={props.onSignIn}
     onGetStarted={props.onGetStarted}
   >
+    <section className="grid gap-4 md:grid-cols-2">
+      {billingNotes.map(([title, text]) => (
+        <article key={title} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <p className="text-[19px] font-semibold text-slate-900">{title}</p>
+          <p className="mt-1.5 text-[14px] text-slate-600">{text}</p>
+        </article>
+      ))}
+    </section>
+
     <section className="grid gap-4 lg:grid-cols-3">
       {plans.map((plan) => (
         <article
           key={plan.name}
-          className={`rounded-3xl border bg-white p-6 ${plan.highlighted ? 'border-[#b57494] ring-1 ring-[#d8b9c8]' : 'border-slate-200'}`}
+          className={`rounded-3xl border bg-white p-6 shadow-sm ${plan.highlighted ? 'border-[#b57494] ring-1 ring-[#d8b9c8]' : 'border-slate-200'}`}
         >
           <div className="flex items-start justify-between gap-2">
             <p className="text-[22px] font-semibold tracking-tight text-slate-900">{plan.name}</p>
@@ -113,10 +127,25 @@ const PricingPage: React.FC<PricingPageProps> = (props) => (
       ))}
     </section>
 
-    <section className="rounded-3xl border border-slate-200 bg-white p-7 md:p-8">
+    <section className="grid gap-4 md:grid-cols-3">
+      <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <p className="text-[19px] font-semibold text-slate-900">As your team grows</p>
+        <p className="mt-1.5 text-[14px] text-slate-600">Add users, projects, and workflows without changing tools.</p>
+      </article>
+      <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <p className="text-[19px] font-semibold text-slate-900">As governance grows</p>
+        <p className="mt-1.5 text-[14px] text-slate-600">Use approvals, history, and role controls for stronger operations.</p>
+      </article>
+      <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <p className="text-[19px] font-semibold text-slate-900">As reporting grows</p>
+        <p className="mt-1.5 text-[14px] text-slate-600">Use analytics and AI insights to track risk and team performance.</p>
+      </article>
+    </section>
+
+    <section className="rounded-3xl border border-slate-200 bg-white p-7 md:p-8 shadow-sm">
       <div className="flex items-end justify-between gap-3">
         <h2 className="text-[26px] font-semibold tracking-tight text-slate-900">Complete feature matrix</h2>
-        <p className="text-sm text-slate-500">Everything included per license tier</p>
+        <p className="text-sm text-slate-500">Included by plan</p>
       </div>
       <div className="mt-4 overflow-x-auto">
         <table className="min-w-full text-left text-sm">
@@ -142,11 +171,11 @@ const PricingPage: React.FC<PricingPageProps> = (props) => (
       </div>
     </section>
 
-    <section className="rounded-3xl bg-[#f0dce3] p-6 md:p-7">
+    <section className="rounded-3xl bg-[#f0dce3] p-6 md:p-7 shadow-sm">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
           <h2 className="text-[28px] font-semibold tracking-tight text-[#76003f]">Need enterprise pricing?</h2>
-          <p className="mt-1 text-[16px] text-[#76003f]/85">For large rollout, procurement, or governance requirements, talk to our team.</p>
+          <p className="mt-1 text-[16px] text-[#76003f]/85">If you need a larger rollout plan, we can help with pricing and onboarding.</p>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" onClick={props.onOpenSupport} className="border-[#76003f]/35 !text-[#76003f] hover:bg-[#f6ecf1]">Talk to support</Button>
