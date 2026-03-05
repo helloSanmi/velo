@@ -69,7 +69,9 @@ export const importOrgUsers = async (input: {
         mustChangePassword: false,
         passwordHash: await bcrypt.hash(createId('pwd'), 10),
         microsoftSubject: externalId || null,
-        avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(username)}`
+        avatar:
+          candidate.avatar?.trim() ||
+          `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(username)}`
       },
       select: { id: true, email: true, displayName: true }
     });
@@ -99,4 +101,3 @@ export const importOrgUsers = async (input: {
     seats: { used: seatUsed, total: seatLimit, limited: isSeatLimitedPlan(org.plan) }
   };
 };
-

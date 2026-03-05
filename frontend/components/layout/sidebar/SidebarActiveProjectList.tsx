@@ -1,6 +1,6 @@
 import React from 'react';
 import { Globe, MoreHorizontal } from 'lucide-react';
-import { MainViewType, Project } from '../../../types';
+import { MainViewType, Project, User } from '../../../types';
 import { getUserFullName } from '../../../utils/userDisplay';
 
 interface SidebarActiveProjectListProps {
@@ -65,14 +65,15 @@ const SidebarActiveProjectList: React.FC<SidebarActiveProjectListProps> = ({
                     onViewChange('board');
                     if (window.innerWidth < 1024) onCloseSidebar();
                   }}
-                  className="flex-1 min-w-0 flex items-center gap-2.5 text-left"
+                  title={project.name}
+                  className="flex-1 min-w-0 flex items-center gap-2.5 text-left overflow-hidden"
                 >
                   <div
                     className={`w-3 h-3 rounded-full ${project.color} shrink-0 ${
                       isLiveProject ? 'active-node ring-1 ring-slate-400/30 ring-offset-0' : ''
                     }`}
                   />
-                  <span className="truncate tracking-tight text-sm">{project.name}</span>
+                  <span title={project.name} className="truncate tracking-tight text-sm">{project.name}</span>
                 </button>
                 <div className="shrink-0 inline-flex items-center gap-1.5 pl-1">
                   {project.isPublic ? (

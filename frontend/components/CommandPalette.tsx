@@ -63,9 +63,10 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({
                     onSelectTask(task);
                     onClose();
                   }}
+                  title={task.title}
                   className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-slate-100 flex items-center justify-between"
                 >
-                  <span className="text-sm text-slate-800 truncate">{task.title}</span>
+                  <span title={task.title} className="text-sm text-slate-800 truncate">{task.title}</span>
                   <ArrowRight className="w-4 h-4 text-slate-400" />
                 </button>
               ))}
@@ -83,9 +84,10 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({
                     onSelectProject(project.id);
                     onClose();
                   }}
+                  title={project.name}
                   className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-slate-100 flex items-center justify-between"
                 >
-                  <span className="text-sm text-slate-800 truncate">{project.name}</span>
+                  <span title={project.name} className="text-sm text-slate-800 truncate">{project.name}</span>
                   <ArrowRight className="w-4 h-4 text-slate-400" />
                 </button>
               ))}

@@ -1,6 +1,7 @@
 import React from 'react';
 import { ListOrdered, Loader2, Settings2, Sparkles, X } from 'lucide-react';
 import { KanbanHeaderProps } from '../types';
+import DueDateRangeControl from '../../filter-bar/DueDateRangeControl';
 
 type KanbanActionButtonsProps = Pick<
   KanbanHeaderProps,
@@ -17,6 +18,10 @@ type KanbanActionButtonsProps = Pick<
   | 'onChecklistDensityChange'
   | 'selectedTaskIds'
   | 'onClearSelected'
+  | 'dueFrom'
+  | 'dueTo'
+  | 'setDueFrom'
+  | 'setDueTo'
 >;
 
 const KanbanActionButtons: React.FC<KanbanActionButtonsProps> = ({
@@ -32,7 +37,11 @@ const KanbanActionButtons: React.FC<KanbanActionButtonsProps> = ({
   checklistDensity,
   onChecklistDensityChange,
   selectedTaskIds,
-  onClearSelected
+  onClearSelected,
+  dueFrom,
+  dueTo,
+  setDueFrom,
+  setDueTo
 }) => (
   <>
     <div className="inline-flex flex-wrap items-center gap-2">
@@ -64,6 +73,14 @@ const KanbanActionButtons: React.FC<KanbanActionButtonsProps> = ({
           Stages
         </button>
       ) : null}
+      <div className="shrink-0">
+        <DueDateRangeControl
+          dueFrom={dueFrom}
+          dueTo={dueTo}
+          onDueFromChange={setDueFrom}
+          onDueToChange={setDueTo}
+        />
+      </div>
       {boardView === 'checklist' ? (
         <div className="inline-flex items-center rounded-md border border-slate-200 bg-white p-0.5 shrink-0">
           <button

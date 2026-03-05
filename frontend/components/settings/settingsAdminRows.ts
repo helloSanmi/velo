@@ -7,6 +7,7 @@ export type DirectoryEntry = {
   provider: 'microsoft';
   firstName?: string;
   lastName?: string;
+  avatar?: string;
 };
 
 export type SettingsAdminRow =

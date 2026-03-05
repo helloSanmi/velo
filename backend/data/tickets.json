@@ -115,13 +115,29 @@
     "requesterName": "Global Admin",
     "requesterEmail": "adm@techanalytics.org",
     "requesterUserId": "usr_777fef5a-4137-49ce-9a7c-cd5c0df3e474",
-    "assigneeId": "usr_15a711f2-969c-44c8-8b8b-0f4857b6283d",
-    "status": "triaged",
+    "status": "in-progress",
     "priority": "medium",
     "tags": [],
     "source": "workspace",
-    "comments": [],
+    "comments": [
+      {
+        "id": "cmt_c1bc2de0-5daa-4618-97b7-e0bc4cff5bd6",
+        "userId": "usr_2688e1f0-b64e-4f4b-b5bf-16a13300fa72",
+        "userName": "Adele Vance",
+        "text": "Replying this to see how it looks",
+        "createdAt": 1772716935524
+      },
+      {
+        "id": "cmt_201c7705-28bd-4763-a857-3601ea41bf71",
+        "userId": "usr_2688e1f0-b64e-4f4b-b5bf-16a13300fa72",
+        "userName": "Adele Vance",
+        "text": "How are we doing on this one",
+        "createdAt": 1772716954126
+      }
+    ],
     "createdAt": 1772403604168,
-    "updatedAt": 1772403604168
+    "updatedAt": 1772716954127,
+    "startedAt": 1772716980000,
+    "firstResponseAt": 1772716935249
   }
 ]

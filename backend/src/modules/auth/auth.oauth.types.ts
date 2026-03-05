@@ -41,6 +41,7 @@ export type DirectoryUser = {
   displayName: string;
   firstName?: string;
   lastName?: string;
+  avatar?: string;
 };
 
 export type CallbackInput = {

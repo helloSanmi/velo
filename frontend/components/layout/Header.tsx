@@ -1,9 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Cloud, Menu, Plus, RotateCcw } from 'lucide-react';
+import { Cloud, Menu, Plus, RefreshCw } from 'lucide-react';
 import Button from '../ui/Button';
-import { taskService } from '../../services/taskService';
 import { notificationService, Notification } from '../../services/notificationService';
-import { dialogService } from '../../services/dialogService';
 import HeaderNotificationsMenu from './header/HeaderNotificationsMenu';
 import HeaderProfileMenu from './header/HeaderProfileMenu';
 import { HeaderProps } from './header/types';
@@ -12,7 +10,6 @@ const Header: React.FC<HeaderProps> = ({
   user,
   onLogout,
   onNewTask,
-  onReset,
   onRefreshData,
   onToggleSidebar,
   onOpenProfile,
@@ -91,16 +88,11 @@ const Header: React.FC<HeaderProps> = ({
 
           <div className="hidden sm:flex items-center border-r border-slate-200 pr-3 gap-1.5">
             <button
-              onClick={async () => {
-                const confirmed = await dialogService.confirm('Reset all demo data?', { title: 'Reset workspace', confirmText: 'Reset', danger: true });
-                if (!confirmed) return;
-                taskService.clearData();
-                onReset();
-              }}
+              onClick={onRefreshData}
               className="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-md transition-all"
-              title="Reset System"
+              title="Refresh data"
             >
-              <RotateCcw className="w-3.5 h-3.5" />
+              <RefreshCw className="w-3.5 h-3.5" />
             </button>
           </div>
 

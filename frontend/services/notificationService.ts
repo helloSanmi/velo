@@ -45,7 +45,15 @@ const safeRead = (): Notification[] => {
   try {
     const data = localStorage.getItem(NOTIFICATIONS_KEY);
     const all: Notification[] = data ? JSON.parse(data) : [];
-    return Array.isArray(all) ? all : [];
+    if (!Array.isArray(all)) return [];
+    let changed = false;
+    const normalized = all.map((item) => {
+      const next = normalizeLegacyNotification(item);
+      if (next !== item) changed = true;
+      return next;
+    });
+    if (changed) safeWrite(normalized);
+    return normalized;
   } catch {
     return [];
   }
@@ -79,6 +87,30 @@ const inferCategory = (notification: Omit<Notification, 'id' | 'read' | 'timesta
   if (text.includes('comment')) return 'comment';
   if (text.includes('completed')) return 'completed';
   return 'system';
+};
+
+const normalizeLegacyNotification = (item: Notification): Notification => {
+  let title = item.title;
+  let message = item.message;
+
+  if (title === 'Node Provisioned') {
+    title = 'Task assigned';
+    if (message.startsWith('Assigned: ')) {
+      const taskName = message.replace(/^Assigned:\s*/i, '').trim();
+      message = taskName ? `You were assigned to "${taskName}".` : 'You were assigned to a task.';
+    }
+  } else if (title === 'Node Recalibrated') {
+    title = 'Task assignment updated';
+    if (message.startsWith('Assigned: ')) {
+      const taskName = message.replace(/^Assigned:\s*/i, '').trim();
+      message = taskName ? `Assignment changed for "${taskName}".` : 'Task assignment was updated.';
+    }
+  } else if (title === 'Velo Transmission') {
+    title = BUNDLED_TITLE;
+  }
+
+  if (title === item.title && message === item.message) return item;
+  return { ...item, title, message };
 };
 
 const isProjectCompletionAction = (notification: Omit<Notification, 'id' | 'read' | 'timestamp'>) => {

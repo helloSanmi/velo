@@ -5,7 +5,6 @@ export interface HeaderProps {
   user: UserType;
   onLogout: () => void;
   onNewTask: () => void;
-  onReset: () => void;
   onRefreshData: () => void;
   onToggleSidebar: () => void;
   onOpenProfile: () => void;

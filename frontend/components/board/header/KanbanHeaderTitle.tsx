@@ -49,7 +49,12 @@ const KanbanHeaderTitle: React.FC<KanbanHeaderTitleProps> = ({
 
   return (
     <div className="min-w-0">
-      <h2 className="pt-0.5 text-xl md:text-[26px] leading-tight font-semibold tracking-tight text-slate-900 truncate">{projectName}</h2>
+      <h2
+        title={projectName}
+        className="pt-0.5 text-base md:text-[1.55rem] leading-tight font-semibold tracking-tight text-slate-900 truncate"
+      >
+        {projectName}
+      </h2>
       {showOwner && isCompletionPostponed ? (
         <div className="mt-1 inline-flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-2 py-1">
           <span className="text-[11px] font-medium text-amber-800">Completion postponed</span>

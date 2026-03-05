@@ -107,8 +107,8 @@ export const createTaskMutation = (
     notificationService.addNotification({
       orgId,
       userId: assigneeId,
-      title: 'Node Provisioned',
-      message: `Assigned: ${title}`,
+      title: 'Task assigned',
+      message: `You were assigned to "${title}".`,
       type: 'ASSIGNMENT',
       category: 'assigned',
       urgent: priority === TaskPriority.HIGH,
@@ -237,8 +237,8 @@ export const updateTaskMutation = (
       notificationService.addNotification({
         orgId,
         userId: notifyUserId,
-        title: 'Node Recalibrated',
-        message: `Assigned: ${notifyTaskTitle}`,
+        title: 'Task assigned',
+        message: `You were assigned to "${notifyTaskTitle}".`,
         type: 'ASSIGNMENT',
         category: 'assigned',
         urgent: updatedTask?.priority === TaskPriority.HIGH,
@@ -251,8 +251,8 @@ export const updateTaskMutation = (
       notificationService.addNotification({
         orgId,
         userId: notifyUserId,
-        title: 'Assignment updated',
-        message: `Unassigned: ${notifyTaskTitle}`,
+        title: 'Task unassigned',
+        message: `You were unassigned from "${notifyTaskTitle}".`,
         type: 'SYSTEM',
         category: 'assigned',
         urgent: false,
@@ -372,8 +372,8 @@ export const addCommentMutation = (
         notificationService.addNotification({
           orgId,
           userId: assigneeId,
-          title: 'Velo Transmission',
-          message: `${actorDisplayName} commented on "${task.title}"`,
+          title: 'New comment',
+          message: `${actorDisplayName} commented on "${task.title}".`,
           type: 'SYSTEM',
           category: 'comment',
           mentionFromLead,

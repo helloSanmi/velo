@@ -32,7 +32,7 @@ const TaskDetailTabs: React.FC<TaskDetailTabsProps> = ({ task, activeTab, setAct
             }`}
           >
             {tab.icon}
-            <span className="truncate">{tab.label}</span>
+            <span className="truncate" title={tab.label}>{tab.label}</span>
             {tab.count && (
               <span className={`text-[10px] px-1.5 py-0.5 rounded-md ${activeTab === tab.id ? 'bg-white/15 text-white' : 'bg-white text-slate-500 border border-slate-200'}`}>
                 {tab.count}

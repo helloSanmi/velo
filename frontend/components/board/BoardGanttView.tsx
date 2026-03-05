@@ -34,7 +34,7 @@ const BoardGanttView: React.FC<BoardGanttViewProps> = ({
   return (
     <main className={`flex-1 min-h-0 overflow-y-auto ${BOARD_OUTER_WRAP_CLASS} pb-4 md:pb-8`}>
       <div className={`${BOARD_INNER_WRAP_CLASS} h-full`}>
-        <div className="rounded-xl border border-slate-200 bg-white overflow-hidden h-full">
+        <div className="rounded-xl border border-slate-200 bg-white overflow-hidden h-full min-h-0 flex flex-col">
           <GanttTopPanels
             tasksCount={gantt.tasks.length}
             dependencyView={gantt.dependencyView}

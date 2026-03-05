@@ -50,13 +50,14 @@ const SettingsProjectsOverview: React.FC<SettingsProjectsOverviewProps> = ({
               <button
                 key={project.id}
                 onClick={() => onSelectProject(project.id)}
+                title={project.name}
                 className={`w-full rounded-lg border p-2.5 text-left transition-colors ${
                   focusedProjectId === project.id ? 'border-slate-900 bg-slate-100 shadow-sm' : 'border-slate-200 bg-white hover:bg-slate-50'
                 }`}
               >
                 <div className="flex items-center gap-2">
                   <div className={`h-2.5 w-2.5 shrink-0 rounded-full ${project.color}`} />
-                  <p className="truncate text-sm font-medium text-slate-900">{project.name}</p>
+                  <p title={project.name} className="truncate text-sm font-medium text-slate-900">{project.name}</p>
                 </div>
               </button>
             ))

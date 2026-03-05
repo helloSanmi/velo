@@ -7,6 +7,7 @@ import { FilterBarSelectOptions } from './filterOptions';
 interface FilterBarControlsProps {
   controlClass: string;
   showProjectFilter?: boolean;
+  showDueRange?: boolean;
   dueFrom?: number;
   dueTo?: number;
   projectFilter: string | 'All';
@@ -31,6 +32,7 @@ interface FilterBarControlsProps {
 const FilterBarControls: React.FC<FilterBarControlsProps> = ({
   controlClass,
   showProjectFilter = true,
+  showDueRange = true,
   dueFrom,
   dueTo,
   projectFilter,
@@ -99,14 +101,16 @@ const FilterBarControls: React.FC<FilterBarControlsProps> = ({
       />
       Unscheduled
     </label>
-    <div className="min-w-[180px] max-w-full xl:min-w-[190px]">
-      <DueDateRangeControl
-        dueFrom={dueFrom}
-        dueTo={dueTo}
-        onDueFromChange={onDueFromChange}
-        onDueToChange={onDueToChange}
-      />
-    </div>
+    {showDueRange ? (
+      <div className="min-w-[180px] max-w-full xl:min-w-[190px]">
+        <DueDateRangeControl
+          dueFrom={dueFrom}
+          dueTo={dueTo}
+          onDueFromChange={onDueFromChange}
+          onDueToChange={onDueToChange}
+        />
+      </div>
+    ) : null}
   </>
 );
 

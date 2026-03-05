@@ -78,7 +78,8 @@ export const useSettingsAdminTabController = ({
         email: row.entry.email,
         displayName: row.entry.displayName,
         firstName: row.entry.firstName,
-        lastName: row.entry.lastName
+        lastName: row.entry.lastName,
+        avatar: row.entry.avatar
       }
     ]);
     if (!result.success) {

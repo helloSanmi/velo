@@ -81,7 +81,10 @@ const TaskDetailSubtasksTab: React.FC<TaskDetailSubtasksTabProps> = ({
                 >
                   {subtask.isCompleted ? <Check className="w-3.5 h-3.5" /> : <CheckSquare className="w-3.5 h-3.5" />}
                 </button>
-                <p className={`text-sm flex-1 min-w-0 truncate ${subtask.isCompleted ? 'text-slate-400 line-through' : 'text-slate-800'}`}>
+                <p
+                  className={`text-sm flex-1 min-w-0 truncate ${subtask.isCompleted ? 'text-slate-400 line-through' : 'text-slate-800'}`}
+                  title={subtask.title}
+                >
                   {subtask.title}
                 </p>
                 <button

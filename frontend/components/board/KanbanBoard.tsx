@@ -68,14 +68,14 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
   return (
     <main className={`flex-1 min-h-0 overflow-y-auto ${BOARD_OUTER_WRAP_CLASS} pb-4 md:pb-8`}>
       <div className={`${singleColumn ? 'max-w-[840px] mx-auto' : BOARD_INNER_WRAP_CLASS} h-full`}>
-        <div className={`px-1 h-full ${singleColumn || shouldStretchColumns ? '' : 'md:overflow-x-auto md:custom-scrollbar md:pb-2'}`}>
+        <div className={`px-1 h-full ${singleColumn ? '' : 'overflow-x-auto custom-scrollbar pb-2'}`}>
           <div
             className={`${
               singleColumn
                 ? 'grid grid-cols-1 h-full'
                 : shouldStretchColumns
-                  ? `grid grid-cols-1 ${stretchGridClass} gap-3 md:gap-4 h-full`
-                  : 'grid grid-cols-1 gap-3 md:flex md:gap-4 h-full md:min-w-max md:pr-2 md:snap-x md:snap-mandatory'
+                  ? `flex gap-3 h-full min-w-max pr-2 snap-x snap-mandatory md:grid md:min-w-0 ${stretchGridClass} md:gap-4`
+                  : 'flex gap-3 h-full min-w-max pr-2 snap-x snap-mandatory md:gap-4'
             }`}
           >
           {visibleColumns.map((col) => (
@@ -105,7 +105,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
                   singleColumn
                     ? ''
                     : shouldStretchColumns
-                      ? 'w-full min-w-0'
+                      ? 'w-[300px] sm:w-[320px] flex-shrink-0 snap-start md:w-full md:min-w-0'
                       : BOARD_SCROLL_COLUMN_WIDTH_CLASS
                 }
               />

@@ -1,10 +1,12 @@
 import React, { useMemo, useState } from 'react';
 import { MainViewType, Project, User } from '../../../types';
+import { ClipboardList, LayoutGrid } from 'lucide-react';
 import SidebarWorkspaceNav from './SidebarWorkspaceNav';
 import SidebarProjectListToggle from './SidebarProjectListToggle';
 import SidebarProjectActionsMenu from './SidebarProjectActionsMenu';
 import SidebarProjectEditModal from './SidebarProjectEditModal';
 import SidebarActiveProjectList from './SidebarActiveProjectList';
+import SidebarNavButton from './SidebarNavButton';
 import { useSidebarProjectMenu } from './hooks/useSidebarProjectMenu';
 import { useSidebarProjectEditor } from './hooks/useSidebarProjectEditor';
 
@@ -140,6 +142,9 @@ const SidebarProjectList: React.FC<SidebarProjectListProps> = ({
           {showAllProjects ? `Show fewer (${cappedProjectCount})` : `Show all (${activeProjects.length})`}
         </button>
       )}
+
+      <SidebarNavButton active={currentView === 'tickets'} onClick={() => navigateTo('tickets')} icon={ClipboardList} label="Tickets" />
+      <SidebarNavButton active={currentView === 'templates'} onClick={() => navigateTo('templates')} icon={LayoutGrid} label="Templates" />
 
       {menuProjectId && menuPosition && activeMenuProject && canManageProject(activeMenuProject) && (
         <div ref={menuRef}>

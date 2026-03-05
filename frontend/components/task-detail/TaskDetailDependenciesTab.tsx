@@ -46,7 +46,12 @@ const TaskDetailDependenciesTab: React.FC<TaskDetailDependenciesTabProps> = ({
           {isSelected ? <Lock className="w-4 h-4" /> : <Link2 className="w-4 h-4" />}
         </div>
         <div className="min-w-0">
-          <p className={`text-sm font-semibold truncate ${isSelected ? 'text-rose-900' : 'text-slate-900'}`}>{dep.title}</p>
+          <p
+            className={`text-sm font-semibold truncate ${isSelected ? 'text-rose-900' : 'text-slate-900'}`}
+            title={dep.title}
+          >
+            {dep.title}
+          </p>
           <div className="mt-1 flex items-center gap-1.5">
             <span className="px-2 py-0.5 rounded-md text-[10px] font-medium uppercase tracking-wide bg-slate-100 text-slate-600 border border-slate-200">
               {dep.status.replace('-', ' ')}

@@ -1,5 +1,5 @@
 import React from 'react';
-import { ClipboardList, LayoutDashboard, LayoutGrid, Plus } from 'lucide-react';
+import { LayoutDashboard, LayoutGrid, Plus } from 'lucide-react';
 import { MainViewType } from '../../../types';
 import SidebarNavButton from './SidebarNavButton';
 
@@ -43,9 +43,6 @@ const SidebarWorkspaceNav: React.FC<SidebarWorkspaceNavProps> = ({
           <Plus className="w-3.5 h-3.5" />
         </button>
       </div>
-
-      <SidebarNavButton active={currentView === 'tickets'} onClick={() => navigateTo('tickets')} icon={ClipboardList} label="Tickets" />
-      <SidebarNavButton active={currentView === 'templates'} onClick={() => navigateTo('templates')} icon={LayoutGrid} label="Templates" />
     </>
   );
 };

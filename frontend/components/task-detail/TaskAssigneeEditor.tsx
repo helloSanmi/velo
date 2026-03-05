@@ -68,7 +68,10 @@ const TaskAssigneeEditor: React.FC<TaskAssigneeEditorProps> = ({ allUsers, assig
               >
                 {initialsFor(getUserFullName(assignee))}
               </div>
-              <span className="pointer-events-none absolute left-1/2 top-full mt-1 -translate-x-1/2 max-w-[220px] truncate rounded-md bg-slate-900 text-white text-[10px] px-1.5 py-0.5 opacity-0 group-hover/assignee-chip:opacity-100 transition-opacity z-[160]">
+              <span
+                className="pointer-events-none absolute left-1/2 top-full mt-1 -translate-x-1/2 max-w-[220px] truncate rounded-md bg-slate-900 text-white text-[10px] px-1.5 py-0.5 opacity-0 group-hover/assignee-chip:opacity-100 transition-opacity z-[160]"
+                title={getUserFullName(assignee)}
+              >
                 {getUserFullName(assignee)}
               </span>
               {canManageTask ? (
@@ -129,7 +132,7 @@ const TaskAssigneeEditor: React.FC<TaskAssigneeEditorProps> = ({ allUsers, assig
                   onClick={() => addAssignee(user.id)}
                   className="w-full h-8 px-2.5 rounded-md text-left text-xs text-slate-700 bg-slate-50 hover:bg-slate-100 inline-flex items-center justify-between gap-2"
                 >
-                  <span className="truncate">{user.displayName}</span>
+                  <span className="truncate" title={user.displayName}>{user.displayName}</span>
                   <span className="text-[10px] text-slate-500">{user.role || 'member'}</span>
                 </button>
               ))

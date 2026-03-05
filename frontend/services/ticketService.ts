@@ -2,78 +2,37 @@ import {
   IntakeTicket,
   IntakeTicketPriority,
   IntakeTicketStatus,
-  NotificationSetupGuide,
-  NotificationSenderPreflightResult,
-  TicketNotificationPolicy,
-  TicketPolicy
 } from '../types';
 import { createId } from '../utils/id';
 import { apiRequest } from './apiClient';
-
-const TICKETS_KEY = 'velo_intake_tickets';
-
-const readAll = (): IntakeTicket[] => {
-  try {
-    const parsed = JSON.parse(localStorage.getItem(TICKETS_KEY) || '[]');
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-};
-
-const writeAll = (rows: IntakeTicket[]): void => {
-  localStorage.setItem(TICKETS_KEY, JSON.stringify(rows));
-};
+import { readAllTickets, writeAllTickets } from './ticket-service/store';
+import {
+  getTicketNotificationPolicy,
+  getTicketNotificationSetupGuide,
+  getTicketPolicy,
+  runTicketNotificationSenderPreflight,
+  updateTicketNotificationPolicy,
+  updateTicketPolicy
+} from './ticket-service/policy';
 
 export const ticketService = {
-  async getPolicy(orgId: string, projectId?: string): Promise<TicketPolicy> {
-    const query = projectId ? `?projectId=${encodeURIComponent(projectId)}` : '';
-    return apiRequest<TicketPolicy>(`/orgs/${orgId}/tickets/policy${query}`);
-  },
+  getPolicy: getTicketPolicy,
 
-  async updatePolicy(
-    orgId: string,
-    patch: {
-      projectId?: string;
-      assignmentMode: TicketPolicy['assignmentMode'];
-      assigneePoolIds: string[];
-      slaHours: TicketPolicy['slaHours'];
-      roundRobinCursor?: number;
-    }
-  ): Promise<TicketPolicy> {
-    return apiRequest<TicketPolicy>(`/orgs/${orgId}/tickets/policy`, { method: 'PATCH', body: patch });
-  },
+  updatePolicy: updateTicketPolicy,
 
-  async getNotificationPolicy(orgId: string): Promise<TicketNotificationPolicy> {
-    return apiRequest<TicketNotificationPolicy>(`/orgs/${orgId}/tickets/notifications/policy`);
-  },
+  getNotificationPolicy: getTicketNotificationPolicy,
 
-  async updateNotificationPolicy(
-    orgId: string,
-    patch: Partial<Omit<TicketNotificationPolicy, 'orgId' | 'updatedAt'>>
-  ): Promise<TicketNotificationPolicy> {
-    return apiRequest<TicketNotificationPolicy>(`/orgs/${orgId}/tickets/notifications/policy`, { method: 'PATCH', body: patch });
-  },
+  updateNotificationPolicy: updateTicketNotificationPolicy,
 
-  async runNotificationSenderPreflight(
-    orgId: string,
-    input?: { testRecipientEmail?: string }
-  ): Promise<NotificationSenderPreflightResult> {
-    return apiRequest<NotificationSenderPreflightResult>(`/orgs/${orgId}/tickets/notifications/preflight`, {
-      method: 'POST',
-      body: input || {}
-    });
-  },
+  runNotificationSenderPreflight: runTicketNotificationSenderPreflight,
 
-  async getNotificationSetupGuide(orgId: string): Promise<NotificationSetupGuide> {
-    return apiRequest<NotificationSetupGuide>(`/orgs/${orgId}/tickets/notifications/setup-script`);
-  },
+  getNotificationSetupGuide: getTicketNotificationSetupGuide,
 
   async getTickets(orgId: string): Promise<IntakeTicket[]> {
-    const local = readAll().filter((row) => row.orgId === orgId);
+    const local = readAllTickets().filter((row) => row.orgId === orgId);
     try {
       const remote = await apiRequest<IntakeTicket[]>(`/orgs/${orgId}/tickets`);
-      writeAll([...readAll().filter((row) => row.orgId !== orgId), ...remote]);
+      writeAllTickets([...readAllTickets().filter((row) => row.orgId !== orgId), ...remote]);
       return remote;
     } catch {
       return local.sort((a, b) => b.updatedAt - a.updatedAt);
@@ -98,7 +57,7 @@ export const ticketService = {
   ): Promise<IntakeTicket> {
     try {
       const created = await apiRequest<IntakeTicket>(`/orgs/${orgId}/tickets`, { method: 'POST', body: payload });
-      writeAll([...readAll().filter((row) => !(row.orgId === orgId && row.id === created.id)), created]);
+      writeAllTickets([...readAllTickets().filter((row) => !(row.orgId === orgId && row.id === created.id)), created]);
       return created;
     } catch {
       const now = Date.now();
@@ -119,7 +78,7 @@ export const ticketService = {
         projectId: payload.projectId,
         assigneeId: payload.assigneeId === null ? undefined : payload.assigneeId
       };
-      writeAll([...readAll(), local]);
+      writeAllTickets([...readAllTickets(), local]);
       return local;
     }
   },
@@ -142,10 +101,10 @@ export const ticketService = {
   ): Promise<IntakeTicket | null> {
     try {
       const updated = await apiRequest<IntakeTicket>(`/orgs/${orgId}/tickets/${ticketId}`, { method: 'PATCH', body: patch });
-      writeAll(readAll().map((row) => (row.orgId === orgId && row.id === ticketId ? updated : row)));
+      writeAllTickets(readAllTickets().map((row) => (row.orgId === orgId && row.id === ticketId ? updated : row)));
       return updated;
     } catch {
-      const rows = readAll();
+      const rows = readAllTickets();
       const next = rows.map((row) => {
         if (!(row.orgId === orgId && row.id === ticketId)) return row;
         return {
@@ -156,7 +115,7 @@ export const ticketService = {
           updatedAt: Date.now()
         } as IntakeTicket;
       });
-      writeAll(next);
+      writeAllTickets(next);
       return next.find((row) => row.orgId === orgId && row.id === ticketId) || null;
     }
   },
@@ -174,10 +133,10 @@ export const ticketService = {
         method: 'POST',
         body: payload
       });
-      writeAll(readAll().map((row) => (row.orgId === orgId && row.id === ticketId ? converted.ticket : row)));
+      writeAllTickets(readAllTickets().map((row) => (row.orgId === orgId && row.id === ticketId ? converted.ticket : row)));
       return converted;
     } catch {
-      const rows = readAll();
+      const rows = readAllTickets();
       const current = rows.find((row) => row.orgId === orgId && row.id === ticketId);
       if (!current) return null;
       const updated: IntakeTicket = {
@@ -188,7 +147,7 @@ export const ticketService = {
         convertedAt: Date.now(),
         updatedAt: Date.now()
       };
-      writeAll(rows.map((row) => (row.orgId === orgId && row.id === ticketId ? updated : row)));
+      writeAllTickets(rows.map((row) => (row.orgId === orgId && row.id === ticketId ? updated : row)));
       return { ticket: updated, taskId: updated.convertedTaskId || '' };
     }
   },
@@ -199,10 +158,10 @@ export const ticketService = {
         method: 'POST',
         body: { text }
       });
-      writeAll(readAll().map((row) => (row.orgId === orgId && row.id === ticketId ? updated : row)));
+      writeAllTickets(readAllTickets().map((row) => (row.orgId === orgId && row.id === ticketId ? updated : row)));
       return updated;
     } catch {
-      return readAll().find((row) => row.orgId === orgId && row.id === ticketId) || null;
+      return readAllTickets().find((row) => row.orgId === orgId && row.id === ticketId) || null;
     }
   },
 
@@ -212,6 +171,6 @@ export const ticketService = {
     } catch {
       // noop fallback path below
     }
-    writeAll(readAll().filter((row) => !(row.orgId === orgId && row.id === ticketId)));
+    writeAllTickets(readAllTickets().filter((row) => !(row.orgId === orgId && row.id === ticketId)));
   }
 };

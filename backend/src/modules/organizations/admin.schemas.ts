@@ -39,7 +39,8 @@ export const importUsersSchema = z.object({
         email: z.string().email(),
         displayName: z.string().min(1),
         firstName: z.string().optional(),
-        lastName: z.string().optional()
+        lastName: z.string().optional(),
+        avatar: z.string().optional()
       })
     )
     .min(1)
@@ -49,4 +50,3 @@ export const importUsersSchema = z.object({
 export type ProvisionUserInput = z.infer<typeof provisionUserSchema>;
 export type UpdateUserInput = z.infer<typeof updateUserSchema>;
 export type ImportUsersInput = z.infer<typeof importUsersSchema>;
-

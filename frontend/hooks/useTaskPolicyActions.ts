@@ -257,7 +257,7 @@ export const useTaskPolicyActions = ({
     if ((targetStatus === doneStageIdForPermission || task.status === doneStageIdForPermission) && !ensureTaskPermission(taskId, 'complete')) return;
     if (!ensureDueDateBeforeDone(task, targetStatus)) return;
     if (requiresApproval(task, targetStatus)) {
-      dialogService.notice('This high-priority task requires admin approval before moving to Done.', { title: 'Approval required' });
+      dialogService.notice('This high-priority task requires approval before moving to Done.', { title: 'Approval required' });
       return;
     }
     if (requiresEstimateApproval(task, targetStatus)) {
@@ -308,7 +308,7 @@ export const useTaskPolicyActions = ({
     if ((targetStatus === doneStageIdForPermission || task.status === doneStageIdForPermission) && !ensureTaskPermission(taskId, 'complete')) return;
     if (!ensureDueDateBeforeDone(task, targetStatus)) return;
     if (requiresApproval(task, targetStatus)) {
-      dialogService.notice('This high-priority task requires admin approval before moving to Done.', { title: 'Approval required' });
+      dialogService.notice('This high-priority task requires approval before moving to Done.', { title: 'Approval required' });
       return;
     }
     if (requiresEstimateApproval(task, targetStatus)) {

@@ -1,4 +1,5 @@
 import { HttpError } from '../../lib/httpError.js';
+import { Buffer } from 'node:buffer';
 import type { Provider } from './auth.oauth.types.js';
 import {
   MICROSOFT_TOKEN_URL,
@@ -48,7 +49,25 @@ const fetchProfile = async (provider: Provider, accessToken: string) => {
   });
   if (!profileResponse.ok) throw new HttpError(401, 'Microsoft profile fetch failed.');
   const rawProfile = await profileResponse.json();
-  return parseProviderProfile(provider, rawProfile);
+  const profile = parseProviderProfile(provider, rawProfile);
+
+  // Best-effort avatar pull from Microsoft Graph. If photo is unavailable, keep fallback avatar behavior.
+  try {
+    const photoResponse = await fetch('https://graph.microsoft.com/v1.0/me/photo/$value', {
+      headers: { Authorization: `Bearer ${accessToken}` }
+    });
+    if (photoResponse.ok) {
+      const contentType = photoResponse.headers.get('content-type') || 'image/jpeg';
+      const bytes = Buffer.from(await photoResponse.arrayBuffer());
+      if (bytes.length > 0) {
+        profile.avatar = `data:${contentType};base64,${bytes.toString('base64')}`;
+      }
+    }
+  } catch {
+    // Ignore photo fetch failures; sign-in should not fail on missing avatar.
+  }
+
+  return profile;
 };
 
 export const completeOauthCallback = async (input: {

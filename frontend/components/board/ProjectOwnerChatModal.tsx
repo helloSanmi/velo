@@ -58,6 +58,39 @@ const ProjectOwnerChatModal: React.FC<ProjectOwnerChatModalProps> = ({
     return `Chat with ${ownerName}`;
   }, [owner?.displayName]);
 
+  const formatDayHeading = (value: string | number) => {
+    const date = new Date(value);
+    const target = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const oneDay = 24 * 60 * 60 * 1000;
+    if (target === today) return 'Today';
+    if (target === today - oneDay) return 'Yesterday';
+    return date.toLocaleDateString([], { day: '2-digit', month: 'short', year: 'numeric' });
+  };
+
+  const groupedMessages = useMemo(() => {
+    const ordered = [...messages].sort(
+      (left, right) => new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime()
+    );
+    const groups: Array<{ key: string; heading: string; items: typeof ordered }> = [];
+    ordered.forEach((item) => {
+      const date = new Date(item.createdAt);
+      const key = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+      const existing = groups.find((group) => group.key === key);
+      if (existing) {
+        existing.items.push(item);
+        return;
+      }
+      groups.push({
+        key,
+        heading: formatDayHeading(item.createdAt),
+        items: [item]
+      });
+    });
+    return groups;
+  }, [messages]);
+
   const handleSend = () => {
     if (!canChat) return;
     const sent = projectChatService.sendMessage(currentUser, project, text);
@@ -89,20 +122,31 @@ const ProjectOwnerChatModal: React.FC<ProjectOwnerChatModalProps> = ({
               <p>No messages yet. Start a conversation with the owner.</p>
             </div>
           ) : (
-            messages.map((item) => {
-              const mine = item.senderId === currentUser.id;
-              return (
-                <div key={item.id} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-[85%] rounded-xl px-3 py-2 border ${mine ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-800 border-slate-200'}`}>
-                    <p className={`text-[11px] ${mine ? 'text-white/80' : 'text-slate-500'}`}>{item.senderName}</p>
-                    <p className="text-sm mt-0.5 whitespace-pre-wrap break-words">{item.text}</p>
-                    <p className={`text-[10px] mt-1 ${mine ? 'text-white/70' : 'text-slate-400'}`}>
-                      {new Date(item.createdAt).toLocaleString()}
-                    </p>
-                  </div>
+            groupedMessages.map((group) => (
+              <div key={group.key} className="space-y-2">
+                <div className="sticky top-0 z-[1] flex justify-center">
+                  <span className="inline-flex items-center rounded-full border border-slate-200 bg-white/95 px-2 py-0.5 text-[11px] font-medium text-slate-500 backdrop-blur">
+                    {group.heading}
+                  </span>
                 </div>
-              );
-            })
+                {group.items.map((item) => {
+                  const mine = item.senderId === currentUser.id;
+                  const time = new Date(item.createdAt).toLocaleTimeString([], {
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  });
+                  return (
+                    <div key={item.id} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
+                      <div className={`max-w-[85%] rounded-xl px-3 py-2 border ${mine ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-800 border-slate-200'}`}>
+                        <p className={`text-[11px] ${mine ? 'text-white/80' : 'text-slate-500'}`}>{item.senderName}</p>
+                        <p className="text-sm mt-0.5 whitespace-pre-wrap break-words">{item.text}</p>
+                        <p className={`text-[10px] mt-1 ${mine ? 'text-white/70' : 'text-slate-400'}`}>{time}</p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ))
           )}
           <div ref={bottomRef} />
         </div>

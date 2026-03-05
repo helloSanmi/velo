@@ -89,7 +89,11 @@ export const buildUpdateAuditActions = (
     actions.push(updates.isAtRisk ? 'marked task at risk' : 'marked task on track');
   }
   if ('approvedAt' in updates && updates.approvedAt && updates.approvedAt !== task.approvedAt) {
-    actions.push('approved this task');
+    actions.push(
+      updates.approvedBy
+        ? `approved for completion by ${updates.approvedBy}`
+        : 'approved for completion'
+    );
   }
   if (typeof updates.movedBackReason === 'string' && updates.movedBackReason.trim()) {
     const fromStage = updates.movedBackFromStatus ? stageLabel(updates.movedBackFromStatus) : stageLabel(task.status);

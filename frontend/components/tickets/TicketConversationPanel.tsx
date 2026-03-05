@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { MessageSquare } from 'lucide-react';
 import { IntakeTicketStatus } from '../../types';
 import Button from '../ui/Button';
@@ -46,6 +46,37 @@ const TicketConversationPanel: React.FC<TicketConversationPanelProps> = ({
   comments,
   originalDescription
 }) => {
+  const formatDayHeading = (timestamp: number) => {
+    const date = new Date(timestamp);
+    const target = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const oneDay = 24 * 60 * 60 * 1000;
+    if (target === today) return 'Today';
+    if (target === today - oneDay) return 'Yesterday';
+    return date.toLocaleDateString([], { day: '2-digit', month: 'short', year: 'numeric' });
+  };
+
+  const groupedComments = useMemo(() => {
+    const sorted = [...comments].sort((a, b) => b.createdAt - a.createdAt);
+    const groups: Array<{ key: string; heading: string; comments: typeof sorted }> = [];
+    sorted.forEach((comment) => {
+      const date = new Date(comment.createdAt || Date.now());
+      const key = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+      const existing = groups.find((group) => group.key === key);
+      if (existing) {
+        existing.comments.push(comment);
+        return;
+      }
+      groups.push({
+        key,
+        heading: formatDayHeading(comment.createdAt || Date.now()),
+        comments: [comment]
+      });
+    });
+    return groups;
+  }, [comments]);
+
   const canSend =
     (composerMode !== 'forward' || forwardTarget.trim().length > 0) &&
     (!!commentText.trim() ||
@@ -108,23 +139,32 @@ const TicketConversationPanel: React.FC<TicketConversationPanelProps> = ({
         {comments.length === 0 ? (
           <div className="rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-500">No conversation yet.</div>
         ) : (
-          [...comments]
-            .sort((a, b) => b.createdAt - a.createdAt)
-            .map((comment) => {
-              const parsed = parseCommentPresentation(comment.text);
-              return (
-                <div key={comment.id} className="rounded-xl border border-slate-200 bg-white p-3">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="text-xs font-medium text-slate-700">{comment.userName}</div>
-                    <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] text-slate-600">
-                      {parsed.mode === 'forward' ? 'Forwarded' : parsed.mode === 'note' ? 'Internal note' : 'Reply'}
-                    </span>
+          groupedComments.map((group) => (
+            <div key={group.key} className="space-y-2">
+              <div className="sticky top-0 z-[1] flex justify-center">
+                <span className="inline-flex items-center rounded-full border border-slate-200 bg-white/95 px-2 py-0.5 text-[11px] font-medium text-slate-500 backdrop-blur">
+                  {group.heading}
+                </span>
+              </div>
+              {group.comments.map((comment) => {
+                const parsed = parseCommentPresentation(comment.text);
+                return (
+                  <div key={comment.id} className="rounded-xl border border-slate-200 bg-white p-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="text-xs font-medium text-slate-700">{comment.userName}</div>
+                      <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] text-slate-600">
+                        {parsed.mode === 'forward' ? 'Forwarded' : parsed.mode === 'note' ? 'Internal note' : 'Reply'}
+                      </span>
+                    </div>
+                    <div className="mt-1 whitespace-pre-wrap text-sm text-slate-800">{parsed.body}</div>
+                    <div className="mt-1 text-[11px] text-slate-500">
+                      {new Date(comment.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </div>
                   </div>
-                  <div className="mt-1 whitespace-pre-wrap text-sm text-slate-800">{parsed.body}</div>
-                  <div className="mt-1 text-[11px] text-slate-500">{new Date(comment.createdAt).toLocaleString()}</div>
-                </div>
-              );
-            })
+                );
+              })}
+            </div>
+          ))
         )}
         <div className="rounded-xl border border-slate-200 bg-white p-3">
           <div className="text-xs font-medium text-slate-600">Original request</div>

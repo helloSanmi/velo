@@ -435,7 +435,6 @@ const App: React.FC = () => {
 
   const {
     handleLogout,
-    handleReset,
     handleOpenTaskFromNotification,
     handleUpdateProject,
     handleChangeProjectOwner
@@ -1161,7 +1160,7 @@ const App: React.FC = () => {
   }
 
   return (
-    <WorkspaceLayout user={user} allUsers={allUsers} isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} projects={visibleProjects} activeProjectId={activeProjectId} currentView={currentView} themeClass={themeClass} compactMode={settings.compactMode} onLogout={handleLogout} onNewTask={() => setIsModalOpen(true)} onReset={handleReset} onRefreshData={refreshWorkspaceData} onOpenProfile={handleOpenProfile} onOpenSettings={handleOpenSettings} onOpenTaskFromNotification={handleOpenTaskFromNotification} onCloseSidebar={() => setIsSidebarOpen(false)} onProjectSelect={setActiveProjectId} onViewChange={handleWorkspaceViewChange} onOpenCommandCenter={() => aiFeaturesEnabled && setIsCommandCenterOpen(true)} onOpenVisionModal={() => aiFeaturesEnabled && setIsVisionModalOpen(true)} onAddProject={() => { setProjectModalTemplateId(null); setIsProjectModalOpen(true); }} onUpdateProject={handleUpdateProject} onCompleteProject={handleCompleteProject} onArchiveProject={handleArchiveProject} onDeleteProject={handleDeleteProject} onlineCount={onlineCount} isOnline={!isOffline} pendingSyncCount={pendingSyncCount} planFeatures={planFeatures} aiFeaturesEnabled={aiFeaturesEnabled}>
+    <WorkspaceLayout user={user} allUsers={allUsers} isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} projects={visibleProjects} activeProjectId={activeProjectId} currentView={currentView} themeClass={themeClass} compactMode={settings.compactMode} onLogout={handleLogout} onNewTask={() => setIsModalOpen(true)} onRefreshData={refreshWorkspaceData} onOpenProfile={handleOpenProfile} onOpenSettings={handleOpenSettings} onOpenTaskFromNotification={handleOpenTaskFromNotification} onCloseSidebar={() => setIsSidebarOpen(false)} onProjectSelect={setActiveProjectId} onViewChange={handleWorkspaceViewChange} onOpenCommandCenter={() => aiFeaturesEnabled && setIsCommandCenterOpen(true)} onOpenVisionModal={() => aiFeaturesEnabled && setIsVisionModalOpen(true)} onAddProject={() => { setProjectModalTemplateId(null); setIsProjectModalOpen(true); }} onUpdateProject={handleUpdateProject} onCompleteProject={handleCompleteProject} onArchiveProject={handleArchiveProject} onDeleteProject={handleDeleteProject} onlineCount={onlineCount} isOnline={!isOffline} pendingSyncCount={pendingSyncCount} planFeatures={planFeatures} aiFeaturesEnabled={aiFeaturesEnabled}>
       <Confetti active={confettiActive} onComplete={() => setConfettiActive(false)} />
       <WorkspaceMainView
         currentView={currentView}

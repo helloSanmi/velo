@@ -40,7 +40,7 @@ const SettingsProjectDetailsPanel: React.FC<SettingsProjectDetailsPanelProps> = 
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Project details</p>
-          <h4 className="mt-1 truncate text-base font-semibold text-slate-900">{focusedProject.name}</h4>
+          <h4 title={focusedProject.name} className="mt-1 truncate text-base font-semibold text-slate-900">{focusedProject.name}</h4>
           <p className="mt-0.5 line-clamp-2 text-xs text-slate-500">{focusedProject.description || 'No description.'}</p>
         </div>
         <button onClick={() => setFocusedProjectId(null)} className="h-7 rounded-md border border-slate-200 px-2 text-xs text-slate-600 hover:bg-slate-50">Close</button>
@@ -58,7 +58,7 @@ const SettingsProjectDetailsPanel: React.FC<SettingsProjectDetailsPanelProps> = 
           <div className="divide-y divide-slate-200">
             {focusedProjectTasks.map((task) => (
               <div key={task.id} className="p-3">
-                <p className="truncate text-sm font-medium text-slate-900">{task.title}</p>
+                <p title={task.title} className="truncate text-sm font-medium text-slate-900">{task.title}</p>
                 <p className="mt-0.5 text-xs text-slate-500">{task.status.replace('-', ' ')} • {task.priority}</p>
               </div>
             ))}

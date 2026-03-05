@@ -27,6 +27,10 @@ type KanbanHeaderActionsProps = Pick<
   | 'onOpenGenerateTasksWithAI'
   | 'selectedTaskIds'
   | 'onClearSelected'
+  | 'dueFrom'
+  | 'dueTo'
+  | 'setDueFrom'
+  | 'setDueTo'
 >;
 
 const KanbanHeaderActions: React.FC<KanbanHeaderActionsProps> = ({
@@ -50,7 +54,11 @@ const KanbanHeaderActions: React.FC<KanbanHeaderActionsProps> = ({
   canGenerateTasksWithAI,
   onOpenGenerateTasksWithAI,
   selectedTaskIds,
-  onClearSelected
+  onClearSelected,
+  dueFrom,
+  dueTo,
+  setDueFrom,
+  setDueTo
 }) => {
   return (
     <div className="flex flex-wrap items-center gap-2 pb-0.5">
@@ -78,6 +86,10 @@ const KanbanHeaderActions: React.FC<KanbanHeaderActionsProps> = ({
         onChecklistDensityChange={onChecklistDensityChange}
         selectedTaskIds={selectedTaskIds}
         onClearSelected={onClearSelected}
+        dueFrom={dueFrom}
+        dueTo={dueTo}
+        onDueFromChange={setDueFrom}
+        onDueToChange={setDueTo}
       />
     </div>
   );

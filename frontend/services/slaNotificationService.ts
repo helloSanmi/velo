@@ -38,7 +38,7 @@ export const processSlaNotifications = ({
         notificationService.addNotification({
           orgId: user.orgId,
           userId: recipientId,
-          title: 'Due soon',
+          title: 'Task due soon',
           message: `"${task.title}" is due within 24 hours.`,
           type: 'DUE_DATE',
           category: 'due',
@@ -70,7 +70,7 @@ export const processSlaNotifications = ({
         notificationService.addNotification({
           orgId: user.orgId,
           userId: adminId,
-          title: 'SLA escalation',
+          title: 'Overdue escalation',
           message: `High-priority task "${task.title}" is overdue by more than 24 hours.`,
           type: 'SYSTEM',
           category: 'system',
@@ -88,7 +88,7 @@ export const processSlaNotifications = ({
           notificationService.addNotification({
             orgId: user.orgId,
             userId: adminId,
-            title: 'Forecast approval needed',
+            title: 'Estimate review required',
             message: `"${task.title}" exceeds calibration threshold and requires completion approval.`,
             type: 'SYSTEM',
             category: 'system',

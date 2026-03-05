@@ -84,13 +84,13 @@ describe('SLA notification processing', () => {
 
     const memberANotifications = notificationService.getNotifications(ORG_ID, memberA.id);
     const memberBNotifications = notificationService.getNotifications(ORG_ID, memberB.id);
-    expect(memberANotifications.some((entry) => entry.title === 'Due soon')).toBe(true);
+    expect(memberANotifications.some((entry) => entry.title === 'Task due soon')).toBe(true);
     expect(memberANotifications.some((entry) => entry.title === 'Task overdue')).toBe(true);
-    expect(memberBNotifications.some((entry) => entry.title === 'Due soon')).toBe(true);
+    expect(memberBNotifications.some((entry) => entry.title === 'Task due soon')).toBe(true);
     expect(memberBNotifications.some((entry) => entry.title === 'Task overdue')).toBe(true);
   });
 
-  it('triggers SLA escalation and forecast approval notifications for admins', () => {
+  it('triggers overdue escalation and estimate review notifications for admins', () => {
     const now = Date.now();
     vi.spyOn(estimationService, 'getAdjustmentPreview').mockReturnValue({
       adjustedMinutes: 400,
@@ -116,7 +116,7 @@ describe('SLA notification processing', () => {
     });
 
     const adminNotifications = notificationService.getNotifications(ORG_ID, admin.id);
-    expect(adminNotifications.some((entry) => entry.title === 'SLA escalation')).toBe(true);
-    expect(adminNotifications.some((entry) => entry.title === 'Forecast approval needed')).toBe(true);
+    expect(adminNotifications.some((entry) => entry.title === 'Overdue escalation')).toBe(true);
+    expect(adminNotifications.some((entry) => entry.title === 'Estimate review required')).toBe(true);
   });
 });

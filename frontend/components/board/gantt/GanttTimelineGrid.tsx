@@ -73,9 +73,13 @@ const GanttTimelineGrid: React.FC<GanttTimelineGridProps> = ({
   laneWidth,
   rowHeight
 }) => {
+  // Keep a small render gutter so right-edge bars/handles are never clipped.
+  const GANTT_EDGE_GUTTER_PX = 20;
+  const renderLanePixelWidth = lanePixelWidth + GANTT_EDGE_GUTTER_PX;
+
   return (
-    <div className="overflow-auto h-[calc(100%-53px)]">
-      <div className="min-w-[980px]">
+    <div className="flex-1 min-h-0 overflow-auto">
+      <div className="min-w-[980px] pb-4">
         <div className="sticky top-0 z-10 flex border-b border-slate-200 bg-slate-50">
           <div className="w-[320px] shrink-0 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
             Task
@@ -113,7 +117,7 @@ const GanttTimelineGrid: React.FC<GanttTimelineGridProps> = ({
 
         <div
           className="relative"
-          style={{ width: `${320 + lanePixelWidth}px` }}
+          style={{ width: `${320 + renderLanePixelWidth}px` }}
           onDragOver={(event) => {
             event.preventDefault();
             if (!draggingTaskId) return;
@@ -136,7 +140,7 @@ const GanttTimelineGrid: React.FC<GanttTimelineGridProps> = ({
             previewSpans={previewSpans}
             timelineStart={timelineStart}
             totalDays={totalDays}
-            lanePixelWidth={lanePixelWidth}
+            lanePixelWidth={renderLanePixelWidth}
             statusOptions={statusOptions}
             editingDepsForTaskId={editingDepsForTaskId}
             focusedTaskId={focusedTaskId}
@@ -155,7 +159,7 @@ const GanttTimelineGrid: React.FC<GanttTimelineGridProps> = ({
           />
           <GanttDependencyLinesSvg
             dependencyLines={dependencyLines}
-            lanePixelWidth={lanePixelWidth}
+            lanePixelWidth={renderLanePixelWidth}
             rowHeight={rowHeight}
             rowCount={scheduledTasks.length}
           />

@@ -125,10 +125,10 @@ describe('notification UI smoke flows', () => {
     const sarahAlerts = notificationService.getNotifications(ORG_ID, sarah.id);
     const adminAlerts = notificationService.getNotifications(ORG_ID, admin.id);
 
-    expect(alexAlerts.some((n) => n.title === 'Due soon')).toBe(true);
+    expect(alexAlerts.some((n) => n.title === 'Task due soon')).toBe(true);
     expect(alexAlerts.some((n) => n.title === 'Task overdue')).toBe(true);
     expect(sarahAlerts.some((n) => n.title === 'Project archived')).toBe(true);
-    expect(adminAlerts.some((n) => n.title === 'SLA escalation')).toBe(true);
+    expect(adminAlerts.some((n) => n.title === 'Overdue escalation')).toBe(true);
   });
 
   it('shows toast event when current user receives notification', () => {

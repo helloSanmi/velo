@@ -46,7 +46,7 @@ const ChecklistColumn: React.FC<ChecklistColumnProps> = ({
   <section
     className={`h-full min-h-0 bg-slate-100 border rounded-xl flex flex-col transition-colors ${
       dragOverStatus === id ? 'border-slate-400 bg-slate-100' : 'border-slate-200'
-    } ${singleColumn ? '' : shouldStretchColumns ? 'w-full min-w-0' : BOARD_SCROLL_COLUMN_WIDTH_CLASS}`}
+    } ${singleColumn ? '' : shouldStretchColumns ? 'w-[300px] sm:w-[320px] flex-shrink-0 snap-start md:w-full md:min-w-0' : BOARD_SCROLL_COLUMN_WIDTH_CLASS}`}
     onDragOver={(event) => {
       event.preventDefault();
       onSetDragOverStatus(id);

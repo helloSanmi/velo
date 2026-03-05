@@ -66,6 +66,7 @@ const KanbanHeader: React.FC<KanbanHeaderProps> = ({
   setDueTo
 }) => {
   const ownerId = activeProject?.createdBy || activeProject?.members?.[0];
+  const showOwnerChat = Boolean(activeProject) && ownerId !== currentUserId;
 
   return (
     <div className={`flex-none ${BOARD_OUTER_WRAP_CLASS} ${compactMode ? 'pt-1.5 pb-1.5' : 'pt-2 pb-2'}`}>
@@ -87,7 +88,7 @@ const KanbanHeader: React.FC<KanbanHeaderProps> = ({
               pinnedInsights={pinnedInsights}
               onUnpinInsight={onUnpinInsight}
             />
-            {activeProject ? (
+            {showOwnerChat ? (
               <button
                 onClick={onOpenOwnerChat}
                 className="h-7 px-2 rounded-md border border-slate-200 bg-white hover:bg-slate-50 text-[11px] text-slate-700 inline-flex items-center gap-1.5 shrink-0"
@@ -125,6 +126,10 @@ const KanbanHeader: React.FC<KanbanHeaderProps> = ({
             onOpenGenerateTasksWithAI={onOpenGenerateTasksWithAI}
             selectedTaskIds={selectedTaskIds}
             onClearSelected={onClearSelected}
+            dueFrom={dueFrom}
+            dueTo={dueTo}
+            setDueFrom={setDueFrom}
+            setDueTo={setDueTo}
           />
 
           <KanbanHeaderFilters

@@ -20,14 +20,23 @@ export const ensureUserLicense = (input: OauthSignInInput, user: MinimalAuthUser
 };
 
 export const ensureProviderLinked = async (input: OauthSignInInput, user: MinimalAuthUser) => {
-  if (user.microsoftSubject) return user;
+  const patch: Partial<Record<typeof providerSubjectField | 'avatar' | 'displayName', string>> = {};
+
+  if (!user.microsoftSubject) {
+    patch[providerSubjectField] = input.profile.subject;
+  }
+  if (input.profile.avatar && input.profile.avatar !== user.avatar) {
+    patch.avatar = input.profile.avatar;
+  }
+  if (!user.displayName && input.profile.name) {
+    patch.displayName = input.profile.name;
+  }
+
+  if (Object.keys(patch).length === 0) return user;
+
   return (await prisma.user.update({
     where: { id: user.id },
-    data: {
-      [providerSubjectField]: input.profile.subject,
-      avatar: user.avatar || input.profile.avatar || undefined,
-      displayName: user.displayName || input.profile.name
-    }
+    data: patch
   })) as MinimalAuthUser;
 };
 

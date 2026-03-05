@@ -59,9 +59,46 @@ const TaskDetailCommentsTab: React.FC<TaskDetailCommentsTabProps> = ({
     setActiveMentionIndex(0);
   }, [mentionState?.start, mentionState?.query, mentionSuggestions.length]);
 
+  const getFirstName = (value: string) => {
+    const safe = String(value || '').trim();
+    if (!safe) return 'User';
+    return safe.split(/\s+/)[0] || safe;
+  };
+
+  const formatDayHeading = (timestamp: number) => {
+    const date = new Date(timestamp);
+    const target = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const oneDay = 24 * 60 * 60 * 1000;
+    if (target === today) return 'Today';
+    if (target === today - oneDay) return 'Yesterday';
+    return date.toLocaleDateString([], { day: '2-digit', month: 'short', year: 'numeric' });
+  };
+
+  const groupedComments = useMemo(() => {
+    const comments = (task.comments || []).slice().sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+    const groups: Array<{ key: string; heading: string; comments: typeof comments }> = [];
+    comments.forEach((comment) => {
+      const date = new Date(comment.timestamp || Date.now());
+      const key = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+      const existing = groups.find((group) => group.key === key);
+      if (existing) {
+        existing.comments.push(comment);
+        return;
+      }
+      groups.push({
+        key,
+        heading: formatDayHeading(comment.timestamp || Date.now()),
+        comments: [comment]
+      });
+    });
+    return groups;
+  }, [task.comments]);
+
   const insertMention = (user: User) => {
     if (!mentionState) return;
-    const label = `@[${user.displayName}] `;
+    const label = `@[${getFirstName(user.displayName)}] `;
     const nextText = `${commentText.slice(0, mentionState.start)}${label}${commentText.slice(mentionState.end)}`;
     setCommentText(nextText);
     onTypingStart();
@@ -88,7 +125,7 @@ const TaskDetailCommentsTab: React.FC<TaskDetailCommentsTabProps> = ({
           key={`${part}-${index}`}
           className="inline-flex items-center rounded-md border border-sky-200 bg-sky-50 px-1.5 py-0.5 text-[12px] font-semibold text-sky-700 align-middle mx-0.5"
         >
-          @{match[1]}
+          @{getFirstName(match[1])}
         </span>
       );
     });
@@ -102,24 +139,41 @@ const TaskDetailCommentsTab: React.FC<TaskDetailCommentsTabProps> = ({
             No comments yet.
           </div>
         )}
-        {task.comments?.map((comment) => {
-          const commentUser = allUsers.find((user) => user.id === comment.userId);
-          return (
-            <div key={comment.id} className={`flex gap-3 ${comment.userId === currentUser?.id ? 'flex-row-reverse' : 'flex-row'}`}>
-              <div className="w-8 h-8 rounded-lg bg-slate-200 overflow-hidden shrink-0">
-                <img
-                  src={commentUser?.avatar}
-                  alt={comment.displayName}
-                  title={getUserFullName(commentUser || { displayName: comment.displayName })}
-                  className="w-full h-full object-cover"
-                />
-              </div>
-              <div className={`max-w-[78%] px-3 py-2 rounded-xl text-sm leading-6 ${comment.userId === currentUser?.id ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700'}`}>
-                {renderCommentText(comment.text)}
-              </div>
+        {groupedComments.map((group) => (
+          <div key={group.key} className="space-y-2">
+            <div className="sticky top-0 z-[1] flex justify-center">
+              <span className="inline-flex items-center rounded-full border border-slate-200 bg-white/95 px-2 py-0.5 text-[11px] font-medium text-slate-500 backdrop-blur">
+                {group.heading}
+              </span>
             </div>
-          );
-        })}
+            {group.comments.map((comment) => {
+              const commentUser = allUsers.find((user) => user.id === comment.userId);
+              const avatarFallback = `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(comment.displayName || 'user')}`;
+              const commentTime = new Date(comment.timestamp || Date.now()).toLocaleTimeString([], {
+                hour: '2-digit',
+                minute: '2-digit'
+              });
+              return (
+                <div key={comment.id} className={`flex gap-3 ${comment.userId === currentUser?.id ? 'flex-row-reverse' : 'flex-row'}`}>
+                  <div className="w-8 h-8 rounded-lg bg-slate-200 overflow-hidden shrink-0">
+                    <img
+                      src={commentUser?.avatar || avatarFallback}
+                      alt={comment.displayName}
+                      title={getUserFullName(commentUser || { displayName: comment.displayName })}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  <div className={`max-w-[78%] px-3 py-2 rounded-xl text-sm leading-6 ${comment.userId === currentUser?.id ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700'}`}>
+                    {renderCommentText(comment.text)}
+                    <div className={`mt-1 text-[11px] leading-none ${comment.userId === currentUser?.id ? 'text-slate-300' : 'text-slate-400'}`}>
+                      {commentTime}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ))}
         {Object.values(typingUsers).length > 0 ? (
           <p className="text-xs text-slate-400 px-1">
             {Object.values(typingUsers).map((entry) => entry.name).join(', ')} {Object.values(typingUsers).length > 1 ? 'are' : 'is'} typing...
@@ -179,9 +233,14 @@ const TaskDetailCommentsTab: React.FC<TaskDetailCommentsTabProps> = ({
                 className={`w-full text-left px-2.5 py-1.5 rounded-md ${index === activeMentionIndex ? 'bg-slate-900 text-white' : 'text-slate-700 hover:bg-slate-100'}`}
               >
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-sm font-medium truncate">{user.displayName}</span>
-                  <span className={`text-[11px] truncate ${index === activeMentionIndex ? 'text-slate-200' : 'text-slate-500'}`}>
-                    {user.username}
+                  <span className="text-sm font-medium truncate" title={getFirstName(user.displayName)}>
+                    {getFirstName(user.displayName)}
+                  </span>
+                  <span
+                    className={`text-[11px] truncate ${index === activeMentionIndex ? 'text-slate-200' : 'text-slate-500'}`}
+                    title={user.displayName}
+                  >
+                    {getFirstName(user.displayName)}
                   </span>
                 </div>
               </button>

@@ -7,7 +7,7 @@ import type { Provider } from './auth.oauth.types.js';
 export const fetchDirectoryUsersByAccessToken = async (input: {
   provider: Provider;
   accessToken: string;
-}): Promise<Array<{ externalId: string; email: string; displayName: string; firstName?: string; lastName?: string }>> => {
+}): Promise<Array<{ externalId: string; email: string; displayName: string; firstName?: string; lastName?: string; avatar?: string }>> => {
   let nextUrl: string | null =
     'https://graph.microsoft.com/v1.0/users?$select=id,displayName,givenName,surname,mail,userPrincipalName,accountEnabled,proxyAddresses&$top=200';
   const rows: Array<any> = [];
@@ -23,7 +23,7 @@ export const fetchDirectoryUsersByAccessToken = async (input: {
     nextUrl = data['@odata.nextLink'] || null;
   }
 
-  return rows
+  const normalizedRows = rows
     .map((row) => {
       const proxyAddresses = Array.isArray(row.proxyAddresses) ? row.proxyAddresses : [];
       const smtpFromProxy = proxyAddresses
@@ -40,6 +40,38 @@ export const fetchDirectoryUsersByAccessToken = async (input: {
       };
     })
     .filter((row) => row.externalId && row.email);
+
+  const attachAvatar = async (row: (typeof normalizedRows)[number]) => {
+    try {
+      const response = await fetch(`https://graph.microsoft.com/v1.0/users/${encodeURIComponent(row.externalId)}/photo/$value`, {
+        headers: { Authorization: `Bearer ${input.accessToken}` }
+      });
+      if (!response.ok) return row;
+      const bytes = await response.arrayBuffer();
+      if (!bytes || bytes.byteLength === 0) return row;
+      const contentType = response.headers.get('content-type') || 'image/jpeg';
+      const base64 = Buffer.from(bytes).toString('base64');
+      return {
+        ...row,
+        avatar: `data:${contentType};base64,${base64}`
+      };
+    } catch {
+      return row;
+    }
+  };
+
+  const concurrency = Math.min(8, Math.max(1, normalizedRows.length));
+  const enrichedRows: typeof normalizedRows = [...normalizedRows];
+  let cursor = 0;
+  await Promise.all(
+    Array.from({ length: concurrency }).map(async () => {
+      while (cursor < normalizedRows.length) {
+        const index = cursor++;
+        enrichedRows[index] = await attachAvatar(normalizedRows[index]);
+      }
+    })
+  );
+  return enrichedRows;
 };
 
 export const listDirectoryUsers = async (input: {

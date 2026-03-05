@@ -16,7 +16,7 @@ const ProjectsLifecycleTasksList: React.FC<ProjectsLifecycleTasksListProps> = ({
           <div className="divide-y divide-slate-200">
             {focusedProjectTasks.map((task) => (
               <div key={task.id} className="p-3">
-                <p className="text-sm font-medium text-slate-900 truncate">{task.title}</p>
+                <p title={task.title} className="text-sm font-medium text-slate-900 truncate">{task.title}</p>
                 <p className="text-xs text-slate-500 mt-0.5">
                   {task.status.replace('-', ' ')} • {task.priority}
                 </p>

@@ -37,7 +37,9 @@ const TaskDetailHeader: React.FC<TaskDetailHeaderProps> = ({
           {task.isAtRisk && <Badge variant="rose">AT RISK</Badge>}
           <TaskPriorityEditor task={task} canManageTask={canManageTask} onPriorityChange={onPriorityChange} />
         </div>
-        <h2 className="text-xl md:text-2xl font-semibold text-slate-900 tracking-tight leading-tight truncate">{task.title}</h2>
+        <h2 className="text-xl md:text-2xl font-semibold text-slate-900 tracking-tight leading-tight truncate" title={task.title}>
+          {task.title}
+        </h2>
       </div>
       <div className="flex items-center justify-between md:justify-end gap-2 shrink-0 md:ml-3 w-full md:w-auto">
         <TaskAssigneeEditor allUsers={allUsers} assigneeIds={assigneeIds} canManageTask={canManageTask} onAssigneesChange={onAssigneesChange} />

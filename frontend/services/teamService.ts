@@ -1,33 +1,14 @@
 import { Team, User } from '../types';
 import { createId } from '../utils/id';
 import { realtimeService } from './realtimeService';
-import { apiRequest } from './apiClient';
-
-const TEAMS_KEY = 'velo_teams';
-
-const normalizeTeam = (team: Team): Team => ({
-  ...team,
-  name: (team.name || '').trim(),
-  description: team.description?.trim() || undefined,
-  memberIds: Array.from(new Set((team.memberIds || []).filter(Boolean))),
-  createdAt: team.createdAt || Date.now(),
-  updatedAt: team.updatedAt || Date.now()
-});
-
-const readTeams = (): Team[] => {
-  try {
-    const raw = localStorage.getItem(TEAMS_KEY);
-    const parsed = raw ? (JSON.parse(raw) as Team[]) : [];
-    if (!Array.isArray(parsed)) return [];
-    return parsed.map(normalizeTeam).filter((team) => Boolean(team.id && team.orgId && team.name));
-  } catch {
-    return [];
-  }
-};
-
-const writeTeams = (teams: Team[]) => {
-  localStorage.setItem(TEAMS_KEY, JSON.stringify(teams.map(normalizeTeam)));
-};
+import { normalizeTeam, readTeams, TEAMS_KEY, writeTeams } from './team-service/store';
+import {
+  createTeamRemote as createTeamRemoteRequest,
+  deleteTeamRemote as deleteTeamRemoteRequest,
+  fetchTeamsFromBackendRemote,
+  isAdminUser,
+  updateTeamRemote as updateTeamRemoteRequest
+} from './team-service/remote';
 
 const emitTeamsUpdated = (orgId?: string, actorId?: string, teamId?: string) => {
   realtimeService.publish({
@@ -39,29 +20,14 @@ const emitTeamsUpdated = (orgId?: string, actorId?: string, teamId?: string) => 
 };
 
 const ensureAdmin = (user: User): string | undefined => {
-  if (user.role !== 'admin') return 'Only admins can manage teams.';
+  if (!isAdminUser(user)) return 'Only admins can manage teams.';
   return undefined;
 };
 
 export const teamService = {
   fetchTeamsFromBackend: async (orgId: string): Promise<Team[]> => {
     try {
-      const rows = await apiRequest<any[]>(`/orgs/${orgId}/teams`);
-      const mapped = rows.map((team) =>
-        normalizeTeam({
-          id: team.id,
-          orgId: team.orgId,
-          name: team.name,
-          description: team.description || undefined,
-          leadId: team.leadId || undefined,
-          memberIds: Array.isArray(team.memberIds) ? team.memberIds : [],
-          createdBy: team.createdBy,
-          createdAt: new Date(team.createdAt).getTime(),
-          updatedAt: new Date(team.updatedAt).getTime()
-        })
-      );
-      writeTeams(mapped);
-      return mapped;
+      return await fetchTeamsFromBackendRemote(orgId);
     } catch {
       return teamService.getTeams(orgId);
     }
@@ -72,28 +38,12 @@ export const teamService = {
     orgId: string,
     payload: { name: string; description?: string; leadId?: string; memberIds?: string[] }
   ): Promise<{ team?: Team; error?: string }> => {
-    try {
-      const row = await apiRequest<any>(`/orgs/${orgId}/teams`, {
-        method: 'POST',
-        body: payload
-      });
-      const team = normalizeTeam({
-        id: row.id,
-        orgId: row.orgId,
-        name: row.name,
-        description: row.description || undefined,
-        leadId: row.leadId || undefined,
-        memberIds: Array.isArray(row.memberIds) ? row.memberIds : [],
-        createdBy: row.createdBy,
-        createdAt: new Date(row.createdAt).getTime(),
-        updatedAt: new Date(row.updatedAt).getTime()
-      });
-      writeTeams([...readTeams().filter((item) => item.id !== team.id), team]);
-      emitTeamsUpdated(orgId, user.id, team.id);
-      return { team };
-    } catch (error: any) {
-      return { error: error?.message || 'Could not create team.' };
+    const response = await createTeamRemoteRequest(orgId, payload);
+    if (response.team) {
+      emitTeamsUpdated(orgId, user.id, response.team.id);
+      return response;
     }
+    return response;
   },
 
   updateTeamRemote: async (
@@ -102,39 +52,21 @@ export const teamService = {
     teamId: string,
     updates: Partial<Pick<Team, 'name' | 'description' | 'leadId' | 'memberIds'>>
   ): Promise<{ team?: Team; error?: string }> => {
-    try {
-      const row = await apiRequest<any>(`/orgs/${orgId}/teams/${teamId}`, {
-        method: 'PATCH',
-        body: updates
-      });
-      const team = normalizeTeam({
-        id: row.id,
-        orgId: row.orgId,
-        name: row.name,
-        description: row.description || undefined,
-        leadId: row.leadId || undefined,
-        memberIds: Array.isArray(row.memberIds) ? row.memberIds : [],
-        createdBy: row.createdBy,
-        createdAt: new Date(row.createdAt).getTime(),
-        updatedAt: new Date(row.updatedAt).getTime()
-      });
-      writeTeams(readTeams().map((item) => (item.id === team.id ? team : item)));
-      emitTeamsUpdated(orgId, user.id, team.id);
-      return { team };
-    } catch (error: any) {
-      return { error: error?.message || 'Could not update team.' };
+    const response = await updateTeamRemoteRequest(orgId, teamId, updates);
+    if (response.team) {
+      emitTeamsUpdated(orgId, user.id, response.team.id);
+      return response;
     }
+    return response;
   },
 
   deleteTeamRemote: async (user: User, orgId: string, teamId: string): Promise<{ success: boolean; error?: string }> => {
-    try {
-      await apiRequest(`/orgs/${orgId}/teams/${teamId}`, { method: 'DELETE' });
-      writeTeams(readTeams().filter((item) => item.id !== teamId));
+    const response = await deleteTeamRemoteRequest(orgId, teamId);
+    if (response.success) {
       emitTeamsUpdated(orgId, user.id, teamId);
-      return { success: true };
-    } catch (error: any) {
-      return { success: false, error: error?.message || 'Could not delete team.' };
+      return response;
     }
+    return response;
   },
 
   getTeams: (orgId?: string): Team[] => {

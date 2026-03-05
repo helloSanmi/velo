@@ -139,17 +139,17 @@ const TicketsListPane: React.FC<TicketsListPaneProps> = ({
                       className={`cursor-pointer border-b border-slate-100 text-[13px] ${active ? 'bg-slate-50' : 'hover:bg-slate-50'}`}
                     >
                       <td className="px-3 py-2.5">
-                        <div className="truncate font-medium text-slate-900">{ticket.title}</div>
-                        <div className="truncate text-[11px] text-slate-500">
+                        <div title={ticket.title} className="truncate font-medium text-slate-900">{ticket.title}</div>
+                        <div title={ticketReference(ticket)} className="truncate text-[11px] text-slate-500">
                           {ticketReference(ticket)}
                           {overSla ? ' • SLA overdue' : ''}
                         </div>
                       </td>
-                      <td className="truncate px-3 py-2.5 text-slate-700">{ticket.requesterName}</td>
-                      <td className="truncate px-3 py-2.5 capitalize text-slate-700">{ticket.priority}</td>
-                      <td className="truncate px-3 py-2.5 capitalize text-slate-700">{ticket.status.replace('-', ' ')}</td>
-                      <td className="truncate px-3 py-2.5 text-slate-700">{assignedUser ? assignedUser.displayName : 'Unassigned'}</td>
-                      <td className="truncate px-3 py-2.5 text-slate-600">{new Date(ticket.createdAt).toLocaleDateString()}</td>
+                      <td title={ticket.requesterName} className="truncate px-3 py-2.5 text-slate-700">{ticket.requesterName}</td>
+                      <td title={ticket.priority} className="truncate px-3 py-2.5 capitalize text-slate-700">{ticket.priority}</td>
+                      <td title={ticket.status.replace('-', ' ')} className="truncate px-3 py-2.5 capitalize text-slate-700">{ticket.status.replace('-', ' ')}</td>
+                      <td title={assignedUser ? assignedUser.displayName : 'Unassigned'} className="truncate px-3 py-2.5 text-slate-700">{assignedUser ? assignedUser.displayName : 'Unassigned'}</td>
+                      <td title={new Date(ticket.createdAt).toLocaleDateString()} className="truncate px-3 py-2.5 text-slate-600">{new Date(ticket.createdAt).toLocaleDateString()}</td>
                     </tr>
                   );
                 })}

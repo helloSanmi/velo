@@ -40,10 +40,10 @@ export const RoadmapDeliverySection: React.FC<RoadmapDeliverySectionProps> = ({
             const dueText = item.dueInDays < 0 ? `${Math.abs(item.dueInDays)} day(s) overdue` : `Due in ${item.dueInDays} day${item.dueInDays === 1 ? '' : 's'}`;
             return (
               <article key={item.id} className="rounded-lg border border-slate-200 bg-white p-3">
-                <p className="text-sm font-semibold text-slate-900 leading-snug line-clamp-2">{item.title}</p>
+                <p title={item.title} className="text-sm font-semibold text-slate-900 leading-snug line-clamp-2">{item.title}</p>
                 <div className="mt-1.5 flex items-center gap-1.5 text-xs text-slate-500">
                   <span className={`h-2.5 w-2.5 rounded-full ${project?.color || 'bg-slate-400'}`} />
-                  <span className="truncate">{project?.name || 'General'}</span>
+                  <span title={project?.name || 'General'} className="truncate">{project?.name || 'General'}</span>
                 </div>
                 <div className="mt-1.5 flex items-center justify-between gap-2">
                   <span className="inline-flex items-center gap-1 text-xs text-slate-500">
@@ -80,7 +80,7 @@ export const RoadmapDeliverySection: React.FC<RoadmapDeliverySectionProps> = ({
         ) : (
           timelineMilestones.slice(0, 8).map((item) => (
             <article key={item.id} className="rounded-lg border border-slate-200 bg-white p-3">
-              <p className="text-sm font-semibold text-slate-900 truncate">{item.title}</p>
+              <p title={item.title} className="text-sm font-semibold text-slate-900 truncate">{item.title}</p>
               <p className="mt-1 text-xs text-slate-500">
                 Due {new Date(item.dueDate).toLocaleDateString('en-GB')} • {projectMap.get(item.projectId)?.name || 'General'}
               </p>

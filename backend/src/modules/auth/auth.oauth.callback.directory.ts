@@ -34,6 +34,7 @@ export const completeOauthDirectoryCallback = async (input: {
     displayName: string;
     firstName?: string;
     lastName?: string;
+    avatar?: string;
   }> = [];
   try {
     users = await fetchDirectoryUsersByAccessToken({

@@ -18,7 +18,6 @@ interface WorkspaceLayoutProps {
   compactMode: boolean;
   onLogout: () => void;
   onNewTask: () => void;
-  onReset: () => void;
   onRefreshData: () => void;
   onOpenProfile: () => void;
   onOpenSettings: (tab: SettingsTabType) => void;
@@ -43,7 +42,7 @@ interface WorkspaceLayoutProps {
 
 const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
   user, allUsers, isSidebarOpen, setIsSidebarOpen, projects, activeProjectId, currentView,
-  themeClass, compactMode, onLogout, onNewTask, onReset, onRefreshData, onOpenProfile, onOpenSettings,
+  themeClass, compactMode, onLogout, onNewTask, onRefreshData, onOpenProfile, onOpenSettings,
   onOpenTaskFromNotification, onCloseSidebar, onProjectSelect, onViewChange, onOpenCommandCenter,
   onOpenVisionModal, onAddProject, onUpdateProject, onCompleteProject, onArchiveProject, onDeleteProject, onlineCount, isOnline, pendingSyncCount = 0, planFeatures, aiFeaturesEnabled, children
 }) => {
@@ -90,7 +89,6 @@ const WorkspaceLayout: React.FC<WorkspaceLayoutProps> = ({
         user={user} 
         onLogout={onLogout} 
         onNewTask={onNewTask} 
-        onReset={onReset} 
         onRefreshData={onRefreshData}
         onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} 
         onOpenProfile={onOpenProfile}

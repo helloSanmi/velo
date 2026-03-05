@@ -22,6 +22,7 @@ const FilterBarStandardLayout: React.FC<FilterBarStandardLayoutProps> = ({
     <FilterBarControls
       controlClass={controlClass}
       showProjectFilter={props.showProjectFilter}
+      showDueRange={!props.embedded}
       dueFrom={props.dueFrom}
       dueTo={props.dueTo}
       projectFilter={props.projectFilter}

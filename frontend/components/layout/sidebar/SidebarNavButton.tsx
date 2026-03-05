@@ -12,6 +12,7 @@ const SidebarNavButton: React.FC<SidebarNavButtonProps> = ({ active, onClick, ic
   return (
     <button
       onClick={onClick}
+      title={label}
       className={`w-full flex items-center justify-between px-3 py-2 rounded-lg font-medium text-sm transition-colors border ${
         active
           ? 'bg-slate-100 text-slate-900 border-slate-200 shadow-sm'
@@ -20,7 +21,7 @@ const SidebarNavButton: React.FC<SidebarNavButtonProps> = ({ active, onClick, ic
     >
       <div className="flex items-center gap-3 min-w-0">
         <Icon className={`w-4 h-4 shrink-0 ${active ? 'text-slate-700' : 'text-slate-400'}`} />
-        <span className="truncate">{label}</span>
+        <span title={label} className="truncate">{label}</span>
       </div>
       {badge && (
         <span

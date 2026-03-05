@@ -44,6 +44,7 @@ const FilterBarCompactLayout: React.FC<FilterBarCompactLayoutProps> = ({
       <FilterBarControls
         controlClass={controlClass}
         showProjectFilter={props.showProjectFilter}
+        showDueRange={!props.embedded}
         dueFrom={props.dueFrom}
         dueTo={props.dueTo}
         projectFilter={props.projectFilter}
@@ -71,6 +72,7 @@ const FilterBarCompactLayout: React.FC<FilterBarCompactLayoutProps> = ({
       <FilterBarControls
         controlClass={controlClass}
         showProjectFilter={props.showProjectFilter}
+        showDueRange={!props.embedded}
         dueFrom={props.dueFrom}
         dueTo={props.dueTo}
         projectFilter={props.projectFilter}

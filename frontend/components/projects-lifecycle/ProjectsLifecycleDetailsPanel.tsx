@@ -40,7 +40,7 @@ const ProjectsLifecycleDetailsPanel: React.FC<ProjectsLifecycleDetailsPanelProps
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{projectStatus}</p>
-          <h3 className="text-lg md:text-xl font-semibold text-slate-900 truncate mt-1">{focusedProject.name}</h3>
+          <h3 title={focusedProject.name} className="text-lg md:text-xl font-semibold text-slate-900 truncate mt-1">{focusedProject.name}</h3>
           <p className="text-xs md:text-sm text-slate-600 mt-1">{focusedProject.description || 'No description provided.'}</p>
         </div>
       </div>
