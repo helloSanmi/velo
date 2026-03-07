@@ -9,7 +9,7 @@ interface UseSettingsNotificationSenderArgs {
   org: Organization;
   onUpdateOrganizationSettings: (
     patch: Partial<Pick<Organization, 'notificationSenderEmail'>>
-  ) => Promise<void>;
+  ) => Promise<Organization | null>;
 }
 
 export const useSettingsNotificationSender = ({ org, onUpdateOrganizationSettings }: UseSettingsNotificationSenderArgs) => {

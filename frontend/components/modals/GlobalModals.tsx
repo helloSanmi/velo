@@ -21,7 +21,7 @@ const GlobalModals: React.FC<GlobalModalsProps> = ({
   taskDetailInitialTab, onTaskDetailTabChange, onTaskDetailTabConsumed,
   aiSuggestions, setAiSuggestions, aiLoading, activeTaskTitle, tasks, projects,
   projectTasks, activeProject,
-  activeProjectId, aiEnabled, canAssignMembers, canManageTask, createTask, handleAddProject, handleUpdateTask,
+  activeProjectId, aiPlanEnabled, aiEnabled, canAssignMembers, canManageTask, createTask, handleAddProject, handleUpdateTask,
   handleCommentOnTask, deleteTask, canDeleteTask, canToggleTaskTimer, onToggleTimer, applyAISuggestions, handleGeneratedTasks,
   setActiveProjectId, refreshTasks, onRenameProject, onCompleteProject, onReopenProject, onArchiveProject, onRestoreProject, onDeleteProject, onPurgeProject, onUpdateProject, onChangeProjectOwner, onDeleteOrganization, onUserUpdated,
   allowAiTools, onVoiceSelectProject, onVoiceCreateTask, onVoiceSetTaskStatus, onVoiceSetTaskPriority, onVoiceAssignTask, onPinInsightToProject, onUnpinInsightFromProject, isProjectInsightPinned
@@ -35,6 +35,8 @@ const GlobalModals: React.FC<GlobalModalsProps> = ({
       <TaskModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
+        aiPlanEnabled={aiPlanEnabled}
+        aiEnabled={aiEnabled}
         canAssignMembers={canAssignMembers}
         projectId={activeProjectId}
         onSubmit={(title, description, priority, tags, dueDate, assigneeIds, securityGroupIds, estimateMinutes, creationAuditAction) =>
@@ -50,6 +52,8 @@ const GlobalModals: React.FC<GlobalModalsProps> = ({
         onSubmit={handleAddProject}
         currentUserId={user.id}
         initialTemplateId={projectModalTemplateId}
+        aiPlanEnabled={aiPlanEnabled}
+        aiEnabled={aiEnabled}
         allowAiMode={allowAiTools}
       />
       <TaskDetailModal 
@@ -65,6 +69,7 @@ const GlobalModals: React.FC<GlobalModalsProps> = ({
         canDelete={Boolean(selectedTask && canDeleteTask(selectedTask.id))}
         canManageTask={Boolean(selectedTask && canManageTask(selectedTask.id))}
         canTrackTime={Boolean(selectedTask && canToggleTaskTimer(selectedTask.id))}
+        aiPlanEnabled={aiPlanEnabled}
         aiEnabled={aiEnabled}
         onToggleTimer={onToggleTimer}
       />

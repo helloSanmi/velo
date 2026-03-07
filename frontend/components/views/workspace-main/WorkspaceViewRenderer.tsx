@@ -6,6 +6,10 @@ import WorkloadView from '../../WorkloadView';
 import ProjectsLifecycleView from '../../ProjectsLifecycleView';
 import { ProjectStage } from '../../../types';
 import { WorkspaceMainViewProps } from './types';
+import {
+  getPlanUnavailableTitle,
+  getPlanUpgradeMessage
+} from '../../../services/planAccessService';
 
 const IntegrationHub = lazy(() => import('../../IntegrationHub'));
 const TemplatesView = lazy(() => import('../../templates/TemplatesView'));
@@ -62,24 +66,28 @@ const WorkspaceViewRenderer: React.FC<WorkspaceViewRendererProps> = ({ props, sc
         />
       );
     case 'analytics':
-      if (!planFeatures.analytics) return upgradeView('Analytics unavailable', 'Upgrade to Basic or Pro to unlock analytics.');
+      if (!planFeatures.analytics) return upgradeView(getPlanUnavailableTitle('analytics'), getPlanUpgradeMessage('analytics'));
       return (
         <AnalyticsView
           tasks={crossProjectTasks}
           projects={crossProjectProjects}
           allUsers={scopedUsers}
           orgId={user.orgId}
+          aiPlanEnabled={planFeatures.aiTools}
+          aiEnabled={props.aiFeaturesEnabled}
           onUpdateTask={props.handleUpdateTaskWithPolicy}
         />
       );
     case 'roadmap':
       return withLazy(<RoadmapView tasks={crossProjectTasks} projects={crossProjectProjects} />);
     case 'resources':
-      if (!planFeatures.resources) return upgradeView('Resources unavailable', 'Upgrade to Basic or Pro to unlock resource planning.');
+      if (!planFeatures.resources) return upgradeView(getPlanUnavailableTitle('resources'), getPlanUpgradeMessage('resources'));
       return (
         <WorkloadView
           users={scopedUsers}
           tasks={crossProjectTasks}
+          aiPlanEnabled={planFeatures.aiTools}
+          aiEnabled={props.aiFeaturesEnabled}
           onReassign={(taskId, userId) => props.handleUpdateTaskWithPolicy(taskId, { assigneeId: userId, assigneeIds: [userId] })}
         />
       );
@@ -96,7 +104,7 @@ const WorkspaceViewRenderer: React.FC<WorkspaceViewRendererProps> = ({ props, sc
         />
       );
     case 'integrations':
-      if (!planFeatures.integrations) return upgradeView('Integrations unavailable', 'Upgrade to Basic or Pro to unlock integrations.');
+      if (!planFeatures.integrations) return upgradeView(getPlanUnavailableTitle('integrations'), getPlanUpgradeMessage('integrations'));
       return withLazy(<IntegrationHub projects={props.projects} onUpdateProject={props.handleUpdateProject} />);
     case 'templates':
       return withLazy(
@@ -147,7 +155,6 @@ const WorkspaceViewRenderer: React.FC<WorkspaceViewRendererProps> = ({ props, sc
           toggleTaskSelection={props.toggleTaskSelection}
           deleteTask={props.handleDeleteTaskWithPolicy}
           canDeleteTask={props.canDeleteTask}
-          canUseTaskAI={(taskId) => props.aiFeaturesEnabled && props.canManageTask(taskId)}
           canToggleTaskTimer={props.canToggleTaskTimer}
           onToggleTimer={props.onToggleTimer}
           isProjectCompletionPostponed={props.isProjectCompletionPostponed}
@@ -164,6 +171,9 @@ const WorkspaceViewRenderer: React.FC<WorkspaceViewRendererProps> = ({ props, sc
           refreshTasks={props.refreshTasks}
           onUpdateProjectStages={(projectId, stages: ProjectStage[]) => props.handleUpdateProject(projectId, { stages })}
           onGenerateProjectTasksWithAI={props.onGenerateProjectTasksWithAI}
+          canManageTaskAI={props.canManageTask}
+          aiPlanEnabled={props.aiPlanEnabled}
+          aiEnabled={props.aiEnabled}
           pinnedInsights={props.pinnedInsights ?? []}
           onUnpinInsight={props.onUnpinInsight}
         />

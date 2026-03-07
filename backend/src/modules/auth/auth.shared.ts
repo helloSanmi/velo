@@ -65,6 +65,35 @@ export const normalizeWorkspaceDomain = (value?: string | null): string | null =
   return null;
 };
 
+export const buildWorkspaceDomainCandidates = (value?: string | null): string[] => {
+  if (!value) return [];
+
+  const normalizedInput = value.trim().toLowerCase();
+  if (!normalizedInput) return [];
+
+  let raw = normalizedInput;
+  if (raw.includes('://')) {
+    try {
+      raw = new URL(raw).hostname.toLowerCase();
+    } catch {
+      raw = normalizedInput;
+    }
+  }
+
+  raw = raw.split('/')[0]?.split(':')[0]?.trim() || raw;
+  const normalized = normalizeWorkspaceDomain(raw);
+  const withoutKnownSuffix = raw.replace(/\.velo\.ai$/, '').replace(/\.localhost$/, '').trim();
+  const firstLabel = withoutKnownSuffix.split('.')[0]?.trim() || '';
+
+  return Array.from(
+    new Set(
+      [raw, normalized || '', withoutKnownSuffix, firstLabel]
+        .map((candidate) => candidate.trim().toLowerCase())
+        .filter(Boolean)
+    )
+  );
+};
+
 export const buildDisplayName = (username: string) => username.charAt(0).toUpperCase() + username.slice(1);
 export const buildAvatarUrl = (username: string) =>
   `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(username)}`;

@@ -22,5 +22,7 @@ export interface ProjectModalProps {
   ) => void;
   currentUserId: string;
   initialTemplateId?: string | null;
+  aiPlanEnabled?: boolean;
+  aiEnabled?: boolean;
   allowAiMode?: boolean;
 }

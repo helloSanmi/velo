@@ -39,10 +39,20 @@ export const changePasswordAuth = async (input: {
 export const resetPasswordAuth = async (input: {
   identifier: string;
   workspaceDomain?: string;
+  currentPassword: string;
   newPassword: string;
 }) => {
   const user = await resolveLoginUser(input.identifier, input.workspaceDomain);
   if (!user) throw new HttpError(404, 'Account not found.');
+  if (!user.mustChangePassword) {
+    throw new HttpError(400, 'Password reset is not required for this account.');
+  }
+
+  const isCurrentPasswordValid = await comparePassword(input.currentPassword, user.passwordHash);
+  if (!isCurrentPasswordValid) throw new HttpError(401, 'Temporary password is incorrect.');
+
+  const isSamePassword = await comparePassword(input.newPassword, user.passwordHash);
+  if (isSamePassword) throw new HttpError(400, 'New password must be different from temporary password.');
 
   await prisma.$transaction([
     prisma.user.update({
@@ -59,4 +69,3 @@ export const resetPasswordAuth = async (input: {
     })
   ]);
 };
-

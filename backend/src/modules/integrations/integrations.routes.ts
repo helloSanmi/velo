@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { authenticate } from '../../middleware/authenticate.js';
+import { enforceOrgPlanFeature } from '../../lib/planFeatures.js';
 import {
   buildIntegrationConnectUrl,
   completeIntegrationOauthCallback,
@@ -12,6 +13,7 @@ const providerSchema = z.enum(['slack', 'github']);
 
 router.get('/integrations/connections', authenticate, async (req, res, next) => {
   try {
+    await enforceOrgPlanFeature(req.auth!.orgId, 'integrations');
     const data = await listIntegrationConnections({ orgId: req.auth!.orgId });
     res.json({ success: true, data });
   } catch (error) {
@@ -21,6 +23,7 @@ router.get('/integrations/connections', authenticate, async (req, res, next) => 
 
 router.get('/integrations/:provider/connect-url', authenticate, async (req, res, next) => {
   try {
+    await enforceOrgPlanFeature(req.auth!.orgId, 'integrations');
     const provider = providerSchema.parse(req.params.provider);
     const returnOrigin = z.string().optional().parse(req.query.returnOrigin);
     const url = await buildIntegrationConnectUrl({
@@ -67,4 +70,3 @@ router.get('/integrations/:provider/callback', async (req, res, next) => {
 });
 
 export const integrationsRoutes = router;
-

@@ -2,6 +2,7 @@ import { UserRole } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import { HttpError } from '../../lib/httpError.js';
 import { createId } from '../../lib/ids.js';
+import { getBackendPermissionMessage } from '../../lib/accessMessages.js';
 import {
   buildProviderAuthorizeUrl,
   getProviderConfig
@@ -18,7 +19,7 @@ export const buildIntegrationConnectUrl = async (input: {
   returnOrigin?: string;
 }) => {
   if (input.actor.role !== 'admin') {
-    throw new HttpError(403, 'Only workspace admins can connect integrations.');
+    throw new HttpError(403, getBackendPermissionMessage('admin_only', 'connect integrations'));
   }
 
   const config = getProviderConfig(input.provider);

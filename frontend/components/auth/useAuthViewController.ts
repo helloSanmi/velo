@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { userService } from '../../services/userService';
+import { PLAN_DEFINITIONS } from '../../services/planFeatureService';
 import { User } from '../../types';
 import { inferWorkspaceDomainFromHost, isWorkspaceSubdomainHost } from '../../utils/workspaceHost';
-import { AuthMode, InvitePreview, PlanOption, Tier } from './AuthView.types';
+import { AuthMode, InvitePreview, LoginPasswordStep, PlanOption, Tier } from './AuthView.types';
 import { handleProviderSignInAction, handleSubmitAuthForm } from './authActions';
 
 interface UseAuthViewControllerParams {
@@ -16,6 +17,10 @@ export const useAuthViewController = ({
   initialMode = 'login',
   workspaceScoped
 }: UseAuthViewControllerParams) => {
+  const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+  const requestedPlan = searchParams?.get('plan');
+  const lockedPlan: Tier | null =
+    requestedPlan === 'free' || requestedPlan === 'basic' || requestedPlan === 'pro' ? requestedPlan : null;
   const hostScoped = isWorkspaceSubdomainHost();
   const scopedWorkspace = workspaceScoped ?? hostScoped;
   const initialAuthMode: AuthMode = scopedWorkspace
@@ -33,25 +38,63 @@ export const useAuthViewController = ({
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isResetPasswordMode, setIsResetPasswordMode] = useState(false);
+  const [tempPasswordVerified, setTempPasswordVerified] = useState(false);
+  const [verifiedTempPassword, setVerifiedTempPassword] = useState('');
   const [resetNotice, setResetNotice] = useState('');
   const [licenseBlocked, setLicenseBlocked] = useState<{ provider: 'microsoft'; message: string } | null>(null);
   const [orgName, setOrgName] = useState('');
-  const [selectedTier, setSelectedTier] = useState<Tier>('basic');
-  const [seatCount, setSeatCount] = useState(3);
+  const [selectedTier, setSelectedTier] = useState<Tier>(
+    lockedPlan || 'basic'
+  );
+  const [seatCount, setSeatCount] = useState(lockedPlan === 'free' ? 3 : 5);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [oauthLoadingProvider, setOauthLoadingProvider] = useState<'microsoft' | null>(null);
   const [workspaceName, setWorkspaceName] = useState<string>('');
 
   const plans: PlanOption[] = [
-    { id: 'free', label: 'Free', maxSeats: 3, price: 0 },
-    { id: 'basic', label: 'Basic', price: 5 },
-    { id: 'pro', label: 'Pro', price: 7 }
+    {
+      id: PLAN_DEFINITIONS.free.id,
+      label: PLAN_DEFINITIONS.free.name,
+      minSeats: 1,
+      maxSeats: 3,
+      price: PLAN_DEFINITIONS.free.price,
+      seatLabel: PLAN_DEFINITIONS.free.seatLabel
+    },
+    {
+      id: PLAN_DEFINITIONS.basic.id,
+      minSeats: 1,
+      label: PLAN_DEFINITIONS.basic.name,
+      price: PLAN_DEFINITIONS.basic.price,
+      seatLabel: PLAN_DEFINITIONS.basic.seatLabel
+    },
+    {
+      id: PLAN_DEFINITIONS.pro.id,
+      minSeats: 1,
+      label: PLAN_DEFINITIONS.pro.name,
+      price: PLAN_DEFINITIONS.pro.price,
+      seatLabel: PLAN_DEFINITIONS.pro.seatLabel
+    }
   ];
   const selectedPlan = plans.find((plan) => plan.id === selectedTier) || plans[1];
-  const effectiveSeatCount = selectedTier === 'free' ? Math.max(1, Math.min(3, seatCount || 1)) : null;
+  const effectiveSeatCount =
+    selectedTier === 'free'
+      ? Math.max(1, Math.min(3, seatCount || 1))
+      : Math.max(1, Math.min(100000, Math.round(seatCount || 1)));
+  const visiblePlans = lockedPlan ? [selectedPlan] : plans;
   const inferredWorkspaceDomain = inferWorkspaceDomainFromHost();
   const inferredWorkspaceSubdomain = inferredWorkspaceDomain?.split('.')[0]?.toLowerCase();
+  const loginPasswordStep: LoginPasswordStep =
+    mode === 'login' && isResetPasswordMode
+      ? tempPasswordVerified
+        ? 'set_new_password'
+        : 'verify_temp_password'
+      : 'sign_in';
+
+  useEffect(() => {
+    if (!lockedPlan) return;
+    setSelectedTier(lockedPlan);
+  }, [lockedPlan]);
 
   useEffect(() => {
     if (!scopedWorkspace || !inferredWorkspaceDomain) return;
@@ -129,6 +172,8 @@ export const useAuthViewController = ({
       password,
       confirmPassword,
       isResetPasswordMode,
+      tempPasswordVerified,
+      verifiedTempPassword,
       orgName,
       selectedTier,
       effectiveSeatCount,
@@ -138,6 +183,8 @@ export const useAuthViewController = ({
       setLoading,
       setResetNotice,
       setIsResetPasswordMode,
+      setTempPasswordVerified,
+      setVerifiedTempPassword,
       setPassword,
       setConfirmPassword
     });
@@ -160,7 +207,11 @@ export const useAuthViewController = ({
     showConfirmPassword,
     setShowConfirmPassword,
     isResetPasswordMode,
+    loginPasswordStep,
     setIsResetPasswordMode,
+    tempPasswordVerified,
+    setTempPasswordVerified,
+    setVerifiedTempPassword,
     resetNotice,
     setResetNotice,
     licenseBlocked,
@@ -168,9 +219,10 @@ export const useAuthViewController = ({
     setOrgName,
     selectedTier,
     setSelectedTier,
+    lockedPlan,
     seatCount,
     setSeatCount,
-    plans,
+    plans: visiblePlans,
     selectedPlan,
     effectiveSeatCount,
     error,

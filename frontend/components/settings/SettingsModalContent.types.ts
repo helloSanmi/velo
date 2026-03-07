@@ -4,6 +4,8 @@ import { SettingsTabType } from '../SettingsModal';
 
 export interface SettingsModalContentProps {
   activeTab: SettingsTabType;
+  workflowPlanEnabled: boolean;
+  integrationsPlanEnabled: boolean;
   canAccessWorkflowAutomation: boolean;
   canManageWorkflowAutomation: boolean;
   user: UserType;
@@ -98,5 +100,19 @@ export interface SettingsModalContentProps {
     blockedAt?: string | null;
   }>;
   refreshAiUsage: () => Promise<void>;
-  onUpdateOrganizationSettings: (patch: Partial<Pick<Organization, 'loginSubdomain' | 'allowMicrosoftAuth' | 'microsoftWorkspaceConnected' | 'notificationSenderEmail'>>) => Promise<void>;
+  onUpdateOrganizationSettings: (
+    patch: Partial<
+      Pick<
+        Organization,
+        | 'loginSubdomain'
+        | 'allowMicrosoftAuth'
+        | 'microsoftWorkspaceConnected'
+        | 'notificationSenderEmail'
+        | 'plan'
+        | 'totalSeats'
+        | 'seatPrice'
+        | 'billingCurrency'
+      >
+    >
+  ) => Promise<Organization | null>;
 }

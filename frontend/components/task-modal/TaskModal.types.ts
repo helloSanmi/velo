@@ -15,4 +15,6 @@ export interface TaskModalProps {
   ) => void;
   canAssignMembers?: boolean;
   projectId?: string | null;
+  aiPlanEnabled?: boolean;
+  aiEnabled?: boolean;
 }

@@ -11,6 +11,7 @@ import TaskTagsDocumentationPanel from './TaskTagsDocumentationPanel';
 
 interface TaskDetailGeneralTabProps {
   task: Task;
+  aiPlanEnabled: boolean;
   aiEnabled: boolean;
   allUsers: User[];
   onUpdate: (id: string, updates: Partial<Omit<Task, 'id' | 'userId' | 'createdAt' | 'order'>>) => void;
@@ -38,6 +39,7 @@ interface TaskDetailGeneralTabProps {
 
 const TaskDetailGeneralTab: React.FC<TaskDetailGeneralTabProps> = ({
   task,
+  aiPlanEnabled,
   aiEnabled,
   allUsers,
   onUpdate,
@@ -222,19 +224,19 @@ const TaskDetailGeneralTab: React.FC<TaskDetailGeneralTabProps> = ({
                 showControls={showEditPanel}
               />
             </div>
-            {aiEnabled ? (
-              <TaskAIAuditCard
-                canManageTask={canManageTask}
-                isAIThinking={isAIThinking}
-                runAIAudit={runAIAudit}
-                riskAssessment={riskAssessment}
-                estimateHours={estimateHours}
-                trackedHours={trackedHours}
-                adjustedHours={adjustedHours}
-                overrunPercent={overrunPercent}
-                showControls={showEditPanel}
-              />
-            ) : null}
+            <TaskAIAuditCard
+              canManageTask={canManageTask}
+              aiPlanEnabled={aiPlanEnabled}
+              aiEnabled={aiEnabled}
+              isAIThinking={isAIThinking}
+              runAIAudit={runAIAudit}
+              riskAssessment={riskAssessment}
+              estimateHours={estimateHours}
+              trackedHours={trackedHours}
+              adjustedHours={adjustedHours}
+              overrunPercent={overrunPercent}
+              showControls={showEditPanel}
+            />
           </div>
         ) : null}
       </div>

@@ -10,8 +10,20 @@ interface UseSettingsAdminTabControllerArgs {
   allUsers: UserType[];
   onRefreshWorkspaceUsers: () => Promise<void>;
   onUpdateOrganizationSettings: (
-    patch: Partial<Pick<Organization, 'loginSubdomain' | 'allowMicrosoftAuth' | 'microsoftWorkspaceConnected' | 'notificationSenderEmail'>>
-  ) => Promise<void>;
+    patch: Partial<
+      Pick<
+        Organization,
+        | 'loginSubdomain'
+        | 'allowMicrosoftAuth'
+        | 'microsoftWorkspaceConnected'
+        | 'notificationSenderEmail'
+        | 'plan'
+        | 'totalSeats'
+        | 'seatPrice'
+        | 'billingCurrency'
+      >
+    >
+  ) => Promise<Organization | null>;
   setIsProvisioning: (value: boolean) => void;
   setNewUserName: (value: string) => void;
   setNewUserFirstName: (value: string) => void;
@@ -42,12 +54,10 @@ export const useSettingsAdminTabController = ({
     org,
     onUpdateOrganizationSettings
   });
-  const isFreePlan = (org?.plan || 'basic') === 'free';
   const planLabel = (org?.plan || 'basic').toUpperCase();
   const seatLimit = Math.max(1, org?.totalSeats || 1);
   const usedSeats = allUsers.filter((member) => member.licenseActive !== false).length;
   const availableSeats = Math.max(0, seatLimit - usedSeats);
-  const canShowUpgrade = (org?.plan || 'basic') !== 'pro';
 
   const rows = useMemo<SettingsAdminRow[]>(() => buildSettingsAdminRows(allUsers, directoryUsers), [allUsers, directoryUsers]);
 
@@ -152,11 +162,9 @@ export const useSettingsAdminTabController = ({
     directoryLoading,
     directoryError,
     planLabel,
-    isFreePlan,
     seatLimit,
     usedSeats,
     availableSeats,
-    canShowUpgrade,
     filteredRows,
     handleSyncDirectory,
     handleRoleChange,

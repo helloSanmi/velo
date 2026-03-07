@@ -1,6 +1,7 @@
 import { UserRole } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import { HttpError } from '../../lib/httpError.js';
+import { getBackendPermissionMessage } from '../../lib/accessMessages.js';
 import { ensureProviderAccessToken } from './auth.oauth.connection.js';
 import type { Provider } from './auth.oauth.types.js';
 
@@ -79,7 +80,7 @@ export const listDirectoryUsers = async (input: {
   actor: { userId: string; orgId: string; role: UserRole };
 }) => {
   if (input.actor.role !== 'admin') {
-    throw new HttpError(403, 'Only workspace admins can list directory users.');
+    throw new HttpError(403, getBackendPermissionMessage('admin_only', 'list directory users'));
   }
   const org = await prisma.organization.findUnique({
     where: { id: input.actor.orgId },

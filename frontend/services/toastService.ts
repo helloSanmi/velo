@@ -13,7 +13,7 @@ export interface ToastItem {
 const TOAST_EVENT = 'velo:toast:push';
 
 const push = (payload: Omit<ToastItem, 'id'>) => {
-  const detail: ToastItem = { id: createId(), durationMs: 5000, ...payload };
+  const detail: ToastItem = { id: createId(), durationMs: 3000, ...payload };
   window.dispatchEvent(new CustomEvent(TOAST_EVENT, { detail }));
 };
 

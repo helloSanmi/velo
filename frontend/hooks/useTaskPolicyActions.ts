@@ -6,6 +6,7 @@ import { estimationService } from '../services/estimationService';
 import { isTaskAssignedToUser } from '../services/permissionService';
 import { DEFAULT_PROJECT_STAGES } from '../services/projectService';
 import { shouldEnforceCompletionApprovalLock } from '../services/completionFlowService';
+import { ensurePermissionAccess } from '../services/permissionAccessService';
 
 interface UseTaskPolicyActionsParams {
   user: User;
@@ -249,10 +250,7 @@ export const useTaskPolicyActions = ({
     const task = tasks.find((item) => item.id === taskId);
     if (!task) return;
     if (!ensureProjectUnlockedForTaskChange(task.projectId)) return;
-    if (!canActOnTask(task)) {
-      toastService.warning('Permission denied', 'Only assigned members, project owners, or admins can move this task.');
-      return;
-    }
+    if (!ensurePermissionAccess(canActOnTask(task), 'task_operator', 'move this task')) return;
     const doneStageIdForPermission = getProjectDoneStageId(task.projectId);
     if ((targetStatus === doneStageIdForPermission || task.status === doneStageIdForPermission) && !ensureTaskPermission(taskId, 'complete')) return;
     if (!ensureDueDateBeforeDone(task, targetStatus)) return;
@@ -300,10 +298,7 @@ export const useTaskPolicyActions = ({
     const task = tasks.find((item) => item.id === taskId);
     if (!task) return;
     if (!ensureProjectUnlockedForTaskChange(task.projectId)) return;
-    if (!canActOnTask(task)) {
-      toastService.warning('Permission denied', 'Only assigned members, project owners, or admins can update status.');
-      return;
-    }
+    if (!ensurePermissionAccess(canActOnTask(task), 'task_operator', 'update status')) return;
     const doneStageIdForPermission = getProjectDoneStageId(task.projectId);
     if ((targetStatus === doneStageIdForPermission || task.status === doneStageIdForPermission) && !ensureTaskPermission(taskId, 'complete')) return;
     if (!ensureDueDateBeforeDone(task, targetStatus)) return;
@@ -410,10 +405,7 @@ export const useTaskPolicyActions = ({
     const hasOwnerRestrictedUpdate =
       hasAssignmentUpdate || hasRenameUpdate || hasDescriptionUpdate || hasDependencyUpdate || hasSubtaskUpdate || hasAuditUpdate || hasEstimateUpdate;
 
-    if (hasOwnerRestrictedUpdate && !canManageTaskData) {
-      toastService.warning('Permission denied', 'Only project owners or admins can modify this part of the task.');
-      return;
-    }
+    if (hasOwnerRestrictedUpdate && !ensurePermissionAccess(canManageTaskData, 'project_owner_or_admin', 'modify this part of the task')) return;
 
     if (!hasAssignmentUpdate && !hasOwnerRestrictedUpdate && !isAssignedActor(task) && !canManageTaskData) {
       toastService.warning('Permission denied', 'Only assigned members can edit this task.');
@@ -458,10 +450,7 @@ export const useTaskPolicyActions = ({
     const task = tasks.find((item) => item.id === id);
     if (!task) return;
     if (!ensureProjectUnlockedForTaskChange(task.projectId)) return;
-    if (!canActOnTask(task)) {
-      toastService.warning('Permission denied', 'Only assigned members, project owners, or admins can start or stop timer.');
-      return;
-    }
+    if (!ensurePermissionAccess(canActOnTask(task), 'task_operator', 'start or stop timer')) return;
     toggleTimer(id);
   };
 
@@ -505,7 +494,7 @@ export const useTaskPolicyActions = ({
       return;
     }
     if ((assigneeIds.length > 0 || securityGroupIds.length > 0) && !canManageProject(targetProject)) {
-      toastService.warning('Permission denied', 'Only admins or the project creator can assign task members.');
+      ensurePermissionAccess(false, 'project_creator_or_admin', 'assign task members');
       createTask(title, description, priority, tags, dueDate, projectId, [], [], estimateMinutes, estimateProvidedBy, creationAuditAction);
       return;
     }

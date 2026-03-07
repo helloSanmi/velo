@@ -5,6 +5,8 @@ import { OrgInvite, Organization, Project, Task, Team, User as UserType } from '
 
 interface BuildSettingsModalContentPropsArgs {
   activeTab: SettingsTabType;
+  workflowPlanEnabled: boolean;
+  integrationsPlanEnabled: boolean;
   canAccessWorkflowAutomation: boolean;
   canManageWorkflowAutomation: boolean;
   user?: UserType;
@@ -90,12 +92,26 @@ interface BuildSettingsModalContentPropsArgs {
   aiUsageRows: Array<{ id: string; orgId: string; dayKey: string; requestsUsed: number; tokensUsed: number; warningIssuedAt?: string | null; blockedAt?: string | null }>;
   refreshAiUsage: () => Promise<void>;
   onUpdateOrganizationSettings: (
-    patch: Partial<Pick<Organization, 'loginSubdomain' | 'allowMicrosoftAuth' | 'microsoftWorkspaceConnected' | 'notificationSenderEmail'>>
-  ) => Promise<void>;
+    patch: Partial<
+      Pick<
+        Organization,
+        | 'loginSubdomain'
+        | 'allowMicrosoftAuth'
+        | 'microsoftWorkspaceConnected'
+        | 'notificationSenderEmail'
+        | 'plan'
+        | 'totalSeats'
+        | 'seatPrice'
+        | 'billingCurrency'
+      >
+    >
+  ) => Promise<Organization | null>;
 }
 
 export const buildSettingsModalContentProps = (args: BuildSettingsModalContentPropsArgs) => ({
   activeTab: args.activeTab,
+  workflowPlanEnabled: args.workflowPlanEnabled,
+  integrationsPlanEnabled: args.integrationsPlanEnabled,
   canAccessWorkflowAutomation: args.canAccessWorkflowAutomation,
   canManageWorkflowAutomation: args.canManageWorkflowAutomation,
   user: args.user,

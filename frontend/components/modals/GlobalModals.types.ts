@@ -35,6 +35,7 @@ export interface GlobalModalsProps {
   projects: Project[];
   activeProject?: Project;
   activeProjectId: string | null;
+  aiPlanEnabled: boolean;
   aiEnabled: boolean;
   canAssignMembers: boolean;
   canManageTask: (taskId: string) => boolean;

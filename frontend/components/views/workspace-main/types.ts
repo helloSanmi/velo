@@ -76,9 +76,10 @@ export interface WorkspaceMainViewProps {
     projectId: string,
     tasks: Array<{ title: string; description: string; priority: TaskPriority; tags: string[] }>
   ) => void;
+  aiPlanEnabled?: boolean;
+  aiEnabled?: boolean;
   pinnedInsights?: string[];
   onUnpinInsight?: (insight: string) => void;
   routeTicketId?: string | null;
   onOpenTicketRoute?: (ticketId: string | null) => void;
 }
-

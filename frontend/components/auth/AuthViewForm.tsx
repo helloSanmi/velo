@@ -18,6 +18,7 @@ export const AuthViewForm: React.FC<AuthViewFormProps> = ({
   identifier,
   setIdentifier,
   isResetPasswordMode,
+  loginPasswordStep,
   password,
   setPassword,
   showPassword,
@@ -31,6 +32,7 @@ export const AuthViewForm: React.FC<AuthViewFormProps> = ({
   setSelectedTier,
   effectiveSeatCount,
   selectedPlanLabel,
+  planLocked,
   setSeatCount,
   error,
   resetNotice,
@@ -38,6 +40,8 @@ export const AuthViewForm: React.FC<AuthViewFormProps> = ({
   oauthLoadingProvider,
   handleProviderSignIn,
   setIsResetPasswordMode,
+  setTempPasswordVerified,
+  setVerifiedTempPassword,
   setError,
   setResetNotice
 }) => (
@@ -64,15 +68,27 @@ export const AuthViewForm: React.FC<AuthViewFormProps> = ({
     />
 
     <AuthPasswordInput
-      label={isResetPasswordMode ? 'New password' : 'Password'}
-      placeholder={isResetPasswordMode ? 'New password' : 'Password'}
+      label={
+        isResetPasswordMode
+          ? loginPasswordStep === 'verify_temp_password'
+            ? 'Temporary password'
+            : 'New password'
+          : 'Password'
+      }
+      placeholder={
+        isResetPasswordMode
+          ? loginPasswordStep === 'verify_temp_password'
+            ? 'Temporary password'
+            : 'New password'
+          : 'Password'
+      }
       value={password}
       onChange={setPassword}
       show={showPassword}
       onToggleShow={() => setShowPassword((prev) => !prev)}
     />
 
-    {mode === 'signup' || (mode === 'login' && isResetPasswordMode) ? (
+    {mode === 'signup' || (mode === 'login' && loginPasswordStep === 'set_new_password') ? (
       <>
         <AuthPasswordInput
           label={mode === 'signup' ? 'Re-enter password' : 'Re-enter new password'}
@@ -89,6 +105,7 @@ export const AuthViewForm: React.FC<AuthViewFormProps> = ({
             setSelectedTier={setSelectedTier}
             effectiveSeatCount={effectiveSeatCount}
             selectedPlanLabel={selectedPlanLabel}
+            planLocked={planLocked}
             onSeatCountChange={setSeatCount}
           />
         ) : null}
@@ -99,7 +116,15 @@ export const AuthViewForm: React.FC<AuthViewFormProps> = ({
     {resetNotice ? <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{resetNotice}</div> : null}
 
     <Button type="submit" className="h-11 w-full bg-[#76003f] hover:bg-[#640035]" isLoading={loading}>
-      {mode === 'login' ? (isResetPasswordMode ? 'Reset password' : 'Sign in') : mode === 'signup' ? 'Create workspace' : 'Join workspace'}
+      {mode === 'login'
+        ? isResetPasswordMode
+          ? loginPasswordStep === 'verify_temp_password'
+            ? 'Verify temporary password'
+            : 'Reset password'
+          : 'Sign in'
+        : mode === 'signup'
+          ? 'Create workspace'
+          : 'Join workspace'}
     </Button>
 
     {mode === 'login' && !isResetPasswordMode ? (
@@ -114,6 +139,8 @@ export const AuthViewForm: React.FC<AuthViewFormProps> = ({
         type="button"
         onClick={() => {
           setIsResetPasswordMode((prev) => !prev);
+          setTempPasswordVerified(false);
+          setVerifiedTempPassword('');
           setError('');
           setResetNotice('');
           setPassword('');
@@ -121,7 +148,7 @@ export const AuthViewForm: React.FC<AuthViewFormProps> = ({
         }}
         className="w-full text-center text-xs text-slate-500 hover:text-slate-700"
       >
-        {isResetPasswordMode ? 'Back to sign in' : 'Forgot password? Reset here'}
+        {isResetPasswordMode ? 'Back to sign in' : 'First time sign-in or temporary password? Continue here'}
       </button>
     ) : null}
   </form>

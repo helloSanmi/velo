@@ -9,8 +9,23 @@ import { prisma } from '../../lib/prisma.js';
 const router = Router();
 
 const paramsSchema = z.object({ orgId: z.string().min(1) });
+const aiFeatureSchema = z.enum([
+  'project_tasks_from_brief',
+  'task_breakdown',
+  'task_tags',
+  'task_description',
+  'task_risk',
+  'task_triage',
+  'board_chat',
+  'voice_assistant_actions',
+  'project_tasks_from_document',
+  'workload_balance',
+  'task_due_date',
+  'image_to_tasks',
+  'health_insights'
+]);
 const generateSchema = z.object({
-  feature: z.string().min(1),
+  feature: aiFeatureSchema,
   prompt: z.string().min(1)
 });
 

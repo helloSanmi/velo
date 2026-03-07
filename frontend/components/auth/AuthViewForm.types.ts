@@ -1,4 +1,4 @@
-import { InvitePreview, AuthMode, PlanOption, Tier } from './AuthView.types';
+import { InvitePreview, AuthMode, LoginPasswordStep, PlanOption, Tier } from './AuthView.types';
 
 export interface AuthViewFormProps {
   mode: AuthMode;
@@ -12,6 +12,7 @@ export interface AuthViewFormProps {
   identifier: string;
   setIdentifier: (value: string) => void;
   isResetPasswordMode: boolean;
+  loginPasswordStep: LoginPasswordStep;
   password: string;
   setPassword: (value: string) => void;
   showPassword: boolean;
@@ -23,8 +24,9 @@ export interface AuthViewFormProps {
   plans: PlanOption[];
   selectedTier: Tier;
   setSelectedTier: (tier: Tier) => void;
-  effectiveSeatCount: number | null;
+  effectiveSeatCount: number;
   selectedPlanLabel: string;
+  planLocked: boolean;
   setSeatCount: (count: number) => void;
   error: string;
   resetNotice: string;
@@ -32,6 +34,8 @@ export interface AuthViewFormProps {
   oauthLoadingProvider: 'microsoft' | null;
   handleProviderSignIn: (provider: 'microsoft') => Promise<void>;
   setIsResetPasswordMode: (value: boolean | ((prev: boolean) => boolean)) => void;
+  setTempPasswordVerified: (value: boolean) => void;
+  setVerifiedTempPassword: (value: string) => void;
   setError: (value: string) => void;
   setResetNotice: (value: string) => void;
 }

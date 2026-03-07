@@ -8,6 +8,7 @@ import { prisma } from '../../lib/prisma.js';
 import { createId } from '../../lib/ids.js';
 import { writeAudit } from '../audit/audit.service.js';
 import { normalizeWorkspacePlan } from '../../lib/planLimits.js';
+import { getBackendPlanUpgradeMessage } from '../../lib/accessMessages.js';
 
 const openaiClient = env.OPENAI_API_KEY ? new OpenAI({ apiKey: env.OPENAI_API_KEY }) : null;
 const geminiClient = env.GEMINI_API_KEY ? new GoogleGenerativeAI(env.GEMINI_API_KEY) : null;
@@ -69,7 +70,7 @@ export const aiService = {
     });
     if (!org) throw new HttpError(404, 'Organization not found.');
     if (normalizeWorkspacePlan(org.plan) !== 'pro') {
-      throw new HttpError(403, 'AI features are available on the Pro plan.');
+      throw new HttpError(403, getBackendPlanUpgradeMessage('aiTools'));
     }
 
     const reserved = await usageService.reserveOrThrow({

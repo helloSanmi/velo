@@ -19,6 +19,8 @@ type KanbanHeaderActionsProps = Pick<
   | 'onOpenManageViews'
   | 'activeProject'
   | 'onOptimizeOrder'
+  | 'aiPlanEnabled'
+  | 'aiEnabled'
   | 'isTriaging'
   | 'projectStages'
   | 'canManageStages'
@@ -47,6 +49,8 @@ const KanbanHeaderActions: React.FC<KanbanHeaderActionsProps> = ({
   onOpenManageViews,
   activeProject,
   onOptimizeOrder,
+  aiPlanEnabled,
+  aiEnabled,
   isTriaging,
   projectStages,
   canManageStages,
@@ -75,6 +79,8 @@ const KanbanHeaderActions: React.FC<KanbanHeaderActionsProps> = ({
       <KanbanActionButtons
         activeProject={activeProject}
         onOptimizeOrder={onOptimizeOrder}
+        aiPlanEnabled={aiPlanEnabled}
+        aiEnabled={aiEnabled}
         isTriaging={isTriaging}
         projectStages={projectStages}
         canManageStages={canManageStages}

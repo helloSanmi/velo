@@ -14,6 +14,8 @@ import SidebarProjectList from './sidebar/SidebarProjectList';
 import RecentActivityPanel from './sidebar/RecentActivityPanel';
 import { useRecentActions } from '../../hooks/useRecentActions';
 import { PlanFeatures } from '../../services/planFeatureService';
+import { ensureAiAccess } from '../../services/aiAccessService';
+import { ensurePlanAccess, getPlanBadgeLabel } from '../../services/planAccessService';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -101,49 +103,80 @@ const Sidebar: React.FC<SidebarProps> = ({
             icon={GanttChartSquare}
             label="Roadmap"
           />
-          {planFeatures.analytics ? (
-            <SidebarNavButton
-              active={currentView === 'analytics'}
-              onClick={() => runSidebarAction(() => onViewChange('analytics'))}
-              icon={Activity}
-              label="Analytics"
-            />
-          ) : null}
-          {planFeatures.resources ? (
-            <SidebarNavButton
-              active={currentView === 'resources'}
-              onClick={() => runSidebarAction(() => onViewChange('resources'))}
-              icon={Users}
-              label="Resources"
-            />
-          ) : null}
+          <SidebarNavButton
+            active={currentView === 'analytics'}
+            onClick={() =>
+              runSidebarAction(() => {
+                if (!ensurePlanAccess('analytics', planFeatures.analytics)) return;
+                onViewChange('analytics');
+              })
+            }
+            icon={Activity}
+            label="Analytics"
+            badge={planFeatures.analytics ? undefined : getPlanBadgeLabel('analytics')}
+          />
+          <SidebarNavButton
+            active={currentView === 'resources'}
+            onClick={() =>
+              runSidebarAction(() => {
+                if (!ensurePlanAccess('resources', planFeatures.resources)) return;
+                onViewChange('resources');
+              })
+            }
+            icon={Users}
+            label="Resources"
+            badge={planFeatures.resources ? undefined : getPlanBadgeLabel('resources')}
+          />
         </div>
 
         <div className="space-y-1.5">
           <p className="px-3 text-[11px] font-medium tracking-wide text-slate-500 mb-2 truncate">Tools</p>
-          {planFeatures.aiTools && aiFeaturesEnabled ? (
-            <>
-              <button
-                onClick={() => runSidebarAction(onOpenCommandCenter)}
-                className="w-full flex items-center justify-between px-3 py-2 rounded-lg hover:bg-slate-100 hover:border-slate-200 border border-transparent hover:text-slate-900 font-medium text-sm transition-colors text-left"
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <Terminal className="w-4 h-4 text-slate-400 shrink-0" />
-                  <span className="truncate">Velo Copilot</span>
-                </div>
-              </button>
-              <button
-                onClick={() => runSidebarAction(onOpenVisionModal)}
-                className="w-full flex items-center justify-between px-3 py-2 rounded-lg hover:bg-slate-100 hover:border-slate-200 border border-transparent hover:text-slate-900 font-medium text-sm transition-colors text-left"
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <Camera className="w-4 h-4 text-slate-400 shrink-0" />
-                  <span className="truncate">Image to Tasks</span>
-                </div>
-                <Sparkles className="w-3 h-3 text-slate-400 shrink-0" />
-              </button>
-            </>
-          ) : null}
+          <button
+            onClick={() =>
+              runSidebarAction(() => {
+                if (!ensureAiAccess({
+                  aiPlanEnabled: planFeatures.aiTools,
+                  aiEnabled: aiFeaturesEnabled,
+                  featureLabel: 'Velo Copilot'
+                })) return;
+                onOpenCommandCenter();
+              })
+            }
+            className={`w-full flex items-center justify-between px-3 py-2 rounded-lg border font-medium text-sm transition-colors text-left ${
+              planFeatures.aiTools && aiFeaturesEnabled
+                ? 'border-transparent hover:bg-slate-100 hover:border-slate-200 hover:text-slate-900'
+                : 'border-slate-200 bg-slate-100/70 text-slate-500'
+            }`}
+          >
+            <div className="flex items-center gap-3 min-w-0">
+              <Terminal className="w-4 h-4 text-slate-400 shrink-0" />
+              <span className="truncate">Velo Copilot</span>
+            </div>
+            {!planFeatures.aiTools ? <span className="text-[10px] font-semibold text-[#76003f]">Pro</span> : null}
+          </button>
+          <button
+            onClick={() =>
+              runSidebarAction(() => {
+                if (!ensureAiAccess({
+                  aiPlanEnabled: planFeatures.aiTools,
+                  aiEnabled: aiFeaturesEnabled,
+                  featureLabel: 'Image to Tasks'
+                })) return;
+                onOpenVisionModal();
+              })
+            }
+            className={`w-full flex items-center justify-between px-3 py-2 rounded-lg border font-medium text-sm transition-colors text-left ${
+              planFeatures.aiTools && aiFeaturesEnabled
+                ? 'border-transparent hover:bg-slate-100 hover:border-slate-200 hover:text-slate-900'
+                : 'border-slate-200 bg-slate-100/70 text-slate-500'
+            }`}
+          >
+            <div className="flex items-center gap-3 min-w-0">
+              <Camera className="w-4 h-4 text-slate-400 shrink-0" />
+              <span className="truncate">Image to Tasks</span>
+            </div>
+            {!planFeatures.aiTools ? <span className="text-[10px] font-semibold text-[#76003f]">Pro</span> : <Sparkles className="w-3 h-3 text-slate-400 shrink-0" />}
+          </button>
         </div>
 
         <RecentActivityPanel recentActions={recentActions} />

@@ -1,11 +1,5 @@
 import { Project, Task, User } from '../types';
 
-const getTaskAssigneeIds = (task: Task): string[] => {
-  if (Array.isArray(task.assigneeIds) && task.assigneeIds.length > 0) return task.assigneeIds;
-  if (task.assigneeId) return [task.assigneeId];
-  return [];
-};
-
 export const getProjectOwnerIds = (project?: Project): string[] => {
   if (!project) return [];
   const ownerIds = Array.isArray(project.ownerIds) ? project.ownerIds.filter(Boolean) : [];
@@ -24,10 +18,8 @@ export const canUserAccessProject = (params: {
   if (user.role === 'admin') return true;
   const isOwner = getProjectOwnerIds(project).includes(user.id);
   const isMember = Array.isArray(project.members) && project.members.includes(user.id);
-  const isAssignedToProject = tasks.some(
-    (task) => task.projectId === project.id && getTaskAssigneeIds(task).includes(user.id)
-  );
-  return isOwner || isMember || isAssignedToProject || Boolean(project.isPublic);
+  void tasks;
+  return isOwner || isMember || Boolean(project.isPublic);
 };
 
 export const getAccessibleProjectIds = (params: {

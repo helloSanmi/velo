@@ -12,6 +12,8 @@ interface AuthViewHeaderProps {
   setError: (value: string) => void;
   setResetNotice: (value: string) => void;
   setIsResetPasswordMode: (value: boolean) => void;
+  setTempPasswordVerified: (value: boolean) => void;
+  setVerifiedTempPassword: (value: string) => void;
   isResetPasswordMode: boolean;
   workspaceName: string;
   inferredWorkspaceDomain: string | null;
@@ -25,6 +27,8 @@ export const AuthViewHeader: React.FC<AuthViewHeaderProps> = ({
   setError,
   setResetNotice,
   setIsResetPasswordMode,
+  setTempPasswordVerified,
+  setVerifiedTempPassword,
   isResetPasswordMode,
   workspaceName,
   inferredWorkspaceDomain
@@ -32,36 +36,33 @@ export const AuthViewHeader: React.FC<AuthViewHeaderProps> = ({
   <>
     {scopedWorkspace ? (
       <div className="mb-6">
-        {onBackToHome ? (
-          <div className="mb-3 flex justify-end">
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <p className="text-sm font-medium text-slate-600">
+            {workspaceName || inferredWorkspaceDomain || 'Workspace'}
+          </p>
+          {onBackToHome ? (
             <Button variant="ghost" size="sm" onClick={onBackToHome}>
               <ArrowLeft className="mr-1.5 h-4 w-4" />Main site
             </Button>
-          </div>
-        ) : null}
-        <div className="flex flex-col items-center text-center">
+          ) : null}
+        </div>
+        <div className="flex flex-col items-start text-left">
           <div className="flex items-center gap-2.5">
             <div className="rounded-xl bg-slate-900 p-2 text-white"><Cloud className="h-4 w-4" /></div>
-            <p className="text-xl font-semibold tracking-tight text-slate-900">Velo<span className="text-[#76003f]">.</span></p>
+            <p className="text-[1.9rem] font-semibold tracking-tight text-slate-900">Velo<span className="text-[#76003f]">.</span></p>
           </div>
-          {workspaceName || inferredWorkspaceDomain ? (
-            <p className="mt-2 text-base font-semibold text-slate-800">{workspaceName ? `Welcome to ${workspaceName}` : 'Welcome back'}</p>
-          ) : null}
-          <p className="mt-1 text-xs text-slate-500">
-            {mode === 'login'
-              ? isResetPasswordMode
-                ? 'Reset your password'
-                : 'Sign in to your workspace'
-              : mode === 'signup'
-                ? 'Create your workspace'
-                : 'Join your workspace'}
-          </p>
-          {inferredWorkspaceDomain ? (
-            <div className="mt-3 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5">
-              <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">Workspace</span>
-              <span className="text-sm font-semibold text-slate-900">{inferredWorkspaceDomain}</span>
-            </div>
-          ) : null}
+          <div className="mt-5">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Workspace</p>
+            <p className="mt-1 text-[1.75rem] font-semibold tracking-tight text-slate-950">
+              {mode === 'login'
+                ? isResetPasswordMode
+                  ? 'Set password'
+                  : 'Sign in'
+                : mode === 'signup'
+                  ? 'Create workspace'
+                  : 'Join workspace'}
+            </p>
+          </div>
         </div>
       </div>
     ) : (
@@ -99,14 +100,14 @@ export const AuthViewHeader: React.FC<AuthViewHeaderProps> = ({
       <div className="mb-6 grid grid-cols-2 rounded-xl bg-slate-100 p-1">
         <button
           type="button"
-          onClick={() => { setMode('login'); setError(''); setResetNotice(''); setIsResetPasswordMode(false); }}
+          onClick={() => { setMode('login'); setError(''); setResetNotice(''); setIsResetPasswordMode(false); setTempPasswordVerified(false); setVerifiedTempPassword(''); }}
           className={`h-10 rounded-lg text-sm font-medium ${mode === 'login' ? 'bg-white text-[#76003f] shadow-sm' : 'text-slate-500'}`}
         >
           Sign in
         </button>
         <button
           type="button"
-          onClick={() => { setMode('signup'); setError(''); setResetNotice(''); setIsResetPasswordMode(false); }}
+          onClick={() => { setMode('signup'); setError(''); setResetNotice(''); setIsResetPasswordMode(false); setTempPasswordVerified(false); setVerifiedTempPassword(''); }}
           className={`h-10 rounded-lg text-sm font-medium ${mode === 'signup' ? 'bg-white text-[#76003f] shadow-sm' : 'text-slate-500'}`}
         >
           Create workspace
@@ -115,4 +116,3 @@ export const AuthViewHeader: React.FC<AuthViewHeaderProps> = ({
     ) : null}
   </>
 );
-

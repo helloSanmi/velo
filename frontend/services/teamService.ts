@@ -9,6 +9,7 @@ import {
   isAdminUser,
   updateTeamRemote as updateTeamRemoteRequest
 } from './team-service/remote';
+import { getPermissionMessage } from './permissionAccessService';
 
 const emitTeamsUpdated = (orgId?: string, actorId?: string, teamId?: string) => {
   realtimeService.publish({
@@ -20,7 +21,7 @@ const emitTeamsUpdated = (orgId?: string, actorId?: string, teamId?: string) => 
 };
 
 const ensureAdmin = (user: User): string | undefined => {
-  if (!isAdminUser(user)) return 'Only admins can manage teams.';
+  if (!isAdminUser(user)) return getPermissionMessage('admin_only', 'manage teams');
   return undefined;
 };
 

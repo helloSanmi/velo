@@ -42,7 +42,7 @@ export interface KanbanViewProps {
   onUpdateTask: (id: string, updates: Partial<Omit<Task, 'id' | 'userId' | 'createdAt' | 'order'>>) => void;
   onToggleTimer?: (id: string) => void;
   canDeleteTask?: (taskId: string) => boolean;
-  canUseTaskAI?: (taskId: string) => boolean;
+  canManageTaskAI?: (taskId: string) => boolean;
   canToggleTaskTimer?: (taskId: string) => boolean;
   isProjectCompletionPostponed?: (projectId: string) => boolean;
   completionActionLabel?: string;
@@ -55,6 +55,8 @@ export interface KanbanViewProps {
     projectId: string,
     tasks: Array<{ title: string; description: string; priority: TaskPriority; tags: string[]; assigneeIds?: string[] }>
   ) => void;
+  aiPlanEnabled?: boolean;
+  aiEnabled?: boolean;
   pinnedInsights?: string[];
   onUnpinInsight?: (insight: string) => void;
 }

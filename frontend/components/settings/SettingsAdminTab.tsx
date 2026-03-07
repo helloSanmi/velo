@@ -1,9 +1,13 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Organization, User as UserType } from '../../types';
 import SettingsAdminHeaderCard from './SettingsAdminHeaderCard';
+import SettingsBillingActionModal from './SettingsBillingActionModal';
 import SettingsAdminUsersSection from './SettingsAdminUsersSection';
 import SettingsAdminProvisionDrawer from './SettingsAdminProvisionDrawer';
 import { useSettingsAdminTabController } from './useSettingsAdminTabController';
+import { PLAN_DEFINITIONS, normalizeWorkspacePlan } from '../../services/planFeatureService';
+import { userService } from '../../services/userService';
+import { toastService } from '../../services/toastService';
 
 interface SettingsAdminTabProps {
   user: UserType; org: Organization | null; allUsers: UserType[]; isProvisioning: boolean; setIsProvisioning: (value: boolean) => void;
@@ -16,10 +20,25 @@ interface SettingsAdminTabProps {
   onRefreshWorkspaceUsers: () => Promise<void>;
   aiUsageRows: Array<{ id: string; orgId: string; dayKey: string; requestsUsed: number; tokensUsed: number; warningIssuedAt?: string | null; blockedAt?: string | null }>;
   onRefreshAiUsage: () => Promise<void>;
-  onUpdateOrganizationSettings: (patch: Partial<Pick<Organization, 'loginSubdomain' | 'allowMicrosoftAuth' | 'microsoftWorkspaceConnected' | 'notificationSenderEmail'>>) => Promise<void>;
+  onUpdateOrganizationSettings: (
+    patch: Partial<
+      Pick<
+        Organization,
+        | 'loginSubdomain'
+        | 'allowMicrosoftAuth'
+        | 'microsoftWorkspaceConnected'
+        | 'notificationSenderEmail'
+        | 'plan'
+        | 'totalSeats'
+        | 'seatPrice'
+        | 'billingCurrency'
+      >
+    >
+  ) => Promise<Organization | null>;
 }
 
 const SettingsAdminTab: React.FC<SettingsAdminTabProps> = (p) => {
+  const [billingModalMode, setBillingModalMode] = useState<'add_seats' | 'upgrade_plan' | null>(null);
   const controller = useSettingsAdminTabController({
     org: p.org,
     allUsers: p.allUsers,
@@ -38,9 +57,55 @@ const SettingsAdminTab: React.FC<SettingsAdminTabProps> = (p) => {
   const _unused = { editingUserId: p.editingUserId, editFirstNameValue: p.editFirstNameValue, setEditFirstNameValue: p.setEditFirstNameValue, editLastNameValue: p.editLastNameValue, setEditLastNameValue: p.setEditLastNameValue, editEmailValue: p.editEmailValue, setEditEmailValue: p.setEditEmailValue, handleCommitEdit: p.handleCommitEdit, handleStartEdit: p.handleStartEdit, aiUsageRows: p.aiUsageRows, onRefreshAiUsage: p.onRefreshAiUsage };
   void _unused;
 
+  const currentPlan = normalizeWorkspacePlan(p.org?.plan);
+
+  const handleAddSeatsPurchase = async (seatCount: number): Promise<boolean> => {
+    if (!p.org) return false;
+    const updatedOrg = await userService.addSeatsRemote(p.org.id, seatCount);
+    if (!updatedOrg) {
+      toastService.error('Purchase failed', 'Could not add licenses right now.');
+      return false;
+    }
+    userService.updateOrganization(updatedOrg.id, updatedOrg);
+    await p.onUpdateOrganizationSettings({
+      totalSeats: updatedOrg.totalSeats,
+      seatPrice: updatedOrg.seatPrice,
+      billingCurrency: updatedOrg.billingCurrency
+    });
+    toastService.success('Licenses added', `${seatCount} additional licenses are now available.`);
+    return true;
+  };
+
+  const handleUpgradePlan = async (plan: 'free' | 'basic' | 'pro', totalSeats: number): Promise<boolean> => {
+    if (!p.org) return false;
+    const targetPlan = PLAN_DEFINITIONS[plan];
+    const updatedOrg = await p.onUpdateOrganizationSettings({
+      plan,
+      totalSeats,
+      seatPrice: targetPlan.price,
+      billingCurrency: 'USD'
+    });
+    if (!updatedOrg) {
+      toastService.error('Upgrade failed', 'Could not update the workspace plan right now.');
+      return false;
+    }
+    toastService.success('Plan updated', `Workspace is now on ${targetPlan.name}.`);
+    return true;
+  };
+
   return (
     <div className="relative animate-in fade-in slide-in-from-bottom-2 duration-300 space-y-3">
-      <SettingsAdminHeaderCard planLabel={controller.planLabel} isFreePlan={controller.isFreePlan} seatLimit={controller.seatLimit} usedSeats={controller.usedSeats} availableSeats={controller.availableSeats} canShowUpgrade={controller.canShowUpgrade} seatPurchaseCount={p.seatPurchaseCount} setSeatPurchaseCount={p.setSeatPurchaseCount} handleBuyMoreSeats={p.handleBuyMoreSeats} onOpenProvisionPanel={() => p.setIsProvisioning(true)} />
+      <SettingsAdminHeaderCard
+        planLabel={controller.planLabel}
+        seatLimit={controller.seatLimit}
+        usedSeats={controller.usedSeats}
+        availableSeats={controller.availableSeats}
+        canAddSeats={currentPlan !== 'free'}
+        canUpgradePlan={currentPlan !== 'pro'}
+        onOpenAddSeatsModal={() => setBillingModalMode('add_seats')}
+        onOpenUpgradeModal={() => setBillingModalMode('upgrade_plan')}
+        onOpenProvisionPanel={() => p.setIsProvisioning(true)}
+      />
       <SettingsAdminUsersSection
         org={p.org}
         directoryLoading={controller.directoryLoading}
@@ -75,6 +140,17 @@ const SettingsAdminTab: React.FC<SettingsAdminTabProps> = (p) => {
         setNewUserRole={p.setNewUserRole}
         setNewUserTempPassword={p.setNewUserTempPassword}
       />
+      {p.org && billingModalMode ? (
+        <SettingsBillingActionModal
+          isOpen={Boolean(billingModalMode)}
+          mode={billingModalMode}
+          org={p.org}
+          usedSeats={controller.usedSeats}
+          onClose={() => setBillingModalMode(null)}
+          onAddSeats={handleAddSeatsPurchase}
+          onUpgradePlan={handleUpgradePlan}
+        />
+      ) : null}
     </div>
   );
 };

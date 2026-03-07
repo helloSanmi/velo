@@ -4,6 +4,7 @@ import { projectService } from '../services/projectService';
 import { taskService } from '../services/taskService';
 import { toastService } from '../services/toastService';
 import { notificationService } from '../services/notificationService';
+import { ensurePermissionAccess } from '../services/permissionAccessService';
 
 interface ProjectMutationContext {
   user: User;
@@ -78,8 +79,7 @@ export const updateProjectWithGuards = ({
     updates.completionRequestedByName === user.displayName;
 
   if (!canManageProject(target) && !isCompletionRequestOnlyUpdate) {
-    toastService.warning('Permission denied', 'Only admins or project creators can edit project settings.');
-    return;
+    if (!ensurePermissionAccess(false, 'project_creator_or_admin', 'edit project settings')) return;
   }
 
   const previousMembers = Array.isArray(target.members) ? target.members : [];
@@ -148,10 +148,7 @@ export const changeProjectOwner = ({
   const target = projects.find((project) => project.id === id);
   if (!target) return;
 
-  if (user.role !== 'admin') {
-    toastService.warning('Permission denied', 'Only admins can change project owner.');
-    return;
-  }
+  if (!ensurePermissionAccess(user.role === 'admin', 'admin_only', 'change project owner')) return;
   const ownerExists = allUsers.some((member) => member.id === ownerId && member.orgId === user.orgId);
   if (!ownerExists) {
     toastService.error('Invalid owner', 'Selected owner is not a workspace user.');

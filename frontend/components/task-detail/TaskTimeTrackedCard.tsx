@@ -3,6 +3,7 @@ import { Clock, Pause, Play } from 'lucide-react';
 import { Task } from '../../types';
 import Button from '../ui/Button';
 import { TASK_SECTION_SHELL, TASK_SECTION_TITLE, TASK_SUBCARD } from './taskDetailStyles';
+import { getPermissionMessage } from '../../services/permissionAccessService';
 
 interface TaskTimeTrackedCardProps {
   task: Task;
@@ -123,7 +124,7 @@ const TaskTimeTrackedCard: React.FC<TaskTimeTrackedCardProps> = ({
                 </Button>
               </div>
             ) : null}
-            {!canTrackTime ? <p className="text-[9px] text-slate-500">Only assigned members, project owners, or admins can track time.</p> : null}
+            {!canTrackTime ? <p className="text-[9px] text-slate-500">{getPermissionMessage('task_operator', 'track time')}</p> : null}
             {manualTimeError ? <p className="text-[9px] text-rose-600">{manualTimeError}</p> : null}
           </>
         ) : null}

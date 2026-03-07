@@ -126,6 +126,7 @@ export const changePasswordRemote = async (
 export const resetPasswordRemote = async (
   identifier: string,
   workspaceDomain: string | undefined,
+  currentPassword: string,
   newPassword: string,
   confirmPassword: string
 ): Promise<{ success: boolean; error?: string }> => {
@@ -133,7 +134,7 @@ export const resetPasswordRemote = async (
     await apiRequest('/auth/reset-password', {
       method: 'POST',
       auth: false,
-      body: { identifier, workspaceDomain, newPassword, confirmPassword }
+      body: { identifier, workspaceDomain, currentPassword, newPassword, confirmPassword }
     });
     return { success: true };
   } catch (error: any) {

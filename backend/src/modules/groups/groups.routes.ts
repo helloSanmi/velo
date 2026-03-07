@@ -5,6 +5,7 @@ import { requireOrgAccess } from '../../middleware/requireOrgAccess.js';
 import { prisma } from '../../lib/prisma.js';
 import { createId } from '../../lib/ids.js';
 import { HttpError } from '../../lib/httpError.js';
+import { getBackendPermissionMessage } from '../../lib/accessMessages.js';
 import { writeAudit } from '../audit/audit.service.js';
 
 const router = Router();
@@ -42,7 +43,7 @@ router.post('/orgs/:orgId/groups', authenticate, requireOrgAccess, async (req, r
     const body = groupSchema.parse(req.body);
 
     if (body.scope === 'global' && req.auth!.role !== 'admin') {
-      throw new HttpError(403, 'Only admins can create global groups.');
+      throw new HttpError(403, getBackendPermissionMessage('admin_only', 'create global groups'));
     }
 
     if (body.scope === 'project') {
@@ -51,7 +52,7 @@ router.post('/orgs/:orgId/groups', authenticate, requireOrgAccess, async (req, r
       if (!project || project.orgId !== orgId) throw new HttpError(404, 'Project not found.');
       const ownerIds = getProjectOwnerIds(project);
       if (req.auth!.role !== 'admin' && !ownerIds.includes(req.auth!.userId)) {
-        throw new HttpError(403, 'Only the project owner or admin can create project groups.');
+        throw new HttpError(403, getBackendPermissionMessage('project_owner_or_admin', 'create project groups'));
       }
     }
 
@@ -92,14 +93,14 @@ router.patch('/orgs/:orgId/groups/:groupId', authenticate, requireOrgAccess, asy
     if (!existing || existing.orgId !== orgId) throw new HttpError(404, 'Group not found.');
 
     if (existing.scope === 'global' && req.auth!.role !== 'admin') {
-      throw new HttpError(403, 'Only admins can edit global groups.');
+      throw new HttpError(403, getBackendPermissionMessage('admin_only', 'edit global groups'));
     }
 
     if (existing.scope === 'project' && existing.projectId) {
       const project = await prisma.project.findUnique({ where: { id: existing.projectId } });
       const ownerIds = project ? getProjectOwnerIds(project) : [];
       if (req.auth!.role !== 'admin' && !ownerIds.includes(req.auth!.userId)) {
-        throw new HttpError(403, 'Only project owner or admin can edit this group.');
+        throw new HttpError(403, getBackendPermissionMessage('project_owner_or_admin', 'edit this group'));
       }
     }
 
@@ -135,14 +136,14 @@ router.delete('/orgs/:orgId/groups/:groupId', authenticate, requireOrgAccess, as
     if (!existing || existing.orgId !== orgId) throw new HttpError(404, 'Group not found.');
 
     if (existing.scope === 'global' && req.auth!.role !== 'admin') {
-      throw new HttpError(403, 'Only admins can delete global groups.');
+      throw new HttpError(403, getBackendPermissionMessage('admin_only', 'delete global groups'));
     }
 
     if (existing.scope === 'project' && existing.projectId) {
       const project = await prisma.project.findUnique({ where: { id: existing.projectId } });
       const ownerIds = project ? getProjectOwnerIds(project) : [];
       if (req.auth!.role !== 'admin' && !ownerIds.includes(req.auth!.userId)) {
-        throw new HttpError(403, 'Only project owner or admin can delete this group.');
+        throw new HttpError(403, getBackendPermissionMessage('project_owner_or_admin', 'delete this group'));
       }
     }
 

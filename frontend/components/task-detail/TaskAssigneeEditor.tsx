@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Pencil, Search, X } from 'lucide-react';
 import { User } from '../../types';
 import { getUserFullName } from '../../utils/userDisplay';
+import { getPermissionMessage } from '../../services/permissionAccessService';
 
 interface TaskAssigneeEditorProps {
   allUsers: User[];
@@ -102,7 +103,7 @@ const TaskAssigneeEditor: React.FC<TaskAssigneeEditorProps> = ({ allUsers, assig
           setIsOpen((prev) => !prev);
         }}
         disabled={!canManageTask}
-        title={canManageTask ? 'Edit assignees' : 'Only project owner/admin can edit assignees'}
+        title={canManageTask ? 'Edit assignees' : getPermissionMessage('project_owner_or_admin', 'edit assignees')}
         className="p-1.5 bg-white border border-slate-200 text-slate-500 rounded-lg hover:bg-slate-100 transition-all disabled:opacity-35 disabled:hover:bg-white"
       >
         <Pencil className="w-3.5 h-3.5" />

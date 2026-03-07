@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express';
 import { env } from '../../config/env.js';
 import { HttpError } from '../../lib/httpError.js';
+import { getBackendPermissionMessage } from '../../lib/accessMessages.js';
 import { prisma } from '../../lib/prisma.js';
 import { ticketsGraphService } from './tickets.graph.service.js';
 import { ticketsNotificationPolicyStore } from './tickets.notification.policy.store.js';
@@ -32,9 +33,9 @@ export const patchTicketPolicyHandler = async (req: Request, res: Response) => {
       role: req.auth!.role,
       projectId: patch.projectId
     });
-    if (!canManage) throw new HttpError(403, 'Only project owners/admins can update ticket policy.');
+    if (!canManage) throw new HttpError(403, getBackendPermissionMessage('project_owner_or_admin', 'update ticket policy'));
   } else if (req.auth!.role !== 'admin') {
-    throw new HttpError(403, 'Only admins can update org-wide ticket policy.');
+    throw new HttpError(403, getBackendPermissionMessage('admin_only', 'update org-wide ticket policy'));
   }
   const existing = await ticketsPolicyStore.get(orgId, patch.projectId);
   const updated = await ticketsPolicyStore.upsert({
@@ -50,14 +51,14 @@ export const patchTicketPolicyHandler = async (req: Request, res: Response) => {
 
 export const getTicketNotificationPolicyHandler = async (req: Request, res: Response) => {
   const { orgId } = orgParamsSchema.parse(req.params);
-  if (req.auth!.role !== 'admin') throw new HttpError(403, 'Only admins can view ticket notification policy.');
+  if (req.auth!.role !== 'admin') throw new HttpError(403, getBackendPermissionMessage('admin_only', 'view ticket notification policy'));
   const policy = await ticketsNotificationPolicyStore.get(orgId);
   res.json({ success: true, data: policy });
 };
 
 export const patchTicketNotificationPolicyHandler = async (req: Request, res: Response) => {
   const { orgId } = orgParamsSchema.parse(req.params);
-  if (req.auth!.role !== 'admin') throw new HttpError(403, 'Only admins can update ticket notification policy.');
+  if (req.auth!.role !== 'admin') throw new HttpError(403, getBackendPermissionMessage('admin_only', 'update ticket notification policy'));
   const patch = notificationPolicySchema.parse(req.body);
   const policy = await ticketsNotificationPolicyStore.upsert({ orgId, patch });
   res.json({ success: true, data: policy });
@@ -65,7 +66,7 @@ export const patchTicketNotificationPolicyHandler = async (req: Request, res: Re
 
 export const postTicketNotificationPreflightHandler = async (req: Request, res: Response) => {
   const { orgId } = orgParamsSchema.parse(req.params);
-  if (req.auth!.role !== 'admin') throw new HttpError(403, 'Only admins can run notification sender preflight.');
+  if (req.auth!.role !== 'admin') throw new HttpError(403, getBackendPermissionMessage('admin_only', 'run notification sender preflight'));
   const body = senderPreflightSchema.parse(req.body || {});
   const result = await ticketsGraphService.senderMailboxPreflight({
     orgId,
@@ -76,7 +77,7 @@ export const postTicketNotificationPreflightHandler = async (req: Request, res: 
 
 export const getTicketNotificationSetupScriptHandler = async (req: Request, res: Response) => {
   const { orgId } = orgParamsSchema.parse(req.params);
-  if (req.auth!.role !== 'admin') throw new HttpError(403, 'Only admins can generate notification setup script.');
+  if (req.auth!.role !== 'admin') throw new HttpError(403, getBackendPermissionMessage('admin_only', 'generate notification setup script'));
 
   const org = await prisma.organization.findUnique({
     where: { id: orgId },

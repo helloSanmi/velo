@@ -19,7 +19,9 @@ interface KanbanBoardProps {
   readOnly?: boolean;
   onToggleTimer?: (id: string) => void;
   canDeleteTask?: (taskId: string) => boolean;
-  canUseTaskAI?: (taskId: string) => boolean;
+  aiPlanEnabled?: boolean;
+  aiEnabled?: boolean;
+  canManageTaskAI?: (taskId: string) => boolean;
   canToggleTaskTimer?: (taskId: string) => boolean;
   showProjectNameOnCards?: boolean;
 }
@@ -39,7 +41,9 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
   readOnly = false,
   onToggleTimer,
   canDeleteTask,
-  canUseTaskAI,
+  aiPlanEnabled = true,
+  aiEnabled = true,
+  canManageTaskAI,
   canToggleTaskTimer,
   showProjectNameOnCards = true
 }) => {
@@ -98,7 +102,9 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
               readOnly={readOnly}
               onToggleTimer={onToggleTimer}
               canDeleteTask={canDeleteTask}
-              canUseTaskAI={canUseTaskAI}
+              aiPlanEnabled={aiPlanEnabled}
+              aiEnabled={aiEnabled}
+              canManageTaskAI={canManageTaskAI}
               canToggleTaskTimer={canToggleTaskTimer}
               showProjectName={showProjectNameOnCards}
                 className={

@@ -21,7 +21,9 @@ interface ColumnProps {
   readOnly?: boolean;
   onToggleTimer?: (id: string) => void;
   canDeleteTask?: (taskId: string) => boolean;
-  canUseTaskAI?: (taskId: string) => boolean;
+  aiPlanEnabled?: boolean;
+  aiEnabled?: boolean;
+  canManageTaskAI?: (taskId: string) => boolean;
   canToggleTaskTimer?: (taskId: string) => boolean;
   showProjectName?: boolean;
   className?: string;
@@ -44,7 +46,9 @@ const Column: React.FC<ColumnProps> = ({
   readOnly = false,
   onToggleTimer,
   canDeleteTask,
-  canUseTaskAI,
+  aiPlanEnabled = true,
+  aiEnabled = true,
+  canManageTaskAI,
   canToggleTaskTimer,
   showProjectName = true,
   className = ''
@@ -126,7 +130,9 @@ const Column: React.FC<ColumnProps> = ({
             readOnly={readOnly}
             onToggleTimer={onToggleTimer}
             canDelete={canDeleteTask ? canDeleteTask(task.id) : true}
-            canUseAIAssist={canUseTaskAI ? canUseTaskAI(task.id) : true}
+            aiPlanEnabled={aiPlanEnabled}
+            aiEnabled={aiEnabled}
+            canManageAIAssist={canManageTaskAI ? canManageTaskAI(task.id) : true}
             canToggleTimer={canToggleTaskTimer ? canToggleTaskTimer(task.id) : true}
           />
         ))}

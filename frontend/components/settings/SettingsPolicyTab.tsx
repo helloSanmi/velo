@@ -3,6 +3,7 @@ import { OrgInvite, Organization, User as UserType } from '../../types';
 import { UserSettings } from '../../services/settingsService';
 import SettingsAdminInviteSection from './SettingsAdminInviteSection';
 import SettingsTicketNotificationPolicySection from './SettingsTicketNotificationPolicySection';
+import { getPermissionMessage } from '../../services/permissionAccessService';
 
 interface SettingsPolicyTabProps {
   user: UserType;
@@ -19,7 +20,7 @@ interface SettingsPolicyTabProps {
   handleResendInvite: (inviteId: string) => void;
   onUpdateOrganizationSettings: (
     patch: Partial<Pick<Organization, 'notificationSenderEmail'>>
-  ) => Promise<void>;
+  ) => Promise<Organization | null>;
 }
 
 const SettingsPolicyTab: React.FC<SettingsPolicyTabProps> = ({
@@ -46,7 +47,7 @@ const SettingsPolicyTab: React.FC<SettingsPolicyTabProps> = ({
   if (user.role !== 'admin') {
     return (
       <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
-        Only admins can manage workspace policies.
+        {getPermissionMessage('admin_only', 'manage workspace policies')}
       </div>
     );
   }

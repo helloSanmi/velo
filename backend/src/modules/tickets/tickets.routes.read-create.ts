@@ -1,5 +1,6 @@
 import type { Router } from 'express';
 import { HttpError } from '../../lib/httpError.js';
+import { getBackendPermissionMessage } from '../../lib/accessMessages.js';
 import { prisma } from '../../lib/prisma.js';
 import { writeAudit } from '../audit/audit.service.js';
 import { realtimeGateway } from '../realtime/realtime.gateway.js';
@@ -65,7 +66,7 @@ export const registerTicketReadCreateRoutes = (router: Router) => {
       const requestedNonDefaultStatus = body.status !== 'new';
       const requestedManualAssignee = body.assigneeId !== undefined && body.assigneeId !== null;
       if (!canManageCreateTarget && (requestedNonDefaultStatus || requestedManualAssignee)) {
-        throw new HttpError(403, 'Only project owners/admins can set initial status or assignee when creating tickets.');
+        throw new HttpError(403, getBackendPermissionMessage('project_owner_or_admin', 'set initial status or assignee when creating tickets'));
       }
 
       const policy = await ticketsPolicyStore.get(orgId, body.projectId);
@@ -130,4 +131,3 @@ export const registerTicketReadCreateRoutes = (router: Router) => {
     }
   });
 };
-

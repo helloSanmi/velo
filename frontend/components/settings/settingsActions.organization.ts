@@ -16,11 +16,27 @@ export const buildOrganizationActions = (ctx: SettingsActionsContext) => {
   };
 
   const handleUpdateOrganizationSettings = async (
-    patch: Partial<Pick<Organization, 'loginSubdomain' | 'allowMicrosoftAuth' | 'microsoftWorkspaceConnected' | 'notificationSenderEmail'>>
+    patch: Partial<
+      Pick<
+        Organization,
+        | 'loginSubdomain'
+        | 'allowMicrosoftAuth'
+        | 'microsoftWorkspaceConnected'
+        | 'notificationSenderEmail'
+        | 'plan'
+        | 'totalSeats'
+        | 'seatPrice'
+        | 'billingCurrency'
+      >
+    >
   ) => {
-    if (!ctx.user || ctx.user.role !== 'admin' || !ctx.org) return;
+    if (!ctx.user || ctx.user.role !== 'admin' || !ctx.org) return null;
     const updated = await userService.updateOrganizationSettingsRemote(ctx.org.id, patch);
-    if (updated) ctx.setOrg(updated);
+    if (updated) {
+      userService.updateOrganization(ctx.org.id, updated);
+      ctx.setOrg(updated);
+    }
+    return updated;
   };
 
   const submitProjectRename = () => {

@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import { Project, Task, User } from '../types';
 import { toastService } from '../services/toastService';
+import { getPermissionMessage } from '../services/permissionAccessService';
 import {
   TaskRestrictedAction,
   canManageProject as canManageProjectBase,
@@ -48,7 +49,7 @@ export const useAccessControl = ({ user, projects, tasks }: UseAccessControlPara
           delete: 'delete tasks',
           assign: 'assign task members'
         };
-        toastService.warning('Permission denied', `Only project owners or admins can ${labels[action]}.`);
+        toastService.warning('Permission denied', getPermissionMessage('project_owner_or_admin', labels[action]));
         return false;
       }
       if (hasTaskPermission(taskId, action)) return true;
@@ -58,7 +59,7 @@ export const useAccessControl = ({ user, projects, tasks }: UseAccessControlPara
         delete: 'delete tasks',
         assign: 'assign task members'
       };
-      toastService.warning('Permission denied', `Only assigned members, project owners, or admins can ${labels[action]}.`);
+      toastService.warning('Permission denied', getPermissionMessage('task_operator', labels[action]));
       return false;
     },
     [hasTaskPermission]

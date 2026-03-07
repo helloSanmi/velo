@@ -5,6 +5,7 @@ import Badge from '../ui/Badge';
 import { dialogService } from '../../services/dialogService';
 import TaskAssigneeEditor from './TaskAssigneeEditor';
 import TaskPriorityEditor from './TaskPriorityEditor';
+import { getPermissionMessage } from '../../services/permissionAccessService';
 
 interface TaskDetailHeaderProps {
   task: Task;
@@ -53,7 +54,7 @@ const TaskDetailHeader: React.FC<TaskDetailHeaderProps> = ({
             }
           }}
           disabled={!canDelete}
-          title={canDelete ? 'Delete task' : 'Only project owner/admin can delete'}
+          title={canDelete ? 'Delete task' : getPermissionMessage('project_owner_or_admin', 'delete')}
           className="p-2 bg-white border border-slate-200 text-slate-500 rounded-lg hover:bg-rose-50 hover:text-rose-700 transition-all disabled:opacity-35 disabled:hover:bg-white disabled:hover:text-slate-500"
         >
           <Trash2 className="w-4 h-4" />

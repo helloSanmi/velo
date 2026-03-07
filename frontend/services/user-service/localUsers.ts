@@ -1,6 +1,5 @@
 import { User } from '../../types';
 import { createId } from '../../utils/id';
-import { isFreePlan } from '../planFeatureService';
 import { SESSION_KEY, USERS_KEY } from './constants';
 import { emitUsersUpdated, inferOrgEmailDomain } from './helpers';
 import { getOrganizationLocal } from './localOrgInvite';
@@ -42,7 +41,7 @@ export const provisionUserLocal = (
   const orgUsers = getUsersLocal(orgId);
   if (!org) return { success: false, error: 'Organization identifier mismatch.' };
   const activeLicenses = orgUsers.filter((member) => member.licenseActive !== false).length;
-  if (isFreePlan(org.plan) && activeLicenses >= org.totalSeats) {
+  if (activeLicenses >= org.totalSeats) {
     return { success: false, error: `License threshold reached (${org.totalSeats} nodes).` };
   }
   const allUsers = getUsersLocal();

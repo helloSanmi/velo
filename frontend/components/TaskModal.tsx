@@ -9,8 +9,16 @@ import TaskModalTagsField from './task-modal/TaskModalTagsField';
 import { TaskModalProps } from './task-modal/TaskModal.types';
 import { useTaskModalController } from './task-modal/useTaskModalController';
 
-const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSubmit, canAssignMembers = false, projectId }) => {
-  const controller = useTaskModalController({ projectId, onClose, onSubmit });
+const TaskModal: React.FC<TaskModalProps> = ({
+  isOpen,
+  onClose,
+  onSubmit,
+  canAssignMembers = false,
+  projectId,
+  aiPlanEnabled = true,
+  aiEnabled = true
+}) => {
+  const controller = useTaskModalController({ projectId, aiPlanEnabled, aiEnabled, onClose, onSubmit });
 
   if (!isOpen) return null;
 
@@ -76,7 +84,8 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSubmit, canAss
               <div className="flex items-center justify-between mb-1.5">
                 <label className="block text-xs text-slate-500">Due date</label>
                 <button type="button" onClick={controller.handleSuggestDate} className="text-xs text-slate-600 hover:text-slate-900 inline-flex items-center gap-1">
-                  {controller.isScheduling ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />} Suggest
+                  {controller.isScheduling ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}{' '}
+                  {!controller.aiPlanEnabled ? 'Suggest: Pro' : !controller.aiEnabled ? 'Suggest: Enable AI' : 'Suggest'}
                 </button>
               </div>
               <DateInputField value={controller.dueDate} onChange={controller.setDueDate} />
@@ -90,6 +99,7 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSubmit, canAss
               onRemoveTag={(tag) => controller.setTags((prev) => prev.filter((t) => t !== tag))}
               onSuggestTags={controller.handleSuggestTags}
               isSuggestingTags={controller.isSuggestingTags}
+              suggestLabel={!controller.aiPlanEnabled ? 'Suggest tags: Pro' : !controller.aiEnabled ? 'Suggest tags: Enable AI' : undefined}
             />
 
             <div>

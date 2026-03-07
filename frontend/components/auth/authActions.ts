@@ -56,11 +56,15 @@ interface SubmitAuthFormArgs extends CommonActionArgs {
   password: string;
   confirmPassword: string;
   isResetPasswordMode: boolean;
+  tempPasswordVerified: boolean;
+  verifiedTempPassword: string;
   orgName: string;
   selectedTier: Tier;
-  effectiveSeatCount: number | null;
+  effectiveSeatCount: number;
   setResetNotice: (value: string) => void;
   setIsResetPasswordMode: (value: boolean) => void;
+  setTempPasswordVerified: (value: boolean) => void;
+  setVerifiedTempPassword: (value: string) => void;
   setPassword: (value: string) => void;
   setConfirmPassword: (value: string) => void;
 }
@@ -74,6 +78,8 @@ export const handleSubmitAuthForm = async ({
   password,
   confirmPassword,
   isResetPasswordMode,
+  tempPasswordVerified,
+  verifiedTempPassword,
   orgName,
   selectedTier,
   effectiveSeatCount,
@@ -83,6 +89,8 @@ export const handleSubmitAuthForm = async ({
   setLoading,
   setResetNotice,
   setIsResetPasswordMode,
+  setTempPasswordVerified,
+  setVerifiedTempPassword,
   setPassword,
   setConfirmPassword
 }: SubmitAuthFormArgs) => {
@@ -94,16 +102,46 @@ export const handleSubmitAuthForm = async ({
   if (mode !== 'join' && !identifier.trim()) return setError('Enter your username or email.');
   if (mode === 'join' && !resolvedInviteIdentifier) return setError('Enter your work email or username from the invite.');
   if (!isResetPasswordMode && !password.trim()) return setError('Enter your password.');
-  if (isResetPasswordMode && !password.trim()) return setError('Enter your new password.');
-  if (isResetPasswordMode && !confirmPassword.trim()) return setError('Re-enter your new password.');
+  if (isResetPasswordMode && !tempPasswordVerified && !password.trim()) return setError('Enter your temporary password.');
+  if (isResetPasswordMode && tempPasswordVerified && !password.trim()) return setError('Enter your new password.');
+  if (isResetPasswordMode && tempPasswordVerified && !confirmPassword.trim()) return setError('Re-enter your new password.');
   if (mode === 'signup' && !confirmPassword.trim()) return setError('Re-enter your password.');
-  if (mode === 'signup' && password.trim() !== confirmPassword.trim()) return setError('Passwords do not match.');
+  if ((mode === 'signup' || (mode === 'login' && isResetPasswordMode && tempPasswordVerified)) && password.trim() !== confirmPassword.trim()) {
+    return setError('Passwords do not match.');
+  }
 
   setLoading(true);
 
   if (mode === 'login') {
     if (isResetPasswordMode) {
-      const resetResult = await userService.resetPassword(identifier.trim(), inferredWorkspaceDomain, password.trim(), confirmPassword.trim());
+      if (!tempPasswordVerified) {
+        const login = await userService.loginWithPassword(identifier.trim(), password.trim(), inferredWorkspaceDomain);
+        if (!login.user) {
+          if (login.code === 'PASSWORD_CHANGE_REQUIRED') {
+            setTempPasswordVerified(true);
+            setVerifiedTempPassword(password.trim());
+            setPassword('');
+            setConfirmPassword('');
+            setResetNotice('Temporary password verified. Set a new password to continue.');
+            setLoading(false);
+            return;
+          }
+          setError(login.error || 'Temporary password is incorrect.');
+          setLoading(false);
+          return;
+        }
+        await userService.hydrateWorkspaceFromBackend(login.user.orgId);
+        onAuthSuccess(login.user);
+        return;
+      }
+
+      const resetResult = await userService.resetPassword(
+        identifier.trim(),
+        inferredWorkspaceDomain,
+        verifiedTempPassword,
+        password.trim(),
+        confirmPassword.trim()
+      );
       if (!resetResult.success) {
         setError(resetResult.error || 'Could not reset password.');
         setLoading(false);
@@ -111,6 +149,8 @@ export const handleSubmitAuthForm = async ({
       }
       setResetNotice('Password updated. You can now sign in.');
       setIsResetPasswordMode(false);
+      setTempPasswordVerified(false);
+      setVerifiedTempPassword('');
       setPassword('');
       setConfirmPassword('');
       setLoading(false);
@@ -121,6 +161,10 @@ export const handleSubmitAuthForm = async ({
     if (!login.user) {
       if (login.code === 'PASSWORD_CHANGE_REQUIRED') {
         setIsResetPasswordMode(true);
+        setTempPasswordVerified(true);
+        setVerifiedTempPassword(password.trim());
+        setPassword('');
+        setConfirmPassword('');
         setResetNotice('Temporary password verified. Set a new password to continue.');
         setLoading(false);
         return;
@@ -160,7 +204,7 @@ export const handleSubmitAuthForm = async ({
 
   const result = await userService.registerWithPassword(identifier.trim(), password.trim(), orgName.trim(), {
     plan: selectedTier,
-    totalSeats: effectiveSeatCount || undefined
+    totalSeats: effectiveSeatCount
   });
   if (!result.success || !result.user) {
     setError(result.error || 'Could not create workspace account.');

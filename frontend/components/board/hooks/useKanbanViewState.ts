@@ -101,7 +101,9 @@ export const useKanbanViewState = (props: KanbanViewProps) => {
     activeProject: props.activeProject,
     projectStages,
     categorizedTasks: props.categorizedTasks,
-    refreshTasks: props.refreshTasks
+    refreshTasks: props.refreshTasks,
+    aiPlanEnabled: props.aiPlanEnabled,
+    aiEnabled: props.aiEnabled
   });
 
   return {

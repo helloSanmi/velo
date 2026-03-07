@@ -93,9 +93,16 @@ export const useSettingsModalController = ({
     onClose
   });
 
-  const navItems = buildSettingsNavItems(user, data.canAccessWorkflowAutomation);
+  const navItems = buildSettingsNavItems(
+    user,
+    data.workflowAccessByRole,
+    data.workflowPlanEnabled,
+    data.integrationsPlanEnabled
+  );
   const contentProps = buildSettingsModalContentProps({
     activeTab: data.activeTab,
+    workflowPlanEnabled: data.workflowPlanEnabled,
+    integrationsPlanEnabled: data.integrationsPlanEnabled,
     canAccessWorkflowAutomation: data.canAccessWorkflowAutomation,
     canManageWorkflowAutomation: data.canManageWorkflowAutomation,
     user,

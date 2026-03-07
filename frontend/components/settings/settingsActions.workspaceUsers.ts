@@ -87,7 +87,10 @@ export const buildWorkspaceUserActions = (ctx: SettingsActionsContext) => {
   const handleBuyMoreSeats = async () => {
     if (!ctx.org) return;
     const updatedOrg = await userService.addSeatsRemote(ctx.org.id, ctx.seatPurchaseCount);
-    if (updatedOrg) ctx.setOrg(updatedOrg);
+    if (updatedOrg) {
+      userService.updateOrganization(ctx.org.id, updatedOrg);
+      ctx.setOrg(updatedOrg);
+    }
   };
 
   return {

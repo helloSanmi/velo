@@ -43,7 +43,7 @@ export const authService = {
     return changePasswordAuth(input);
   },
 
-  resetPassword(input: { identifier: string; workspaceDomain?: string; newPassword: string }) {
+  resetPassword(input: { identifier: string; workspaceDomain?: string; currentPassword: string; newPassword: string }) {
     return resetPasswordAuth(input);
   },
 

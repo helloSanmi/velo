@@ -30,6 +30,8 @@ import { SettingsTabType } from './components/SettingsModal';
 import DialogHost from './components/ui/DialogHost';
 import ToastHost from './components/ui/ToastHost';
 import { toastService } from './services/toastService';
+import { ensureAiAccess } from './services/aiAccessService';
+import { getPlanUpgradeMessage } from './services/planAccessService';
 import { syncGuardService } from './services/syncGuardService';
 import { queuedTaskMutationCount, taskSyncQueueUpdatedEvent } from './services/task-service/syncQueue';
 import { notificationService } from './services/notificationService';
@@ -58,6 +60,33 @@ import {
 import { isWorkspaceSubdomainHost } from './utils/workspaceHost';
 
 const App: React.FC = () => {
+  const parsePublicRoute = () => {
+    const pathname = window.location.pathname.replace(/\/+$/, '') || '/';
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('invite') || params.get('token')) return 'join' as const;
+    if (pathname === '/product') return 'product' as const;
+    if (pathname === '/solutions') return 'solutions' as const;
+    if (pathname === '/pricing') return 'pricing' as const;
+    if (pathname === '/contact') return 'contact' as const;
+    if (pathname === '/login') return 'login' as const;
+    if (pathname === '/register') return 'register' as const;
+    if (pathname === '/join') return 'join' as const;
+    return 'landing' as const;
+  };
+
+  const getPublicRouteForAuthView = (view: 'landing' | 'product' | 'solutions' | 'pricing' | 'contact' | 'login' | 'register' | 'join') => {
+    const search = window.location.search || '';
+    if (view === 'landing') return '/';
+    if (view === 'product') return '/product';
+    if (view === 'solutions') return '/solutions';
+    if (view === 'pricing') return '/pricing';
+    if (view === 'contact') return '/contact';
+    if (view === 'login') return '/login';
+    if (view === 'register') return '/register';
+    if (view === 'join') return search.includes('invite=') || search.includes('token=') ? `/join${search}` : '/join';
+    return '/';
+  };
+
   const parseWorkspaceRoute = () => {
     const pathname = window.location.pathname.replace(/\/+$/, '') || '/';
     if (pathname === '/tickets') return { view: 'tickets' as MainViewType, ticketId: null as string | null };
@@ -86,9 +115,28 @@ const App: React.FC = () => {
     value === 'tickets';
 
   const [user, setUser] = useState<User | null>(() => userService.getCurrentUser());
-  const [authView, setAuthView] = useState<'landing' | 'product' | 'solutions' | 'pricing' | 'support' | 'contact' | 'login' | 'register' | 'join'>(
-    () => (isWorkspaceSubdomainHost() ? 'login' : 'landing')
+  const [authView, setAuthView] = useState<'landing' | 'product' | 'solutions' | 'pricing' | 'contact' | 'login' | 'register' | 'join'>(
+    () => (isWorkspaceSubdomainHost() ? 'login' : parsePublicRoute())
   );
+  const navigateAuthView = useCallback((view: 'landing' | 'product' | 'solutions' | 'pricing' | 'contact' | 'login' | 'register' | 'join') => {
+    setAuthView(view);
+    if (user) return;
+    if (isWorkspaceSubdomainHost()) return;
+    const targetPath = getPublicRouteForAuthView(view);
+    const current = `${window.location.pathname}${window.location.search}`;
+    if (current !== targetPath) {
+      window.history.pushState({}, '', targetPath);
+    }
+  }, [user]);
+  const navigateRegisterWithPlan = useCallback((plan: 'free' | 'basic' | 'pro') => {
+    setAuthView('register');
+    if (user || isWorkspaceSubdomainHost()) return;
+    const targetPath = `/register?plan=${plan}`;
+    const current = `${window.location.pathname}${window.location.search}`;
+    if (current !== targetPath) {
+      window.history.pushState({}, '', targetPath);
+    }
+  }, [user]);
   const [allUsers, setAllUsers] = useState<User[]>(() => {
     const current = userService.getCurrentUser();
     return current ? userService.getUsers(current.orgId) : [];
@@ -250,6 +298,27 @@ const App: React.FC = () => {
     hasHydratedCurrentViewRef.current = false;
     hasHydratedTaskContextRef.current = false;
   }, [user?.id, user?.orgId]);
+
+  useEffect(() => {
+    if (user) return;
+    if (isWorkspaceSubdomainHost()) return;
+    const applyPublicRoute = () => {
+      setAuthView(parsePublicRoute());
+    };
+    applyPublicRoute();
+    window.addEventListener('popstate', applyPublicRoute);
+    return () => window.removeEventListener('popstate', applyPublicRoute);
+  }, [user]);
+
+  useEffect(() => {
+    if (user) return;
+    if (isWorkspaceSubdomainHost()) return;
+    const targetPath = getPublicRouteForAuthView(authView);
+    const current = `${window.location.pathname}${window.location.search}`;
+    if (current !== targetPath) {
+      window.history.replaceState({}, '', targetPath);
+    }
+  }, [user, authView]);
 
   useEffect(() => {
     if (!user) return;
@@ -546,21 +615,6 @@ const App: React.FC = () => {
     createTask
   });
 
-  const handleAssistWithAIPolicy = useCallback(
-    (task: Task) => {
-      if (!settings.aiSuggestions) {
-        toastService.info('AI disabled', 'Enable AI in Settings to use AI task suggestions.');
-        return;
-      }
-      if (!canManageTask(task)) {
-        toastService.warning('Permission denied', 'Only project owners or admins can run AI suggestions.');
-        return;
-      }
-      assistWithAI(task);
-    },
-    [assistWithAI, canManageTask, settings.aiSuggestions]
-  );
-
   const activeProject = useMemo(() => projects.find(p => p.id === activeProjectId), [activeProjectId, projects]);
   const allProjectTasks = useMemo(() => (user ? taskService.getAllTasksForOrg(user.orgId) : []), [user, tasks, projects]);
   const templates = useMemo(
@@ -578,6 +632,21 @@ const App: React.FC = () => {
   const workspacePlan = normalizeWorkspacePlan(org?.plan);
   const planFeatures = useMemo(() => getPlanFeatures(workspacePlan), [workspacePlan]);
   const aiFeaturesEnabled = settings.aiSuggestions && planFeatures.aiTools;
+  const handleAssistWithAIPolicy = useCallback(
+    (task: Task) => {
+      if (!ensureAiAccess({
+        aiPlanEnabled: planFeatures.aiTools,
+        aiEnabled: settings.aiSuggestions,
+        hasPermission: canManageTask(task),
+        featureLabel: 'AI task suggestions',
+        permissionMessage: 'Only project owners or admins can run AI suggestions.'
+      })) {
+        return;
+      }
+      assistWithAI(task);
+    },
+    [assistWithAI, canManageTask, planFeatures.aiTools, settings.aiSuggestions]
+  );
   const visibleProjects = useMemo(() => {
     if (!user) return [];
     return projects.filter((project) => canUserAccessProject({ user, project, tasks: allProjectTasks }));
@@ -601,7 +670,20 @@ const App: React.FC = () => {
     }
     if (!canAccessViewForPlan(currentView, workspacePlan)) {
       setCurrentView('board');
-      toastService.warning('Upgrade required', 'Your current plan does not include that section.');
+      const viewFeature =
+        currentView === 'analytics'
+          ? 'analytics'
+          : currentView === 'resources'
+            ? 'resources'
+            : currentView === 'integrations'
+              ? 'integrations'
+              : currentView === 'workflows'
+                ? 'workflows'
+                : null;
+      toastService.warning(
+        'Upgrade required',
+        viewFeature ? getPlanUpgradeMessage(viewFeature) : 'Your current plan does not include that section.'
+      );
     }
   }, [currentView, workspacePlan]);
 
@@ -1156,7 +1238,7 @@ const App: React.FC = () => {
   }
 
   if (!user) {
-    return <AuthRouter authView={authView} setAuthView={setAuthView} onAuthSuccess={setUser} />;
+    return <AuthRouter authView={authView} setAuthView={navigateAuthView} onChoosePlan={navigateRegisterWithPlan} onAuthSuccess={setUser} />;
   }
 
   return (
@@ -1231,6 +1313,8 @@ const App: React.FC = () => {
         onResumeProjectCompletion={handleResumeProjectCompletion}
         planFeatures={planFeatures}
         onGenerateProjectTasksWithAI={aiFeaturesEnabled ? handleGenerateProjectTasksWithAI : undefined}
+        aiPlanEnabled={planFeatures.aiTools}
+        aiEnabled={aiFeaturesEnabled}
         pinnedInsights={activeProjectPinnedInsights}
         onUnpinInsight={
           activeProjectId
@@ -1254,7 +1338,7 @@ const App: React.FC = () => {
         onBulkAssignee={handleBulkAssignee}
         onBulkDelete={handleBulkDelete}
       />
-      <GlobalModals user={user} isModalOpen={isModalOpen} setIsModalOpen={setIsModalOpen} isProjectModalOpen={isProjectModalOpen} setIsProjectModalOpen={setIsProjectModalOpen} projectModalTemplateId={projectModalTemplateId} setProjectModalTemplateId={setProjectModalTemplateId} isCommandCenterOpen={isCommandCenterOpen} setIsCommandCenterOpen={setIsCommandCenterOpen} isVisionModalOpen={isVisionModalOpen} setIsVisionModalOpen={setIsVisionModalOpen} isCommandPaletteOpen={isCommandPaletteOpen} setIsCommandPaletteOpen={setIsCommandPaletteOpen} isProfileOpen={isProfileOpen} setIsProfileOpen={setIsProfileOpen} isSettingsOpen={isSettingsOpen} setIsSettingsOpen={setIsSettingsOpen} settingsTab={settingsTab} selectedTask={selectedTask} taskDetailInitialTab={taskDetailInitialTab} onTaskDetailTabChange={setTaskDetailInitialTab} onTaskDetailTabConsumed={() => setTaskDetailInitialTab(undefined)} setSelectedTask={setSelectedTask} aiSuggestions={aiSuggestions} setAiSuggestions={setAiSuggestions} aiLoading={aiLoading} activeTaskTitle={activeTaskTitle} tasks={tasks} projectTasks={allProjectTasks} projects={scopedProjects} activeProject={activeProject} activeProjectId={activeProjectId} aiEnabled={aiFeaturesEnabled} canAssignMembers={Boolean(activeProject && canManageProject(activeProject))} canManageTask={canManageTaskById} createTask={handleCreateTaskWithPolicy}
+      <GlobalModals user={user} isModalOpen={isModalOpen} setIsModalOpen={setIsModalOpen} isProjectModalOpen={isProjectModalOpen} setIsProjectModalOpen={setIsProjectModalOpen} projectModalTemplateId={projectModalTemplateId} setProjectModalTemplateId={setProjectModalTemplateId} isCommandCenterOpen={isCommandCenterOpen} setIsCommandCenterOpen={setIsCommandCenterOpen} isVisionModalOpen={isVisionModalOpen} setIsVisionModalOpen={setIsVisionModalOpen} isCommandPaletteOpen={isCommandPaletteOpen} setIsCommandPaletteOpen={setIsCommandPaletteOpen} isProfileOpen={isProfileOpen} setIsProfileOpen={setIsProfileOpen} isSettingsOpen={isSettingsOpen} setIsSettingsOpen={setIsSettingsOpen} settingsTab={settingsTab} selectedTask={selectedTask} taskDetailInitialTab={taskDetailInitialTab} onTaskDetailTabChange={setTaskDetailInitialTab} onTaskDetailTabConsumed={() => setTaskDetailInitialTab(undefined)} setSelectedTask={setSelectedTask} aiSuggestions={aiSuggestions} setAiSuggestions={setAiSuggestions} aiLoading={aiLoading} activeTaskTitle={activeTaskTitle} tasks={tasks} projectTasks={allProjectTasks} projects={scopedProjects} activeProject={activeProject} activeProjectId={activeProjectId} aiPlanEnabled={planFeatures.aiTools} aiEnabled={aiFeaturesEnabled} canAssignMembers={Boolean(activeProject && canManageProject(activeProject))} canManageTask={canManageTaskById} createTask={handleCreateTaskWithPolicy}
         handleAddProject={handleAddProjectFromModal}
         handleUpdateTask={handleUpdateTaskFromModal}
         handleCommentOnTask={handleCommentOnTaskFromModal}

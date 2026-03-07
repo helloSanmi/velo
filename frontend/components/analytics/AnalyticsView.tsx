@@ -7,19 +7,23 @@ import { AnalyticsPresetKey } from '../../services/analyticsPresetService';
 import { useAnalyticsViewState } from './useAnalyticsViewState';
 import AnalyticsRecommendationsPanel from './AnalyticsRecommendationsPanel';
 import AnalyticsAiSummaryPanel from './AnalyticsAiSummaryPanel';
+import { toastService } from '../../services/toastService';
+import { ensureAiAccess } from '../../services/aiAccessService';
 
 interface AnalyticsViewProps {
   tasks: Task[];
   projects: Project[];
   allUsers: User[];
   orgId: string;
+  aiPlanEnabled: boolean;
+  aiEnabled: boolean;
   onUpdateTask: (id: string, updates: Partial<Omit<Task, 'id' | 'userId' | 'createdAt' | 'order'>>) => void;
 }
 
 const toCurrency = (value: number) =>
   value.toLocaleString(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
 
-const AnalyticsView: React.FC<AnalyticsViewProps> = ({ tasks, projects, allUsers, orgId, onUpdateTask }) => {
+const AnalyticsView: React.FC<AnalyticsViewProps> = ({ tasks, projects, allUsers, orgId, aiPlanEnabled, aiEnabled, onUpdateTask }) => {
   const {
     currentUser,
     mobileFiltersOpen,
@@ -47,6 +51,11 @@ const AnalyticsView: React.FC<AnalyticsViewProps> = ({ tasks, projects, allUsers
     setLocalTaskPatches
   } = useAnalyticsViewState({ tasks, projects, allUsers, orgId, onUpdateTask });
 
+  const handleRunAi = () => {
+    if (!ensureAiAccess({ aiPlanEnabled, aiEnabled, featureLabel: 'AI analysis' })) return;
+    runAIHealthAudit();
+  };
+
   return (
     <div className="bg-[#f7f3f6] p-4 md:p-8">
       <div className="mx-auto max-w-6xl space-y-4">
@@ -57,9 +66,9 @@ const AnalyticsView: React.FC<AnalyticsViewProps> = ({ tasks, projects, allUsers
               <p className="mt-1 text-xs md:text-sm text-slate-600">Project health, risk, and recommended actions.</p>
             </div>
             <div className="md:hidden flex items-center gap-2">
-              <Button onClick={runAIHealthAudit} variant="secondary" disabled={isCheckingAI} className="h-10 px-3 text-sm flex-1">
+              <Button onClick={handleRunAi} variant="secondary" disabled={isCheckingAI} className="h-10 px-3 text-sm flex-1">
                 <Sparkles className={`mr-1.5 h-4 w-4 ${isCheckingAI ? 'animate-pulse' : ''}`} />
-                {isCheckingAI ? 'Running AI…' : 'Run AI analysis'}
+                {isCheckingAI ? 'Running AI…' : !aiPlanEnabled ? 'AI analysis: Pro' : 'Run AI analysis'}
               </Button>
               <button
                 type="button"
@@ -105,9 +114,9 @@ const AnalyticsView: React.FC<AnalyticsViewProps> = ({ tasks, projects, allUsers
                   ]}
                 />
               </div>
-              <Button onClick={runAIHealthAudit} variant="secondary" disabled={isCheckingAI} className="h-9 px-3 text-sm">
+              <Button onClick={handleRunAi} variant="secondary" disabled={isCheckingAI} className="h-9 px-3 text-sm">
                 <Sparkles className={`mr-1.5 h-4 w-4 ${isCheckingAI ? 'animate-pulse' : ''}`} />
-                {isCheckingAI ? 'Running AI…' : 'Run AI analysis'}
+                {isCheckingAI ? 'Running AI…' : !aiPlanEnabled ? 'AI analysis: Pro' : 'Run AI analysis'}
               </Button>
             </div>
           </div>

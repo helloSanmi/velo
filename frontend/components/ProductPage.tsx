@@ -1,5 +1,5 @@
 import React from 'react';
-import { Bot, ChartNoAxesColumn, ClipboardCheck, Gauge, ShieldCheck, Workflow } from 'lucide-react';
+import { Lock, MessageSquareText, PlugZap } from 'lucide-react';
 import Button from './ui/Button';
 import MarketingPageShell from './marketing/MarketingPageShell';
 
@@ -7,125 +7,188 @@ interface ProductPageProps {
   onBackToHome: () => void;
   onOpenSolutions: () => void;
   onOpenPricing: () => void;
-  onOpenSupport: () => void;
   onOpenContact: () => void;
   onSignIn: () => void;
   onGetStarted: () => void;
 }
 
-const modules = [
-  { title: 'Execution boards', detail: 'Run projects with custom stages, assignees, and clear ownership.', icon: Workflow },
-  { title: 'Approval controls', detail: 'Require owner approval for completion, reopen, and sensitive changes.', icon: ShieldCheck },
-  { title: 'Delivery analytics', detail: 'Track flow, risk, and performance with live workspace metrics.', icon: ChartNoAxesColumn },
-  { title: 'AI copilot', detail: 'Get summaries and actions based on your real project data.', icon: Bot },
-  { title: 'Project lifecycle', detail: 'Manage active, completed, archived, and deleted project states.', icon: ClipboardCheck },
-  { title: 'Faster operations', detail: 'Use shared workflows to reduce confusion and move work faster.', icon: Gauge }
+const platformSignals = [
+  { label: 'Workspace model', value: 'Projects, tasks, approvals', note: 'One shared data surface' },
+  { label: 'Control plane', value: 'Role and policy actions', note: 'Govern high impact transitions' },
+  { label: 'Decision signal', value: 'Risk, throughput, ownership', note: 'Live operational signals' },
+  { label: 'Connected layer', value: 'Microsoft, Slack, GitHub', note: 'Keep execution context in sync' }
 ] as const;
 
-const model = [
-  ['Plan', 'Set scope, owners, due dates, and workflow rules.'],
-  ['Run', 'Execute work with live views across boards, list, calendar, and Gantt.'],
-  ['Control', 'Apply approvals where needed and keep a full activity trail.'],
-  ['Report', 'Share clear status, risk, and next actions with your team.']
+const productProofBullets = [
+  'One shared data surface for work and approvals',
+  'Policy-backed transitions for sensitive changes',
+  'Live operational signals for risk and ownership'
 ] as const;
 
-const stats = [
-  ['One source of truth', 'Projects, tasks, approvals, and ticketing in one workspace.'],
-  ['Role based controls', 'Actions and visibility follow project role and policy.'],
-  ['Faster decisions', 'Less status chasing, more execution and clear ownership.']
+const systemLayers = [
+  {
+    name: 'Work layer',
+    points: ['Projects, tasks, subtasks', 'Views: Kanban, checklist, table, calendar, Gantt', 'Comment and activity history']
+  },
+  {
+    name: 'Control layer',
+    points: ['Role based permissions', 'Approval checkpoints', 'Policy backed transitions']
+  },
+  {
+    name: 'Signal layer',
+    points: ['Forecast and effort tracking', 'Risk indicators', 'Actionable recommendations']
+  },
+  {
+    name: 'Integration layer',
+    points: ['Microsoft sign in', 'Workspace notifications', 'GitHub and Slack connectivity']
+  }
 ] as const;
 
-const faqs = [
-  ['Can we configure stages by team?', 'Yes. Each project can use its own stages based on how that team works.'],
-  ['Can members complete projects directly?', 'You can require approval first. Owners can enforce this in the project flow.'],
-  ['Does the copilot use real context?', 'Yes. It uses your workspace data and current project state, not generic text.']
+const productFaq = [
+  ['Can each team use different stages?', 'Yes. Every project can define and manage its own stage flow.'],
+  ['Can owners enforce approvals?', 'Yes. Completion and other high impact steps can require approval.'],
+  ['Does AI use real workspace data?', 'Yes. Copilot responses use current project state and task context.']
 ] as const;
 
 const ProductPage: React.FC<ProductPageProps> = (props) => (
   <MarketingPageShell
     activeNav="product"
     heroEyebrow="Product"
-    heroTitle="One product for planning and delivery control"
-    heroDescription="Velo combines projects, tasks, approvals, ticketing, and reporting so teams can deliver with less friction."
-    heroAside={(
-      <article className="rounded-2xl border border-white/20 bg-white/10 p-4 md:p-5">
-        <p className="text-sm font-medium text-white/80">Built for daily execution</p>
-        <ul className="mt-3 space-y-2 text-sm text-white/90">
-          <li>Track each handoff with clear owners.</li>
-          <li>Control completion with approval rules.</li>
-          <li>Keep a full activity and decision history.</li>
-        </ul>
-      </article>
-    )}
+    heroTitle="One operating system for controlled delivery"
+    heroDescription="Velo combines planning, execution, approvals, ticketing, and reporting on one shared operating surface."
     onBackToHome={props.onBackToHome}
     onOpenProduct={props.onBackToHome}
     onOpenSolutions={props.onOpenSolutions}
     onOpenPricing={props.onOpenPricing}
-    onOpenSupport={props.onOpenSupport}
     onOpenContact={props.onOpenContact}
     onSignIn={props.onSignIn}
     onGetStarted={props.onGetStarted}
   >
-    <section className="grid gap-3 md:grid-cols-3">
-      {stats.map(([title, text]) => (
-        <article key={title} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <p className="text-[19px] font-semibold text-slate-900">{title}</p>
-          <p className="mt-1.5 text-[14px] text-slate-600">{text}</p>
-        </article>
-      ))}
-    </section>
-
-    <section className="rounded-3xl border border-slate-200 bg-white p-7 md:p-8 shadow-sm">
-      <div className="flex items-end justify-between gap-3">
-        <h2 className="text-[28px] font-semibold tracking-tight text-slate-900">Core capabilities</h2>
-        <p className="text-sm text-slate-500">Everything in one execution workspace</p>
-      </div>
-      <div className="mt-4 grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-        {modules.map((module) => {
-          const Icon = module.icon;
-          return (
-            <article key={module.title} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-              <div className="inline-flex rounded-lg border border-slate-200 bg-white p-2 text-[#76003f]"><Icon className="h-4 w-4" /></div>
-              <p className="mt-3 text-[18px] font-semibold text-slate-900">{module.title}</p>
-              <p className="mt-1.5 text-[14px] text-slate-600">{module.detail}</p>
-            </article>
-          );
-        })}
-      </div>
-    </section>
-
-    <section className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-      <article className="rounded-3xl border border-slate-200 bg-white p-7 md:p-8 shadow-sm">
-        <h2 className="text-[28px] font-semibold tracking-tight text-slate-900">Operating model</h2>
-        <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          {model.map(([step, text]) => (
-            <article key={step} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-              <p className="text-[18px] font-semibold text-slate-900">{step}</p>
-              <p className="mt-1.5 text-[14px] text-slate-600">{text}</p>
-            </article>
+    <section className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
+      <article className="rounded-2xl border border-slate-200 bg-white p-6">
+        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#76003f]">Platform design</p>
+        <h2 className="mt-2 text-[28px] font-semibold leading-tight tracking-tight text-slate-900">Built as one operating surface for delivery</h2>
+        <p className="mt-3 max-w-xl text-[15px] leading-relaxed text-slate-600">
+          Velo keeps workflow, governance, reporting, and integrations on the same platform layer.
+        </p>
+        <ul className="mt-4 space-y-2.5 text-[15px] text-slate-700">
+          {productProofBullets.map((item) => (
+            <li key={item} className="flex items-start gap-2.5">
+              <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-slate-500" />
+              <span>{item}</span>
+            </li>
           ))}
-        </div>
+        </ul>
       </article>
-      <article className="rounded-3xl border border-slate-200 bg-white p-7 md:p-8 shadow-sm">
-        <h2 className="text-[26px] font-semibold tracking-tight text-slate-900">Product FAQs</h2>
-        <div className="mt-4 space-y-3">
-          {faqs.map(([q, a]) => (
-            <article key={q} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-              <p className="text-[16px] font-semibold text-slate-900">{q}</p>
-              <p className="mt-1.5 text-[14px] text-slate-600">{a}</p>
-            </article>
-          ))}
-        </div>
-      </article>
+      <div className="grid gap-3 sm:grid-cols-2">
+        {platformSignals.map((signal) => (
+          <article key={signal.label} className="rounded-xl border border-slate-200 bg-white p-4">
+              <p className="text-[11px] font-semibold tracking-[0.16em] text-slate-500 uppercase">{signal.label}</p>
+              <p className="mt-1.5 text-[17px] leading-[1.2] font-semibold tracking-tight text-slate-900">{signal.value}</p>
+              <p className="mt-1 text-[13px] text-slate-600">{signal.note}</p>
+          </article>
+        ))}
+      </div>
     </section>
 
-    <section className="rounded-3xl bg-[#f0dce3] p-6 md:p-7 shadow-sm">
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+    <section className="rounded-3xl border border-[#d7c0cb] bg-[#f7edf1] p-6 md:p-7 shadow-sm">
+      <p className="text-[13px] font-semibold tracking-[0.15em] text-[#76003f] uppercase">System layers</p>
+      <h2 className="mt-2 text-[28px] leading-[1.12] font-semibold tracking-tight text-slate-900">How the product is structured end to end</h2>
+      <div className="mt-4 grid gap-3 lg:grid-cols-4">
+        {systemLayers.map((layer, index) => (
+          <article key={layer.name} className="rounded-xl border border-[#dcc6d0] bg-white p-3.5">
+            <p className="text-[11px] font-semibold tracking-[0.16em] text-[#76003f] uppercase">Layer {index + 1}</p>
+            <p className="mt-1.5 text-[17px] font-semibold text-slate-900">{layer.name}</p>
+            <ul className="mt-2.5 space-y-1.5 text-[13px] text-slate-700">
+              {layer.points.map((point) => (
+                <li key={point}>{point}</li>
+              ))}
+            </ul>
+          </article>
+        ))}
+      </div>
+    </section>
+
+    <section className="rounded-3xl border border-[#d7c0cb] bg-[#f7edf1] p-6 md:p-7 shadow-sm">
+      <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h2 className="text-[28px] font-semibold tracking-tight text-[#76003f]">See this with your own workflow</h2>
-          <p className="mt-1 text-[16px] text-[#76003f]/85">We will map your current process and show how it runs in Velo.</p>
+          <p className="text-[13px] font-semibold tracking-[0.15em] text-[#76003f] uppercase">Execution surface</p>
+          <h2 className="mt-2 text-[28px] leading-[1.12] font-semibold tracking-tight text-slate-900">Plan and run work from one operational view</h2>
         </div>
-        <Button onClick={props.onOpenContact} className="!bg-[#76003f] hover:!bg-[#640035] !text-white">Request demo</Button>
+        <span className="rounded-full border border-[#76003f]/15 bg-white px-3 py-1 text-[12px] font-medium text-[#76003f]">
+          Multi-view runtime
+        </span>
+      </div>
+      <figure className="mt-4 overflow-hidden rounded-2xl border border-[#dcc6d0] bg-white shadow-sm">
+        <img src="/landing/execution-board.png" alt="Velo execution board screenshot" className="h-full w-full object-cover" />
+      </figure>
+      <div className="mt-4 grid gap-3 md:grid-cols-3">
+        <article className="rounded-2xl border border-[#dcc6d0] bg-white p-4">
+          <p className="text-[11px] font-semibold tracking-[0.16em] text-[#76003f] uppercase">Views</p>
+          <p className="mt-1.5 text-[17px] font-semibold text-slate-900">Board, table, checklist, calendar, Gantt</p>
+        </article>
+        <article className="rounded-2xl border border-[#dcc6d0] bg-white p-4">
+          <p className="text-[11px] font-semibold tracking-[0.16em] text-[#76003f] uppercase">Controls</p>
+          <p className="mt-1.5 text-[17px] font-semibold text-slate-900">Fast filtering for assignee, status, and due state</p>
+        </article>
+        <article className="rounded-2xl border border-[#dcc6d0] bg-white p-4">
+          <p className="text-[11px] font-semibold tracking-[0.16em] text-[#76003f] uppercase">Updates</p>
+          <p className="mt-1.5 text-[17px] font-semibold text-slate-900">Live task and comment activity in context</p>
+        </article>
+      </div>
+    </section>
+
+    <section className="grid gap-4 lg:grid-cols-[1fr_1fr]">
+      <figure className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+        <img src="/landing/governance-approval.png" alt="Velo governance and control screenshot" className="h-full w-full object-cover" />
+      </figure>
+      <article className="rounded-3xl border border-slate-200 bg-white p-6 md:p-7 shadow-sm">
+        <p className="text-[13px] font-semibold tracking-[0.15em] text-[#76003f] uppercase">Governance and control</p>
+        <h2 className="mt-2 text-[26px] leading-[1.14] font-semibold tracking-tight text-slate-900">Approve high impact changes with context</h2>
+        <p className="mt-2.5 text-[15px] leading-relaxed text-slate-600">
+          Keep completion and escalation decisions controlled, visible, and traceable.
+        </p>
+        <ul className="mt-4 grid gap-2 text-[14px] text-slate-700 sm:grid-cols-2">
+          <li>Approval points for sensitive actions</li>
+          <li>Who approved and when in activity history</li>
+          <li>Clear separation of member and owner authority</li>
+        </ul>
+        <div className="mt-5 inline-flex rounded-full border border-[#76003f]/15 bg-[#f7edf1] px-3 py-1 text-[12px] font-medium text-[#76003f]">
+          Audit trail + controlled transitions
+        </div>
+      </article>
+    </section>
+
+    <section className="rounded-3xl border border-slate-200 bg-white p-6 md:p-7 shadow-sm">
+      <div className="grid gap-5 lg:grid-cols-[1fr_1fr]">
+        <article>
+          <h2 className="text-[24px] font-semibold tracking-tight text-slate-900">Operational extensions</h2>
+          <div className="mt-4 space-y-2.5">
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3.5">
+              <p className="flex items-center gap-2 text-[15px] font-semibold text-slate-900"><MessageSquareText className="h-4 w-4 text-[#76003f]" /> Ticketing and delivery in one flow</p>
+              <p className="mt-1 text-[13px] text-slate-600">Move from intake to execution without losing context.</p>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3.5">
+              <p className="flex items-center gap-2 text-[15px] font-semibold text-slate-900"><Lock className="h-4 w-4 text-[#76003f]" /> Workspace security controls</p>
+              <p className="mt-1 text-[13px] text-slate-600">Control access, licensing, and approvals with clear admin policies.</p>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3.5">
+              <p className="flex items-center gap-2 text-[15px] font-semibold text-slate-900"><PlugZap className="h-4 w-4 text-[#76003f]" /> Microsoft native connection</p>
+              <p className="mt-1 text-[13px] text-slate-600">Use workspace sign in and notifications from your tenant.</p>
+            </div>
+          </div>
+        </article>
+        <article className="rounded-2xl border border-slate-200 bg-slate-50 p-4.5">
+          <h3 className="text-[20px] leading-[1.2] font-semibold tracking-tight text-slate-900">Common product questions</h3>
+          <div className="mt-3 space-y-2.5">
+            {productFaq.map(([q, a]) => (
+              <article key={q} className="rounded-xl border border-slate-200 bg-white p-3.5">
+                <p className="text-[15px] font-semibold text-slate-900">{q}</p>
+                <p className="mt-1 text-[13px] text-slate-600">{a}</p>
+              </article>
+            ))}
+          </div>
+        </article>
       </div>
     </section>
   </MarketingPageShell>

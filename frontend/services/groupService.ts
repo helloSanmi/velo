@@ -2,6 +2,7 @@ import { Project, SecurityGroup, User } from '../types';
 import { createId } from '../utils/id';
 import { realtimeService } from './realtimeService';
 import { apiRequest } from './apiClient';
+import { getPermissionMessage } from './permissionAccessService';
 
 const GROUPS_KEY = 'velo_security_groups';
 
@@ -213,7 +214,7 @@ export const groupService = {
 
     const scope = payload.scope;
     if (scope === 'global' && user.role !== 'admin') {
-      return { error: 'Only admins can create global groups.' };
+      return { error: getPermissionMessage('admin_only', 'create global groups') };
     }
 
     const project = scope === 'project' ? projects.find((item) => item.id === payload.projectId) : undefined;
@@ -221,7 +222,7 @@ export const groupService = {
       return { error: 'Choose a valid project for this group.' };
     }
     if (scope === 'project' && !canManageProjectGroup(user, project)) {
-      return { error: 'Only the project owner or admin can create project groups.' };
+      return { error: getPermissionMessage('project_owner_or_admin', 'create project groups') };
     }
 
     const all = readGroups();
@@ -253,10 +254,10 @@ export const groupService = {
 
     const project = group.scope === 'project' ? projects.find((item) => item.id === group.projectId) : undefined;
     if (group.scope === 'global' && user.role !== 'admin') {
-      return { error: 'Only admins can edit global groups.' };
+      return { error: getPermissionMessage('admin_only', 'edit global groups') };
     }
     if (group.scope === 'project' && !canManageProjectGroup(user, project)) {
-      return { error: 'Only the project owner or admin can edit this group.' };
+      return { error: getPermissionMessage('project_owner_or_admin', 'edit this group') };
     }
 
     let nextName = group.name;
@@ -297,10 +298,10 @@ export const groupService = {
 
     const project = group.scope === 'project' ? projects.find((item) => item.id === group.projectId) : undefined;
     if (group.scope === 'global' && user.role !== 'admin') {
-      return { success: false, error: 'Only admins can delete global groups.' };
+      return { success: false, error: getPermissionMessage('admin_only', 'delete global groups') };
     }
     if (group.scope === 'project' && !canManageProjectGroup(user, project)) {
-      return { success: false, error: 'Only the project owner or admin can delete this group.' };
+      return { success: false, error: getPermissionMessage('project_owner_or_admin', 'delete this group') };
     }
 
     writeGroups(all.filter((item) => item.id !== groupId));

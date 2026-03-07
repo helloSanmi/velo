@@ -1,10 +1,11 @@
 import { prisma } from '../../lib/prisma.js';
 import { HttpError } from '../../lib/httpError.js';
-import { normalizeIdentifier, normalizeWorkspaceDomain } from './auth.shared.js';
+import { buildWorkspaceDomainCandidates, normalizeIdentifier, normalizeWorkspaceDomain } from './auth.shared.js';
 
 export const resolveLoginUser = async (identifier: string, workspaceDomain?: string) => {
   const { normalized } = normalizeIdentifier(identifier);
   const domainHint = normalizeWorkspaceDomain(workspaceDomain);
+  const workspaceCandidates = buildWorkspaceDomainCandidates(workspaceDomain);
 
   const emailLike = normalized.includes('@');
   const [localPartRaw, identifierDomainRaw] = emailLike ? normalized.split('@') : [normalized, ''];
@@ -15,8 +16,11 @@ export const resolveLoginUser = async (identifier: string, workspaceDomain?: str
   const effectiveSubdomain = domainHint || subdomainFromIdentifier;
 
   if (effectiveSubdomain) {
-    const org = await prisma.organization.findUnique({
-      where: { loginSubdomain: effectiveSubdomain },
+    const orgLookupCandidates = Array.from(new Set([effectiveSubdomain, ...workspaceCandidates]));
+    const org = await prisma.organization.findFirst({
+      where: {
+        OR: orgLookupCandidates.map((candidate) => ({ loginSubdomain: candidate }))
+      },
       select: { id: true }
     });
     if (!org) throw new HttpError(404, 'Workspace domain not found.');
@@ -59,4 +63,3 @@ export const resolveLoginUser = async (identifier: string, workspaceDomain?: str
 
   return byUsername[0] || null;
 };
-

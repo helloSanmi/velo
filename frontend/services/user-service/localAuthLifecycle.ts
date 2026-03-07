@@ -2,7 +2,8 @@ import { OrgInvite, User } from '../../types';
 import { realtimeService } from '../realtimeService';
 import { createId } from '../../utils/id';
 import { apiRequest, clearAuthTokens } from '../apiClient';
-import { isFreePlan, normalizeWorkspacePlan } from '../planFeatureService';
+import { normalizeWorkspacePlan } from '../planFeatureService';
+import { getPermissionMessage } from '../permissionAccessService';
 import { INVITES_KEY, SESSION_KEY } from './constants';
 import {
   clearOrganizationStorage,
@@ -95,7 +96,7 @@ export const acceptInviteLocal = (
   if (!org) return { success: false, error: 'Organization no longer exists.' };
   const orgUsers = getUsersLocal(org.id);
   const activeLicenses = orgUsers.filter((member) => member.licenseActive !== false).length;
-  if (isFreePlan(org.plan) && activeLicenses >= org.totalSeats) {
+  if (activeLicenses >= org.totalSeats) {
     return {
       success: false,
       error: `No available licenses in ${org.name}. Ask admin to buy more seats.`
@@ -152,7 +153,7 @@ export const deleteOrganizationLocal = (
 ): { success: boolean; error?: string } => {
   const actor = getUsersLocal(orgId).find((candidate) => candidate.id === actorId);
   if (!actor) return { success: false, error: 'Actor not found in organization.' };
-  if (actor.role !== 'admin') return { success: false, error: 'Only admins can delete organization.' };
+  if (actor.role !== 'admin') return { success: false, error: getPermissionMessage('admin_only', 'delete organization') };
 
   const allUsers = getUsersLocal();
   const orgUserIds = new Set(allUsers.filter((item) => item.orgId === orgId).map((item) => item.id));

@@ -50,6 +50,8 @@ const KanbanHeader: React.FC<KanbanHeaderProps> = ({
   onDeleteAppliedView,
   onOpenManageViews,
   onOptimizeOrder,
+  aiPlanEnabled,
+  aiEnabled,
   onOpenStages,
   canGenerateTasksWithAI,
   onOpenGenerateTasksWithAI,
@@ -118,6 +120,8 @@ const KanbanHeader: React.FC<KanbanHeaderProps> = ({
             onOpenManageViews={onOpenManageViews}
             activeProject={activeProject}
             onOptimizeOrder={onOptimizeOrder}
+            aiPlanEnabled={aiPlanEnabled}
+            aiEnabled={aiEnabled}
             isTriaging={isTriaging}
             projectStages={projectStages}
             canManageStages={canManageStages}

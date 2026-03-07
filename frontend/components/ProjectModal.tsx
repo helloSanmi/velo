@@ -8,7 +8,7 @@ import ProjectMembersStep from './project-modal/ProjectMembersStep';
 import { ProjectModalProps } from './project-modal/ProjectModal.types';
 import { useProjectModalController } from './project-modal/useProjectModalController';
 
-const ProjectModal: React.FC<ProjectModalProps> = ({ isOpen, onClose, onSubmit, currentUserId, initialTemplateId, allowAiMode = true }) => {
+const ProjectModal: React.FC<ProjectModalProps> = ({ isOpen, onClose, onSubmit, currentUserId, initialTemplateId, aiPlanEnabled = true, aiEnabled = true, allowAiMode = true }) => {
   const {
     step,
     setStep,
@@ -91,6 +91,8 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ isOpen, onClose, onSubmit, 
         <div className="flex-1 min-h-0 p-3.5 md:p-4 overflow-y-auto custom-scrollbar">
           {step === 1 && (
             <ModeSelectionStep
+              aiPlanEnabled={aiPlanEnabled}
+              aiEnabled={aiEnabled}
               allowAiMode={allowAiMode}
               onSelectMode={(selectedMode) => {
                 if (selectedMode === 'ai' && !allowAiMode) {

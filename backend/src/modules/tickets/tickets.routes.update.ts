@@ -1,5 +1,6 @@
 import type { Router } from 'express';
 import { HttpError } from '../../lib/httpError.js';
+import { getBackendPermissionMessage } from '../../lib/accessMessages.js';
 import { prisma } from '../../lib/prisma.js';
 import { writeAudit } from '../audit/audit.service.js';
 import { realtimeGateway } from '../realtime/realtime.gateway.js';
@@ -30,7 +31,7 @@ export const registerTicketUpdateRoute = (router: Router) => {
         patch.requesterName !== undefined ||
         patch.requesterEmail !== undefined;
       if (!canManage && !(isRequester && isSimplePatch)) {
-        throw new HttpError(403, 'Only project owners/admins can triage or reassign tickets.');
+        throw new HttpError(403, getBackendPermissionMessage('project_owner_or_admin', 'triage or reassign tickets'));
       }
 
       const now = Date.now();

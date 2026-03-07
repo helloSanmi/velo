@@ -35,9 +35,15 @@ export const changePasswordSchema = z
     path: ['confirmPassword']
   });
 
-export const resetPasswordSchema = z.object({
-  identifier: z.string().min(1),
-  workspaceDomain: z.string().optional(),
-  newPassword: z.string().min(1),
-  confirmPassword: z.string().min(1)
-});
+export const resetPasswordSchema = z
+  .object({
+    identifier: z.string().min(1),
+    workspaceDomain: z.string().optional(),
+    currentPassword: z.string().min(1),
+    newPassword: z.string().min(6),
+    confirmPassword: z.string().min(6)
+  })
+  .refine((value) => value.newPassword === value.confirmPassword, {
+    message: 'New password and confirmation must match.',
+    path: ['confirmPassword']
+  });

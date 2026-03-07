@@ -53,9 +53,9 @@ describe('accessPolicyService', () => {
     expect(canUserAccessProject({ user: member, project: baseProject, tasks: [] })).toBe(true);
   });
 
-  it('allows non-members assigned to a task in the project', () => {
+  it('does not allow non-members assigned to a task in the project', () => {
     const tasks = [mkTask('t-1', baseProject.id, [outsider.id])];
-    expect(canUserAccessProject({ user: outsider, project: baseProject, tasks })).toBe(true);
+    expect(canUserAccessProject({ user: outsider, project: baseProject, tasks })).toBe(false);
   });
 
   it('allows public project access for non-members', () => {
@@ -77,7 +77,7 @@ describe('accessPolicyService', () => {
       tasks,
       activeOnly: true
     });
-    expect(ids.has(baseProject.id)).toBe(true);
+    expect(ids.has(baseProject.id)).toBe(false);
     expect(ids.has(publicProject.id)).toBe(true);
     expect(ids.has(archivedProject.id)).toBe(false);
   });

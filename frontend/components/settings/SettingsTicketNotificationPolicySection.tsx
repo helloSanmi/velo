@@ -11,7 +11,7 @@ interface SettingsTicketNotificationPolicySectionProps {
   org: Organization;
   onUpdateOrganizationSettings: (
     patch: Partial<Pick<Organization, 'notificationSenderEmail'>>
-  ) => Promise<void>;
+  ) => Promise<Organization | null>;
 }
 
 const SettingsTicketNotificationPolicySection: React.FC<SettingsTicketNotificationPolicySectionProps> = ({

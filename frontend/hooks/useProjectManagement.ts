@@ -20,7 +20,7 @@ interface UseProjectManagementOptions {
   setTaskDetailInitialTab: Dispatch<SetStateAction<TaskDetailTabType | undefined>>;
   setCurrentView: Dispatch<SetStateAction<MainViewType>>;
   setUser: Dispatch<SetStateAction<User | null>>;
-  setAuthView: Dispatch<SetStateAction<'landing' | 'product' | 'solutions' | 'pricing' | 'support' | 'contact' | 'login' | 'register' | 'join'>>;
+  setAuthView: Dispatch<SetStateAction<'landing' | 'product' | 'solutions' | 'pricing' | 'contact' | 'login' | 'register' | 'join'>>;
 }
 
 export const useProjectManagement = ({

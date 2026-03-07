@@ -89,6 +89,10 @@ export const updateOrganizationSettingsRemote = async (
       | 'allowMicrosoftAuth'
       | 'microsoftWorkspaceConnected'
       | 'notificationSenderEmail'
+      | 'plan'
+      | 'totalSeats'
+      | 'seatPrice'
+      | 'billingCurrency'
     >
   >
 ): Promise<Organization | null> => {

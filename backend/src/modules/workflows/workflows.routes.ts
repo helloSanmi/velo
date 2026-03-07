@@ -4,6 +4,8 @@ import { z } from 'zod';
 import { authenticate } from '../../middleware/authenticate.js';
 import { requireOrgAccess } from '../../middleware/requireOrgAccess.js';
 import { HttpError } from '../../lib/httpError.js';
+import { enforceOrgPlanFeature } from '../../lib/planFeatures.js';
+import { getBackendPermissionMessage } from '../../lib/accessMessages.js';
 import { prisma } from '../../lib/prisma.js';
 import { workflowsStore } from './workflows.store.js';
 
@@ -47,7 +49,7 @@ const enforceWorkflowManageAccess = async (input: {
   projectId?: string;
 }) => {
   if (input.role === 'admin') return;
-  if (!input.projectId) throw new HttpError(403, 'Only admins can manage org-wide workflow rules.');
+  if (!input.projectId) throw new HttpError(403, getBackendPermissionMessage('admin_only', 'manage org-wide workflow rules'));
   const project = await prisma.project.findUnique({
     where: { id: input.projectId },
     select: { id: true, orgId: true, ownerId: true, createdBy: true, metadata: true }
@@ -55,13 +57,14 @@ const enforceWorkflowManageAccess = async (input: {
   if (!project || project.orgId !== input.orgId) throw new HttpError(404, 'Project not found.');
   const ownerIds = getProjectOwnerIds(project);
   if (!ownerIds.includes(input.userId)) {
-    throw new HttpError(403, 'Only project owners/admins can manage workflow rules.');
+    throw new HttpError(403, getBackendPermissionMessage('project_owner_or_admin', 'manage workflow rules'));
   }
 };
 
 router.get('/orgs/:orgId/workflows', authenticate, requireOrgAccess, async (req, res, next) => {
   try {
     const { orgId } = orgParamsSchema.parse(req.params);
+    await enforceOrgPlanFeature(orgId, 'workflows');
     const rows = await workflowsStore.list(orgId);
     res.json({ success: true, data: rows });
   } catch (error) {
@@ -72,6 +75,7 @@ router.get('/orgs/:orgId/workflows', authenticate, requireOrgAccess, async (req,
 router.post('/orgs/:orgId/workflows', authenticate, requireOrgAccess, async (req, res, next) => {
   try {
     const { orgId } = orgParamsSchema.parse(req.params);
+    await enforceOrgPlanFeature(orgId, 'workflows');
     const body = createSchema.parse(req.body);
     await enforceWorkflowManageAccess({
       orgId,
@@ -89,6 +93,7 @@ router.post('/orgs/:orgId/workflows', authenticate, requireOrgAccess, async (req
 router.patch('/orgs/:orgId/workflows/:ruleId', authenticate, requireOrgAccess, async (req, res, next) => {
   try {
     const { orgId, ruleId } = ruleParamsSchema.parse(req.params);
+    await enforceOrgPlanFeature(orgId, 'workflows');
     const patch = updateSchema.parse(req.body);
     const existing = await workflowsStore.get(orgId, ruleId);
     if (!existing) throw new HttpError(404, 'Workflow rule not found.');
@@ -110,6 +115,7 @@ router.patch('/orgs/:orgId/workflows/:ruleId', authenticate, requireOrgAccess, a
 router.delete('/orgs/:orgId/workflows/:ruleId', authenticate, requireOrgAccess, async (req, res, next) => {
   try {
     const { orgId, ruleId } = ruleParamsSchema.parse(req.params);
+    await enforceOrgPlanFeature(orgId, 'workflows');
     const existing = await workflowsStore.get(orgId, ruleId);
     if (!existing) throw new HttpError(404, 'Workflow rule not found.');
     await enforceWorkflowManageAccess({
@@ -126,4 +132,3 @@ router.delete('/orgs/:orgId/workflows/:ruleId', authenticate, requireOrgAccess, 
 });
 
 export const workflowsRoutes = router;
-

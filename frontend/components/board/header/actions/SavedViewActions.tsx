@@ -1,6 +1,7 @@
 import React from 'react';
 import AppSelect from '../../../ui/AppSelect';
 import { KanbanHeaderProps } from '../types';
+import { ensurePlanAccess, getPlanUpgradeMessage } from '../../../../services/planAccessService';
 
 interface SavedViewActionsProps {
   allowSavedViews: KanbanHeaderProps['allowSavedViews'];
@@ -31,7 +32,15 @@ const SavedViewActions: React.FC<SavedViewActionsProps> = ({
         >
           Save view
         </button>
-      ) : null}
+      ) : (
+        <button
+          onClick={() => ensurePlanAccess('savedViews', false)}
+          className="h-9 md:h-7 px-3 md:px-2 rounded-md border border-amber-200 bg-amber-50 hover:bg-amber-100 text-xs md:text-[11px] font-medium text-amber-800 transition-colors whitespace-nowrap shrink-0"
+          title={getPlanUpgradeMessage('savedViews')}
+        >
+          Saved views: upgrade
+        </button>
+      )}
       {hasSavedViews ? (
         <div className="w-[180px] shrink-0">
           <AppSelect

@@ -56,6 +56,8 @@ export interface KanbanHeaderProps {
   onDeleteAppliedView: () => void;
   onOpenManageViews: () => void;
   onOptimizeOrder: () => void;
+  aiPlanEnabled?: boolean;
+  aiEnabled?: boolean;
   onOpenStages: () => void;
   canGenerateTasksWithAI?: boolean;
   onOpenGenerateTasksWithAI?: () => void;

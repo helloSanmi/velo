@@ -1,6 +1,8 @@
 import { prisma } from '../../lib/prisma.js';
 import { HttpError } from '../../lib/httpError.js';
 import { createId } from '../../lib/ids.js';
+import { getOrgPlanFeatures } from '../../lib/planFeatures.js';
+import { getBackendPlanUpgradeMessage } from '../../lib/accessMessages.js';
 import { writeAudit } from '../audit/audit.service.js';
 import {
   exchangeOauthCode,
@@ -45,6 +47,14 @@ export const completeIntegrationOauthCallback = async (input: {
   });
   if (!actor || actor.orgId !== state.orgId || actor.role !== 'admin') {
     return renderPopupResult({ ok: false, provider: input.provider, error: 'Admin session invalid. Retry from settings.' });
+  }
+  const planFeatures = await getOrgPlanFeatures(state.orgId);
+  if (!planFeatures.integrations) {
+    return renderPopupResult({
+      ok: false,
+      provider: input.provider,
+      error: getBackendPlanUpgradeMessage('integrations')
+    });
   }
 
   const config = getProviderConfig(input.provider);

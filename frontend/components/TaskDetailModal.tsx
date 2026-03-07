@@ -18,6 +18,7 @@ interface TaskDetailModalProps {
   onAddComment: (id: string, text: string) => void;
   onDelete: (id: string) => void;
   currentUser?: User;
+  aiPlanEnabled?: boolean;
   aiEnabled?: boolean;
   initialTab?: TaskDetailTabType;
   onActiveTabChange?: (tab: TaskDetailTabType) => void;
@@ -35,6 +36,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   onAddComment,
   onDelete,
   currentUser,
+  aiPlanEnabled = true,
   aiEnabled = true,
   initialTab,
   onActiveTabChange,
@@ -49,6 +51,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
     task,
     tasks,
     currentUser,
+    aiPlanEnabled,
     aiEnabled,
     initialTab,
     onUpdate,
@@ -64,6 +67,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
       return (
         <TaskDetailGeneralTab
           task={task}
+          aiPlanEnabled={aiPlanEnabled}
           aiEnabled={aiEnabled}
           allUsers={state.allUsers}
           onUpdate={onUpdate}
@@ -114,6 +118,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
           onToggleSubtask={state.handleToggleSubtask}
           onRemoveSubtask={state.handleRemoveSubtask}
           canManageSubtasks={canManageTask}
+          aiPlanEnabled={aiPlanEnabled}
           aiEnabled={aiEnabled}
           isGeneratingSubtasksAI={state.isGeneratingSubtasksAI}
           onGenerateSubtasksWithAI={state.handleGenerateSubtasksWithAI}

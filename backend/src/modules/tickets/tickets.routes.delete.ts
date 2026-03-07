@@ -1,5 +1,6 @@
 import type { Router } from 'express';
 import { HttpError } from '../../lib/httpError.js';
+import { getBackendPermissionMessage } from '../../lib/accessMessages.js';
 import { writeAudit } from '../audit/audit.service.js';
 import { realtimeGateway } from '../realtime/realtime.gateway.js';
 import { authenticate } from '../../middleware/authenticate.js';
@@ -19,7 +20,7 @@ export const registerTicketDeleteRoute = (router: Router) => {
         role: req.auth!.role,
         projectId: ticket.projectId
       });
-      if (!canManage) throw new HttpError(403, 'Only project owners/admins can delete tickets.');
+      if (!canManage) throw new HttpError(403, getBackendPermissionMessage('project_owner_or_admin', 'delete tickets'));
       await ticketsStore.remove(orgId, ticketId);
       await writeAudit({
         orgId,

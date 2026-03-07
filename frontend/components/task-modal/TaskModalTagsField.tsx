@@ -9,6 +9,7 @@ interface TaskModalTagsFieldProps {
   onRemoveTag: (tag: string) => void;
   onSuggestTags: () => void;
   isSuggestingTags: boolean;
+  suggestLabel?: string;
 }
 
 const TaskModalTagsField: React.FC<TaskModalTagsFieldProps> = ({
@@ -18,13 +19,14 @@ const TaskModalTagsField: React.FC<TaskModalTagsFieldProps> = ({
   tags,
   onRemoveTag,
   onSuggestTags,
-  isSuggestingTags
+  isSuggestingTags,
+  suggestLabel
 }) => (
   <div>
     <div className="flex items-center justify-between mb-1.5">
       <label className="block text-xs text-slate-500">Tags</label>
       <button type="button" onClick={onSuggestTags} className="text-xs text-slate-600 hover:text-slate-900 inline-flex items-center gap-1">
-        {isSuggestingTags ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />} Suggest
+        {isSuggestingTags ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />} {suggestLabel || 'Suggest'}
       </button>
     </div>
     <div className="relative">

@@ -8,6 +8,8 @@ import SettingsDangerTab from './SettingsDangerTab';
 import SettingsPolicyTab from './SettingsPolicyTab';
 import IntegrationHub from '../IntegrationHub';
 import { SettingsModalContentProps } from './SettingsModalContent.types';
+import { getPlanUpgradeMessage } from '../../services/planAccessService';
+import { getPermissionMessage } from '../../services/permissionAccessService';
 
 const SettingsModalContent: React.FC<SettingsModalContentProps> = (props) => {
   const coreTabUser = props.profileUser || props.user;
@@ -33,10 +35,16 @@ const SettingsModalContent: React.FC<SettingsModalContentProps> = (props) => {
 
   switch (props.activeTab) {
     case 'automation':
+      if (!props.workflowPlanEnabled) {
+        return <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">{getPlanUpgradeMessage('workflows')}</div>;
+      }
       return props.canAccessWorkflowAutomation
         ? <WorkflowBuilder orgId={props.user.orgId} allUsers={props.allUsers} projects={props.workflowProjects} projectTasks={props.projectTasks} currentUser={props.user} />
         : <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">You can only view workflows for projects you are involved in.</div>;
     case 'integrations':
+      if (!props.integrationsPlanEnabled) {
+        return <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">{getPlanUpgradeMessage('integrations')}</div>;
+      }
       return props.user.role === 'admin' ? (
         <div className="overflow-hidden rounded-xl border border-slate-200">
           <IntegrationHub
@@ -47,7 +55,7 @@ const SettingsModalContent: React.FC<SettingsModalContentProps> = (props) => {
             onUpdateOrganizationSettings={props.onUpdateOrganizationSettings}
           />
         </div>
-      ) : <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">Only admins can manage workspace integrations.</div>;
+      ) : <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">{getPermissionMessage('admin_only', 'manage workspace integrations')}</div>;
     case 'projects':
       return (
         <SettingsProjectsTab

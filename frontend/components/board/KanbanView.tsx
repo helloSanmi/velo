@@ -97,6 +97,8 @@ const KanbanView: React.FC<KanbanViewProps> = (props) => {
         onDeleteAppliedView={deleteAppliedView}
         onOpenManageViews={openSavedViews}
         onOptimizeOrder={handleOptimizeOrder}
+        aiPlanEnabled={props.aiPlanEnabled}
+        aiEnabled={props.aiEnabled}
         onOpenStages={openStageEditor}
         canGenerateTasksWithAI={canGenerateTasksWithAI}
         onOpenGenerateTasksWithAI={() => setIsGenerateTasksOpen(true)}
@@ -125,7 +127,9 @@ const KanbanView: React.FC<KanbanViewProps> = (props) => {
         activeProject={currentProject}
         checklistDensity={checklistDensity}
         canDeleteTask={props.canDeleteTask}
-        canUseTaskAI={props.canUseTaskAI}
+        aiPlanEnabled={props.aiPlanEnabled}
+        aiEnabled={props.aiEnabled}
+        canManageTaskAI={props.canManageTaskAI}
         canToggleTaskTimer={props.canToggleTaskTimer}
         includeUnscheduled={props.includeUnscheduled}
         onToggleTaskSelection={props.toggleTaskSelection}

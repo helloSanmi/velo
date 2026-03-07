@@ -112,5 +112,5 @@ export const resolvePlanSeats = (
     : PLAN_DEFAULT_SEATS[plan];
   return plan === 'free'
     ? Math.max(1, Math.min(3, Math.round(selectedSeats)))
-    : PLAN_DEFAULT_SEATS[plan];
+    : Math.max(1, Math.min(100000, Math.round(selectedSeats)));
 };

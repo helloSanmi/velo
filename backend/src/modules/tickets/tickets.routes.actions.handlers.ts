@@ -1,5 +1,6 @@
 import type { RequestHandler } from 'express';
 import { HttpError } from '../../lib/httpError.js';
+import { getBackendPermissionMessage } from '../../lib/accessMessages.js';
 import { createId } from '../../lib/ids.js';
 import { prisma } from '../../lib/prisma.js';
 import { writeAudit } from '../audit/audit.service.js';
@@ -91,7 +92,7 @@ export const convertTicketHandler = withRoute(async (req, res) => {
     role: req.auth!.role,
     projectId: targetProjectId
   });
-  if (!canManage) throw new HttpError(403, 'Only project owners/admins can convert tickets.');
+  if (!canManage) throw new HttpError(403, getBackendPermissionMessage('project_owner_or_admin', 'convert tickets'));
   const project = await prisma.project.findUnique({ where: { id: targetProjectId }, select: { id: true, orgId: true } });
   if (!project || project.orgId !== orgId) throw new HttpError(404, 'Project not found.');
 
@@ -153,7 +154,7 @@ export const deleteTicketHandler = withRoute(async (req, res) => {
     role: req.auth!.role,
     projectId: ticket.projectId
   });
-  if (!canManage) throw new HttpError(403, 'Only project owners/admins can delete tickets.');
+  if (!canManage) throw new HttpError(403, getBackendPermissionMessage('project_owner_or_admin', 'delete tickets'));
   await ticketsStore.remove(orgId, ticketId);
   await writeAudit({
     orgId,

@@ -19,7 +19,9 @@ interface KanbanBoardContentProps {
   activeProject?: Project;
   checklistDensity: 'comfortable' | 'compact';
   canDeleteTask?: (taskId: string) => boolean;
-  canUseTaskAI?: (taskId: string) => boolean;
+  aiPlanEnabled?: boolean;
+  aiEnabled?: boolean;
+  canManageTaskAI?: (taskId: string) => boolean;
   canToggleTaskTimer?: (taskId: string) => boolean;
   includeUnscheduled: boolean;
   onToggleTaskSelection: (id: string) => void;
@@ -44,7 +46,9 @@ const KanbanBoardContent: React.FC<KanbanBoardContentProps> = ({
   activeProject,
   checklistDensity,
   canDeleteTask,
-  canUseTaskAI,
+  aiPlanEnabled = true,
+  aiEnabled = true,
+  canManageTaskAI,
   canToggleTaskTimer,
   includeUnscheduled,
   onToggleTaskSelection,
@@ -73,7 +77,9 @@ const KanbanBoardContent: React.FC<KanbanBoardContentProps> = ({
         onAddNewTask={onAddNewTask}
         onToggleTimer={onToggleTimer}
         canDeleteTask={canDeleteTask}
-        canUseTaskAI={canUseTaskAI}
+        aiPlanEnabled={aiPlanEnabled}
+        aiEnabled={aiEnabled}
+        canManageTaskAI={canManageTaskAI}
         canToggleTaskTimer={canToggleTaskTimer}
         showProjectNameOnCards={!activeProject}
       />

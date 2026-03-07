@@ -3,6 +3,7 @@ import { Globe2, Plus } from 'lucide-react';
 import Button from '../ui/Button';
 import { SecurityGroup, User } from '../../types';
 import SettingsGroupCard from './SettingsGroupCard';
+import { getPermissionMessage } from '../../services/permissionAccessService';
 
 interface SettingsGlobalGroupsPanelProps {
   isAdmin: boolean;
@@ -44,7 +45,7 @@ const SettingsGlobalGroupsPanel: React.FC<SettingsGlobalGroupsPanelProps> = (pro
         </div>
         <Button size="sm" onClick={props.onCreateGlobal} disabled={!props.globalName.trim()}><Plus className="mr-1.5 h-3.5 w-3.5" /> Create global group</Button>
       </div>
-    ) : <p className="mt-3 text-xs text-slate-500">Only admins can create global groups.</p>}
+    ) : <p className="mt-3 text-xs text-slate-500">{getPermissionMessage('admin_only', 'create global groups')}</p>}
     <div className="mt-3 space-y-2">
       {props.globalGroups.length === 0 ? <div className="rounded-lg border border-dashed border-slate-300 p-3 text-xs text-slate-500">No global groups yet.</div> : props.globalGroups.map((group) => (
         <SettingsGroupCard

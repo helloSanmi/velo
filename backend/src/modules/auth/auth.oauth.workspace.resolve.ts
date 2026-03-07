@@ -1,16 +1,21 @@
 import { prisma } from '../../lib/prisma.js';
 import { HttpError } from '../../lib/httpError.js';
 import type { Provider } from './auth.oauth.types.js';
-import { normalizeWorkspaceDomain } from './auth.shared.js';
+import { buildWorkspaceDomainCandidates, normalizeWorkspaceDomain } from './auth.shared.js';
 
 export const resolveOrgByWorkspaceDomain = async (workspaceDomain: string | undefined) => {
   const normalized = normalizeWorkspaceDomain(workspaceDomain);
+  const workspaceCandidates = buildWorkspaceDomainCandidates(workspaceDomain);
   if (!normalized) {
     throw new HttpError(400, 'Workspace URL is required for organization SSO sign-in (for example: acme.localhost or acme.velo.ai).');
   }
 
-  const org = await prisma.organization.findUnique({
-    where: { loginSubdomain: normalized },
+  const org = await prisma.organization.findFirst({
+    where: {
+      OR: Array.from(new Set([normalized, ...workspaceCandidates])).map((candidate) => ({
+        loginSubdomain: candidate
+      }))
+    },
     select: {
       id: true,
       name: true,

@@ -6,6 +6,7 @@ import { dialogService } from '../services/dialogService';
 import { toastService } from '../services/toastService';
 import { notifyProjectLifecycle } from '../services/projectNotificationService';
 import { isTaskInFinalStage } from '../services/completionFlowService';
+import { ensurePermissionAccess } from '../services/permissionAccessService';
 
 interface UseProjectLifecycleActionsParams {
   user: User | null;
@@ -46,10 +47,7 @@ export const useProjectLifecycleActions = ({
       toastService.warning('Rename blocked', 'Only active projects can be renamed.');
       return;
     }
-    if (!canManageProject(target)) {
-      toastService.warning('Permission denied', 'Only admins or the project creator can rename projects.');
-      return;
-    }
+    if (!ensurePermissionAccess(canManageProject(target), 'project_creator_or_admin', 'rename projects')) return;
     const trimmed = name.trim();
     if (!trimmed) return;
     projectService.renameProject(id, trimmed);
@@ -61,10 +59,7 @@ export const useProjectLifecycleActions = ({
   const handleArchiveProject = useCallback((id: string) => {
     if (!user) return;
     const project = projects.find((item) => item.id === id);
-    if (!canManageProject(project)) {
-      toastService.warning('Permission denied', 'Only admins or the project creator can archive projects.');
-      return;
-    }
+    if (!ensurePermissionAccess(canManageProject(project), 'project_creator_or_admin', 'archive projects')) return;
     dialogService
       .confirm(`Archive "${project?.name || 'this project'}"?`, {
         title: 'Archive project',
@@ -122,10 +117,7 @@ export const useProjectLifecycleActions = ({
       toastService.warning('Completion blocked', 'Stop all running task timers in this project before completing it.');
       return;
     }
-    if (!canManageProject(target)) {
-      toastService.warning('Permission denied', 'Only admins or the project creator can complete projects.');
-      return;
-    }
+    if (!ensurePermissionAccess(canManageProject(target), 'project_creator_or_admin', 'complete projects')) return;
     const project = projects.find((item) => item.id === id);
 
     const completeNow = () => {
@@ -176,10 +168,7 @@ export const useProjectLifecycleActions = ({
     if (!user) return;
     const target = projects.find((project) => project.id === id);
     if (!target) return;
-    if (!canManageProject(target)) {
-      toastService.warning('Permission denied', 'Only admins or the project creator can reopen projects.');
-      return;
-    }
+    if (!ensurePermissionAccess(canManageProject(target), 'project_creator_or_admin', 'reopen projects')) return;
     dialogService
       .prompt('Please add a short justification to reopen this project:', {
         title: 'Reopen project',
@@ -267,10 +256,7 @@ export const useProjectLifecycleActions = ({
   const handleRestoreProject = useCallback((id: string) => {
     if (!user) return;
     const target = projects.find((project) => project.id === id);
-    if (!canManageProject(target)) {
-      toastService.warning('Permission denied', 'Only admins or the project creator can restore projects.');
-      return;
-    }
+    if (!ensurePermissionAccess(canManageProject(target), 'project_creator_or_admin', 'restore projects')) return;
     const wasCompleted = Boolean(target?.isCompleted);
     projectService.restoreProject(id, user.id);
     setProjects((prev) =>
@@ -364,10 +350,7 @@ export const useProjectLifecycleActions = ({
       toastService.info('Already deleted', `"${project.name}" is already in deleted projects.`);
       return;
     }
-    if (!canManageProject(project)) {
-      toastService.warning('Permission denied', 'Only admins or the project creator can delete projects.');
-      return;
-    }
+    if (!ensurePermissionAccess(canManageProject(project), 'project_creator_or_admin', 'delete projects')) return;
     dialogService
       .confirm(`Move "${project.name}" to deleted?`, {
         title: 'Delete project',
@@ -407,10 +390,7 @@ export const useProjectLifecycleActions = ({
   const handlePurgeProject = useCallback((id: string) => {
     if (!user) return;
     const project = projects.find((item) => item.id === id);
-    if (!canManageProject(project)) {
-      toastService.warning('Permission denied', 'Only admins or the project creator can purge projects.');
-      return;
-    }
+    if (!ensurePermissionAccess(canManageProject(project), 'project_creator_or_admin', 'purge projects')) return;
     dialogService
       .confirm(`Permanently purge "${project?.name || 'this project'}"?`, {
         title: 'Purge project',

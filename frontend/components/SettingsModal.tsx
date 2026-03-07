@@ -106,6 +106,11 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 >
                   <span className={activeTab === tab.id ? 'text-indigo-400' : 'text-slate-400'}>{tab.icon}</span>
                   {tab.label}
+                  {tab.badge ? (
+                    <span className={`ml-auto rounded-md px-1.5 py-0.5 text-[9px] font-semibold ${activeTab === tab.id ? 'bg-white/15 text-white' : 'bg-[#f7edf1] text-[#76003f]'}`}>
+                      {tab.badge}
+                    </span>
+                  ) : null}
                 </button>
               ))}
             </div>
@@ -119,7 +124,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
           <div className="hidden md:flex px-4 py-3 md:px-6 md:py-4 border-t border-slate-200 bg-white flex-col sm:flex-row justify-between items-center gap-3 shrink-0">
             <div className="flex flex-col text-center sm:text-left">
               <p className="text-[10px] font-semibold uppercase text-slate-400 tracking-wide">Version</p>
-              <p className="text-[11px] font-medium text-slate-900 mt-0.5">Velo 3.0.1</p>
+              <p className="text-[11px] font-medium text-slate-900 mt-0.5">Velo 1.0.1</p>
             </div>
           </div>
         </div>

@@ -94,6 +94,7 @@ export const resetPasswordHandler = withRoute(async (req, res) => {
   await authService.resetPassword({
     identifier: body.identifier,
     workspaceDomain: body.workspaceDomain,
+    currentPassword: body.currentPassword,
     newPassword: body.newPassword
   });
   res.json({ success: true });

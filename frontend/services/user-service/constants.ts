@@ -14,8 +14,8 @@ export const PRESENCE_KEY_PREFIX = 'velo_presence_v1:';
 
 export const PLAN_DEFAULT_SEATS: Record<'free' | 'basic' | 'pro', number> = {
   free: 3,
-  basic: 100000,
-  pro: 100000
+  basic: 5,
+  pro: 5
 };
 
 export const PLAN_SEAT_PRICE: Record<'free' | 'basic' | 'pro', number> = {
@@ -23,4 +23,3 @@ export const PLAN_SEAT_PRICE: Record<'free' | 'basic' | 'pro', number> = {
   basic: 5,
   pro: 7
 };
-

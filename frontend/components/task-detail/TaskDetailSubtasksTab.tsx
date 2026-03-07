@@ -2,6 +2,7 @@ import React from 'react';
 import { Check, CheckSquare, ListChecks, Loader2, Plus, Sparkles, Trash2 } from 'lucide-react';
 import { Subtask, Task } from '../../types';
 import Button from '../ui/Button';
+import { toastService } from '../../services/toastService';
 
 interface TaskDetailSubtasksTabProps {
   task: Task;
@@ -11,6 +12,7 @@ interface TaskDetailSubtasksTabProps {
   onToggleSubtask: (subtaskId: string) => void;
   onRemoveSubtask: (subtaskId: string) => void;
   canManageSubtasks: boolean;
+  aiPlanEnabled: boolean;
   aiEnabled: boolean;
   isGeneratingSubtasksAI: boolean;
   onGenerateSubtasksWithAI: () => void;
@@ -24,6 +26,7 @@ const TaskDetailSubtasksTab: React.FC<TaskDetailSubtasksTabProps> = ({
   onToggleSubtask,
   onRemoveSubtask,
   canManageSubtasks,
+  aiPlanEnabled,
   aiEnabled,
   isGeneratingSubtasksAI,
   onGenerateSubtasksWithAI
@@ -40,20 +43,41 @@ const TaskDetailSubtasksTab: React.FC<TaskDetailSubtasksTabProps> = ({
           <p className="text-xs text-slate-500 mt-0.5">Break work into small, trackable steps.</p>
         </div>
         <div className="flex items-center gap-2">
-          {aiEnabled ? (
+          {aiPlanEnabled || aiEnabled ? (
             <Button
               type="button"
               size="sm"
               variant="secondary"
               className="h-8 px-2.5 text-xs"
-              onClick={onGenerateSubtasksWithAI}
-              disabled={isGeneratingSubtasksAI || !canManageSubtasks}
-              title={canManageSubtasks ? 'Generate subtasks with AI' : 'Only project owner/admin can generate subtasks'}
+              onClick={() => {
+                if (!aiPlanEnabled) {
+                  toastService.info('Upgrade required', 'Upgrade to Pro to unlock AI subtasks.');
+                  return;
+                }
+                if (!aiEnabled) {
+                  toastService.info('AI disabled', 'Enable AI in Settings to generate subtasks.');
+                  return;
+                }
+                onGenerateSubtasksWithAI();
+              }}
+              disabled={isGeneratingSubtasksAI || (aiPlanEnabled && aiEnabled && !canManageSubtasks)}
+              title={!aiPlanEnabled ? 'Upgrade to Pro to unlock AI subtasks' : canManageSubtasks ? 'Generate subtasks with AI' : 'Only project owner/admin can generate subtasks'}
             >
               {isGeneratingSubtasksAI ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : <Sparkles className="w-3.5 h-3.5 mr-1" />}
-              AI steps
+              {!aiPlanEnabled ? 'AI steps: Pro' : !aiEnabled ? 'Enable AI' : 'AI steps'}
             </Button>
-          ) : null}
+          ) : (
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              className="h-8 px-2.5 text-xs"
+              onClick={() => toastService.info('Upgrade required', 'Upgrade to Pro to unlock AI subtasks.')}
+            >
+              <Sparkles className="w-3.5 h-3.5 mr-1" />
+              AI steps: Pro
+            </Button>
+          )}
           <div className="text-right">
             <p className="text-xl font-semibold text-slate-900">{completedSubtasks}/{task.subtasks.length}</p>
             <p className="text-[10px] uppercase tracking-wide text-slate-500">done</p>
@@ -112,7 +136,7 @@ const TaskDetailSubtasksTab: React.FC<TaskDetailSubtasksTabProps> = ({
           <Plus className="w-4 h-4" />
         </Button>
       </form>
-      {!canManageSubtasks ? <p className="text-[11px] text-slate-500">Only project owner/admin can edit or generate subtasks.</p> : null}
+      {!aiPlanEnabled ? <p className="text-[11px] text-slate-500">AI subtasks are available on Pro.</p> : !aiEnabled ? <p className="text-[11px] text-slate-500">Enable AI in Settings to generate subtasks.</p> : !canManageSubtasks ? <p className="text-[11px] text-slate-500">Only project owner/admin can edit or generate subtasks.</p> : null}
     </div>
   );
 };

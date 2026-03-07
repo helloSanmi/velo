@@ -12,6 +12,8 @@ export interface TaskItemProps {
   onToggleTimer?: (id: string) => void;
   readOnly?: boolean;
   canDelete?: boolean;
-  canUseAIAssist?: boolean;
+  aiPlanEnabled?: boolean;
+  aiEnabled?: boolean;
+  canManageAIAssist?: boolean;
   canToggleTimer?: boolean;
 }

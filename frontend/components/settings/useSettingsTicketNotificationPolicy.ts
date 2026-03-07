@@ -16,7 +16,7 @@ export const useSettingsTicketNotificationPolicy = (
   org: Organization,
   onUpdateOrganizationSettings: (
     patch: Partial<Pick<Organization, 'notificationSenderEmail'>>
-  ) => Promise<void>
+  ) => Promise<Organization | null>
 ) => {
   const [expanded, setExpanded] = useState(false);
   const [loading, setLoading] = useState(true);

@@ -7,11 +7,13 @@ import { TaskDetailTabType } from '../components/task-detail/types';
 import { dialogService } from '../services/dialogService';
 import { aiJobService } from '../services/aiJobService';
 import { toastService } from '../services/toastService';
+import { ensureAiAccess } from '../services/aiAccessService';
 
 interface UseTaskDetailStateParams {
   task: Task;
   tasks: Task[];
   currentUser?: User;
+  aiPlanEnabled: boolean;
   aiEnabled: boolean;
   initialTab?: TaskDetailTabType;
   onUpdate: (id: string, updates: Partial<Omit<Task, 'id' | 'userId' | 'createdAt' | 'order'>>) => void;
@@ -22,6 +24,7 @@ export const useTaskDetailState = ({
   task,
   tasks,
   currentUser,
+  aiPlanEnabled,
   aiEnabled,
   initialTab,
   onUpdate,
@@ -251,7 +254,8 @@ export const useTaskDetailState = ({
   };
 
   const handleGenerateSubtasksWithAI = async () => {
-    if (!aiEnabled || !currentUser) return;
+    if (!ensureAiAccess({ aiPlanEnabled, aiEnabled, featureLabel: 'AI subtasks' })) return;
+    if (!currentUser) return;
     setIsGeneratingSubtasksAI(true);
     try {
       const steps = await aiService.breakDownTask(task.title, task.description || description);
@@ -309,7 +313,8 @@ export const useTaskDetailState = ({
   };
 
   const runAIAudit = async () => {
-    if (!aiEnabled || !currentUser) return;
+    if (!ensureAiAccess({ aiPlanEnabled, aiEnabled, featureLabel: 'AI audit' })) return;
+    if (!currentUser) return;
     const dedupeKey = `task-audit:${task.id}`;
     setIsAIThinking(true);
     const result = await aiJobService.runJob({

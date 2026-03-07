@@ -31,6 +31,7 @@ const AdminSetupModal: React.FC<AdminSetupModalProps> = ({
   const [teamMemberIds, setTeamMemberIds] = useState<string[]>([]);
   const [error, setError] = useState('');
   const [org, setOrg] = useState<Organization | null>(null);
+  const [isCreatingTeam, setIsCreatingTeam] = useState(false);
 
   const orgUsers = useMemo(
     () => allUsers.filter((member) => member.orgId === user.orgId),
@@ -49,21 +50,26 @@ const AdminSetupModal: React.FC<AdminSetupModalProps> = ({
     setTeamMemberIds((prev) => (prev.includes(memberId) ? prev.filter((id) => id !== memberId) : [...prev, memberId]));
   };
 
-  const createFirstTeam = () => {
+  const createFirstTeam = async () => {
     setError('');
-    const result = teamService.createTeam(user, user.orgId, {
-      name: teamName,
-      leadId: teamLeadId || undefined,
-      memberIds: teamMemberIds
-    });
-    if (result.error) {
-      setError(result.error);
-      return;
+    setIsCreatingTeam(true);
+    try {
+      const result = await teamService.createTeamRemote(user, user.orgId, {
+        name: teamName,
+        leadId: teamLeadId || undefined,
+        memberIds: teamMemberIds
+      });
+      if (result.error) {
+        setError(result.error);
+        return;
+      }
+      setTeamName('');
+      setTeamLeadId('');
+      setTeamMemberIds([]);
+      onTeamsChanged(await teamService.fetchTeamsFromBackend(user.orgId));
+    } finally {
+      setIsCreatingTeam(false);
     }
-    setTeamName('');
-    setTeamLeadId('');
-    setTeamMemberIds([]);
-    onTeamsChanged(teamService.getTeams(user.orgId));
   };
 
   const updateOrgSettings = async (
@@ -124,8 +130,8 @@ const AdminSetupModal: React.FC<AdminSetupModalProps> = ({
                   </label>
                 ))}
               </div>
-              <Button size="sm" onClick={createFirstTeam} disabled={!teamName.trim()}>
-                <Plus className="w-3.5 h-3.5 mr-1.5" /> Create team
+              <Button size="sm" onClick={createFirstTeam} disabled={!teamName.trim() || isCreatingTeam}>
+                <Plus className="w-3.5 h-3.5 mr-1.5" /> {isCreatingTeam ? 'Creating...' : 'Create team'}
               </Button>
             </div>
           ) : (

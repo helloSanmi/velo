@@ -1,6 +1,6 @@
 import React from 'react';
 import { WorkspaceIllustration } from './AuthViewVisuals';
-import { AuthMode, InvitePreview, PlanOption, Tier } from './AuthView.types';
+import { AuthMode, InvitePreview, LoginPasswordStep, PlanOption, Tier } from './AuthView.types';
 import { AuthViewHeader } from './AuthViewHeader';
 import { AuthViewForm } from './AuthViewForm';
 
@@ -12,6 +12,8 @@ interface AuthViewPanelProps {
   setError: (value: string) => void;
   setResetNotice: (value: string) => void;
   setIsResetPasswordMode: (value: boolean) => void;
+  setTempPasswordVerified: (value: boolean) => void;
+  setVerifiedTempPassword: (value: string) => void;
   handleSubmit: (event: React.FormEvent) => void;
   licenseBlocked: { provider: 'microsoft'; message: string } | null;
   orgName: string;
@@ -22,6 +24,7 @@ interface AuthViewPanelProps {
   identifier: string;
   setIdentifier: (value: string) => void;
   isResetPasswordMode: boolean;
+  loginPasswordStep: LoginPasswordStep;
   password: string;
   setPassword: (value: string) => void;
   showPassword: boolean;
@@ -33,8 +36,9 @@ interface AuthViewPanelProps {
   plans: PlanOption[];
   selectedTier: Tier;
   setSelectedTier: (tier: Tier) => void;
-  effectiveSeatCount: number | null;
+  effectiveSeatCount: number;
   selectedPlanLabel: string;
+  planLocked: boolean;
   setSeatCount: (count: number) => void;
   error: string;
   resetNotice: string;
@@ -53,6 +57,8 @@ const AuthViewPanel: React.FC<AuthViewPanelProps> = ({
   setError,
   setResetNotice,
   setIsResetPasswordMode,
+  setTempPasswordVerified,
+  setVerifiedTempPassword,
   handleSubmit,
   licenseBlocked,
   orgName,
@@ -63,6 +69,7 @@ const AuthViewPanel: React.FC<AuthViewPanelProps> = ({
   identifier,
   setIdentifier,
   isResetPasswordMode,
+  loginPasswordStep,
   password,
   setPassword,
   showPassword,
@@ -76,6 +83,7 @@ const AuthViewPanel: React.FC<AuthViewPanelProps> = ({
   setSelectedTier,
   effectiveSeatCount,
   selectedPlanLabel,
+  planLocked,
   setSeatCount,
   error,
   resetNotice,
@@ -89,12 +97,9 @@ const AuthViewPanel: React.FC<AuthViewPanelProps> = ({
     <div className="grid lg:grid-cols-[1fr_1fr]">
       <aside className="hidden border-r border-[#ead4df] bg-[#f6eaf0] p-8 lg:block">
         <p className="text-xs uppercase tracking-[0.14em] text-slate-500">Workspace access</p>
-        <h1 className="mt-3 text-3xl font-semibold tracking-tight text-slate-900">
-          {scopedWorkspace ? 'Workspace sign-in' : 'Sign in, create, or join a workspace'}
-        </h1>
         <p className="mt-3 text-sm leading-relaxed text-slate-600">
           {scopedWorkspace
-            ? 'This URL is dedicated to a single workspace. Sign in with your workspace credentials or approved SSO provider.'
+            ? 'This URL is dedicated to a single workspace. Use it for direct access, password setup, and approved SSO sign-in.'
             : 'Use Sign in if you already have an account, Create workspace to start a new org, or Join workspace with an invite token.'}
         </p>
         <div className="mt-6 overflow-hidden rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
@@ -112,6 +117,8 @@ const AuthViewPanel: React.FC<AuthViewPanelProps> = ({
             setError={setError}
             setResetNotice={setResetNotice}
             setIsResetPasswordMode={setIsResetPasswordMode}
+            setTempPasswordVerified={setTempPasswordVerified}
+            setVerifiedTempPassword={setVerifiedTempPassword}
             isResetPasswordMode={isResetPasswordMode}
             workspaceName={workspaceName}
             inferredWorkspaceDomain={inferredWorkspaceDomain}
@@ -128,6 +135,7 @@ const AuthViewPanel: React.FC<AuthViewPanelProps> = ({
             identifier={identifier}
             setIdentifier={setIdentifier}
             isResetPasswordMode={isResetPasswordMode}
+            loginPasswordStep={loginPasswordStep}
             password={password}
             setPassword={setPassword}
             showPassword={showPassword}
@@ -141,6 +149,7 @@ const AuthViewPanel: React.FC<AuthViewPanelProps> = ({
             setSelectedTier={setSelectedTier}
             effectiveSeatCount={effectiveSeatCount}
             selectedPlanLabel={selectedPlanLabel}
+            planLocked={planLocked}
             setSeatCount={setSeatCount}
             error={error}
             resetNotice={resetNotice}
@@ -148,6 +157,8 @@ const AuthViewPanel: React.FC<AuthViewPanelProps> = ({
             oauthLoadingProvider={oauthLoadingProvider}
             handleProviderSignIn={handleProviderSignIn}
             setIsResetPasswordMode={setIsResetPasswordMode}
+            setTempPasswordVerified={setTempPasswordVerified}
+            setVerifiedTempPassword={setVerifiedTempPassword}
             setError={setError}
             setResetNotice={setResetNotice}
           />

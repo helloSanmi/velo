@@ -14,7 +14,11 @@ const settingsSchema = z.object({
   loginSubdomain: z.string().min(2).max(40).optional(),
   allowMicrosoftAuth: z.boolean().optional(),
   microsoftWorkspaceConnected: z.boolean().optional(),
-  notificationSenderEmail: z.string().email().nullable().optional()
+  notificationSenderEmail: z.string().email().nullable().optional(),
+  plan: z.enum(['free', 'basic', 'pro']).optional(),
+  totalSeats: z.coerce.number().int().min(1).optional(),
+  seatPrice: z.coerce.number().int().min(0).optional(),
+  billingCurrency: z.string().trim().min(3).max(8).optional()
 });
 
 router.get('/orgs/:orgId', authenticate, requireOrgAccess, async (req, res, next) => {

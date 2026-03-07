@@ -6,8 +6,20 @@ import { DirectoryEntry, normalizeEmail } from './settingsAdminRows';
 interface UseSettingsDirectoryStateArgs {
   org: Organization | null;
   onUpdateOrganizationSettings: (
-    patch: Partial<Pick<Organization, 'loginSubdomain' | 'allowMicrosoftAuth' | 'microsoftWorkspaceConnected' | 'notificationSenderEmail'>>
-  ) => Promise<void>;
+    patch: Partial<
+      Pick<
+        Organization,
+        | 'loginSubdomain'
+        | 'allowMicrosoftAuth'
+        | 'microsoftWorkspaceConnected'
+        | 'notificationSenderEmail'
+        | 'plan'
+        | 'totalSeats'
+        | 'seatPrice'
+        | 'billingCurrency'
+      >
+    >
+  ) => Promise<Organization | null>;
 }
 
 export const useSettingsDirectoryState = ({ org, onUpdateOrganizationSettings }: UseSettingsDirectoryStateArgs) => {

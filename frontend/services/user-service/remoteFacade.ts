@@ -176,10 +176,11 @@ export const createRemoteUserFacade = (deps: Deps) => ({
   resetPassword: async (
     identifier: string,
     workspaceDomain: string | undefined,
+    currentPassword: string,
     newPassword: string,
     confirmPassword: string
   ): Promise<{ success: boolean; error?: string }> =>
-    resetPasswordRemote(identifier, workspaceDomain, newPassword, confirmPassword),
+    resetPasswordRemote(identifier, workspaceDomain, currentPassword, newPassword, confirmPassword),
 
   fetchInvitesFromBackend: async (orgId: string): Promise<OrgInvite[]> =>
     fetchInvitesFromBackendRemote(orgId, deps.getInvites),
@@ -203,7 +204,19 @@ export const createRemoteUserFacade = (deps: Deps) => ({
 
   updateOrganizationSettingsRemote: async (
     orgId: string,
-    patch: Partial<Pick<Organization, 'loginSubdomain' | 'allowMicrosoftAuth' | 'microsoftWorkspaceConnected' | 'notificationSenderEmail'>>
+    patch: Partial<
+      Pick<
+        Organization,
+        | 'loginSubdomain'
+        | 'allowMicrosoftAuth'
+        | 'microsoftWorkspaceConnected'
+        | 'notificationSenderEmail'
+        | 'plan'
+        | 'totalSeats'
+        | 'seatPrice'
+        | 'billingCurrency'
+      >
+    >
   ): Promise<Organization | null> => updateOrganizationSettingsRemote(orgId, patch),
 
   provisionUserRemote: async (

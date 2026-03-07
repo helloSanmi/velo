@@ -2,6 +2,7 @@ import { UserRole } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import { HttpError } from '../../lib/httpError.js';
 import { createId } from '../../lib/ids.js';
+import { getBackendPermissionMessage } from '../../lib/accessMessages.js';
 import {
   MICROSOFT_AUTH_URL,
   getProviderConfig,
@@ -62,7 +63,7 @@ export const buildOauthConnectUrl = async (input: {
   actor: { userId: string; orgId: string; role: UserRole };
 }) => {
   if (input.actor.role !== 'admin') {
-    throw new HttpError(403, 'Only workspace admins can connect SSO providers.');
+    throw new HttpError(403, getBackendPermissionMessage('admin_only', 'connect SSO providers'));
   }
   const org = await resolveOrgByWorkspaceDomain(input.workspaceDomain);
   if (org.id !== input.actor.orgId) {
@@ -96,7 +97,7 @@ export const buildOauthDirectoryUrl = async (input: {
   returnOrigin?: string;
 }) => {
   if (input.actor.role !== 'admin') {
-    throw new HttpError(403, 'Only workspace admins can import directory users.');
+    throw new HttpError(403, getBackendPermissionMessage('admin_only', 'import directory users'));
   }
   const org = await prisma.organization.findUnique({
     where: { id: input.actor.orgId },

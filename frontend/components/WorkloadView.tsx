@@ -3,6 +3,8 @@ import { Loader2, Sparkles } from 'lucide-react';
 import { Task, TaskPriority, TaskStatus, User } from '../types';
 import Button from './ui/Button';
 import { aiService } from '../services/aiService';
+import { toastService } from '../services/toastService';
+import { ensureAiAccess } from '../services/aiAccessService';
 import WorkloadFilters from './workload/WorkloadFilters';
 import WorkloadSuggestions from './workload/WorkloadSuggestions';
 import WorkloadUserCard from './workload/WorkloadUserCard';
@@ -12,9 +14,11 @@ interface WorkloadViewProps {
   users: User[];
   tasks: Task[];
   onReassign: (taskId: string, toUserId: string) => void;
+  aiPlanEnabled: boolean;
+  aiEnabled: boolean;
 }
 
-const WorkloadView: React.FC<WorkloadViewProps> = ({ users, tasks, onReassign }) => {
+const WorkloadView: React.FC<WorkloadViewProps> = ({ users, tasks, onReassign, aiPlanEnabled, aiEnabled }) => {
   const taskAssigneeIds = (task: Task): string[] => {
     if (Array.isArray(task.assigneeIds) && task.assigneeIds.length > 0) return task.assigneeIds;
     return task.assigneeId ? [task.assigneeId] : [];
@@ -52,10 +56,15 @@ const WorkloadView: React.FC<WorkloadViewProps> = ({ users, tasks, onReassign })
   }, [userStats, query, loadFilter]);
 
   const handleBalance = async () => {
+    if (!ensureAiAccess({ aiPlanEnabled, aiEnabled, featureLabel: 'AI workload balancing' })) {
+      return;
+    }
     setIsBalancing(true);
     try {
       const result = await aiService.suggestWorkloadBalance(tasks, users);
       setSuggestions(result);
+    } catch {
+      toastService.error('AI suggestion failed', 'Could not generate workload balancing suggestions.');
     } finally {
       setIsBalancing(false);
     }
@@ -76,7 +85,7 @@ const WorkloadView: React.FC<WorkloadViewProps> = ({ users, tasks, onReassign })
           </div>
           <Button onClick={handleBalance} variant="secondary" disabled={isBalancing}>
             {isBalancing ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Sparkles className="w-4 h-4 mr-2" />}
-            Suggest balancing
+            {!aiPlanEnabled ? 'Suggest balancing: Pro' : !aiEnabled ? 'Suggest balancing: Enable AI' : 'Suggest balancing'}
           </Button>
         </div>
 

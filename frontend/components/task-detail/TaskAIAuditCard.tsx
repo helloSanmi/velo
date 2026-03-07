@@ -2,9 +2,12 @@ import React, { useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import Button from '../ui/Button';
 import { TASK_SECTION_SHELL, TASK_SECTION_TITLE, TASK_SUBCARD } from './taskDetailStyles';
+import { ensureAiAccess } from '../../services/aiAccessService';
 
 interface TaskAIAuditCardProps {
   canManageTask: boolean;
+  aiPlanEnabled: boolean;
+  aiEnabled: boolean;
   isAIThinking: boolean;
   runAIAudit: () => Promise<void>;
   riskAssessment: { isAtRisk: boolean; reason: string } | null;
@@ -17,6 +20,8 @@ interface TaskAIAuditCardProps {
 
 const TaskAIAuditCard: React.FC<TaskAIAuditCardProps> = ({
   canManageTask,
+  aiPlanEnabled,
+  aiEnabled,
   isAIThinking,
   runAIAudit,
   riskAssessment,
@@ -27,6 +32,16 @@ const TaskAIAuditCard: React.FC<TaskAIAuditCardProps> = ({
   showControls = true
 }) => {
   const [showDetails, setShowDetails] = useState(false);
+  const handleAiAction = () => {
+    if (!ensureAiAccess({
+      aiPlanEnabled,
+      aiEnabled,
+      hasPermission: canManageTask,
+      featureLabel: 'AI audit',
+      permissionMessage: 'Only project owner/admin can run AI audit.'
+    })) return;
+    void runAIAudit();
+  };
   return (
     <div className={TASK_SECTION_SHELL}>
       <h4 className={TASK_SECTION_TITLE}>AI audit</h4>
@@ -40,14 +55,16 @@ const TaskAIAuditCard: React.FC<TaskAIAuditCardProps> = ({
           </div>
 
           {showControls ? (
-            <Button size="sm" onClick={runAIAudit} disabled={isAIThinking || !canManageTask} className="h-7 px-2 rounded-md text-[10px] sm:self-start">
+            <Button size="sm" onClick={handleAiAction} disabled={isAIThinking || (aiPlanEnabled && aiEnabled && !canManageTask)} className="h-7 px-2 rounded-md text-[10px] sm:self-start">
               {isAIThinking ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : null}
-              {riskAssessment ? 'Run again' : 'Run check'}
+              {!aiPlanEnabled ? 'Upgrade to Pro' : !aiEnabled ? 'Enable AI' : riskAssessment ? 'Run again' : 'Run check'}
             </Button>
           ) : null}
         </div>
 
-        {showControls && !canManageTask ? <p className="text-[9px] text-slate-500">Only project owner/admin can run AI audit.</p> : null}
+        {showControls && !aiPlanEnabled ? <p className="text-[9px] text-slate-500">AI audit is available on Pro.</p> : null}
+        {showControls && aiPlanEnabled && !aiEnabled ? <p className="text-[9px] text-slate-500">Enable AI in Settings to run AI audit.</p> : null}
+        {showControls && aiPlanEnabled && aiEnabled && !canManageTask ? <p className="text-[9px] text-slate-500">Only project owner/admin can run AI audit.</p> : null}
 
         {estimateHours || adjustedHours || overrunPercent > 0 ? (
           <div className="rounded-md border border-slate-100 bg-slate-50/40 px-2 py-1 text-[9px] text-slate-700">

@@ -8,7 +8,6 @@ interface ContactPageProps {
   onOpenProduct: () => void;
   onOpenSolutions: () => void;
   onOpenPricing: () => void;
-  onOpenSupport: () => void;
   onSignIn: () => void;
   onGetStarted: () => void;
 }
@@ -49,7 +48,6 @@ const ContactPage: React.FC<ContactPageProps> = (props) => {
       onOpenProduct={props.onOpenProduct}
       onOpenSolutions={props.onOpenSolutions}
       onOpenPricing={props.onOpenPricing}
-      onOpenSupport={props.onOpenSupport}
       onOpenContact={props.onBackToHome}
       onSignIn={props.onSignIn}
       onGetStarted={props.onGetStarted}
@@ -95,7 +93,7 @@ const ContactPage: React.FC<ContactPageProps> = (props) => {
               <textarea required placeholder="What do you want to improve in delivery?" className="min-h-[130px] w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none" />
               <div className="flex flex-wrap items-center gap-2 pt-1">
                 <Button type="submit" className="!bg-[#76003f] hover:!bg-[#640035] !text-white">Send request</Button>
-              <Button type="button" variant="outline" onClick={props.onOpenSupport}>Need support instead</Button>
+                <Button type="button" variant="outline" onClick={props.onOpenPricing}>View pricing</Button>
               </div>
             </form>
           ) : (

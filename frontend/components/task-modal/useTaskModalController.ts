@@ -4,10 +4,14 @@ import { aiService } from '../../services/aiService';
 import { dialogService } from '../../services/dialogService';
 import { estimationService } from '../../services/estimationService';
 import { settingsService } from '../../services/settingsService';
+import { toastService } from '../../services/toastService';
 import { userService } from '../../services/userService';
+import { ensureAiAccess } from '../../services/aiAccessService';
 
 interface UseTaskModalControllerArgs {
   projectId?: string | null;
+  aiPlanEnabled?: boolean;
+  aiEnabled?: boolean;
   onClose: () => void;
   onSubmit: (
     title: string,
@@ -21,7 +25,13 @@ interface UseTaskModalControllerArgs {
   ) => void;
 }
 
-export const useTaskModalController = ({ projectId, onClose, onSubmit }: UseTaskModalControllerArgs) => {
+export const useTaskModalController = ({
+  projectId,
+  aiPlanEnabled = true,
+  aiEnabled = true,
+  onClose,
+  onSubmit
+}: UseTaskModalControllerArgs) => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState<TaskPriority>(TaskPriority.MEDIUM);
@@ -75,23 +85,39 @@ export const useTaskModalController = ({ projectId, onClose, onSubmit }: UseTask
   };
 
   const handleSuggestDate = async () => {
+    if (!ensureAiAccess({ aiPlanEnabled, aiEnabled, featureLabel: 'AI due date suggestions' })) {
+      return;
+    }
     if (!title.trim()) {
       await dialogService.notice('Please enter a task title first.', { title: 'Task title required' });
       return;
     }
     setIsScheduling(true);
-    const suggested = await aiService.suggestDueDate(title, tags);
-    setDueDate(suggested);
-    setAiSuggestedDueDateUsed(true);
-    setIsScheduling(false);
+    try {
+      const suggested = await aiService.suggestDueDate(title, tags);
+      setDueDate(suggested);
+      setAiSuggestedDueDateUsed(true);
+    } catch {
+      toastService.error('AI suggestion failed', 'Could not suggest a due date right now.');
+    } finally {
+      setIsScheduling(false);
+    }
   };
 
   const handleSuggestTags = async () => {
+    if (!ensureAiAccess({ aiPlanEnabled, aiEnabled, featureLabel: 'AI tag suggestions' })) {
+      return;
+    }
     if (!title.trim()) return;
     setIsSuggestingTags(true);
-    const suggested = await aiService.suggestTags(title, description);
-    setTags((prev) => Array.from(new Set([...prev, ...suggested])));
-    setIsSuggestingTags(false);
+    try {
+      const suggested = await aiService.suggestTags(title, description);
+      setTags((prev) => Array.from(new Set([...prev, ...suggested])));
+    } catch {
+      toastService.error('AI suggestion failed', 'Could not suggest tags right now.');
+    } finally {
+      setIsSuggestingTags(false);
+    }
   };
 
   const addTagFromInput = (e: React.KeyboardEvent) => {
@@ -141,6 +167,8 @@ export const useTaskModalController = ({ projectId, onClose, onSubmit }: UseTask
     setWhatIfPercent,
     isScheduling,
     isSuggestingTags,
+    aiPlanEnabled,
+    aiEnabled,
     showPersonalCalibration,
     allUsers,
     preview,

@@ -8,7 +8,6 @@ interface AuthViewProps {
   initialMode?: 'login' | 'register' | 'join';
   onBackToHome?: () => void;
   onOpenPricing?: () => void;
-  onOpenSupport?: () => void;
   workspaceScoped?: boolean;
 }
 
@@ -29,6 +28,8 @@ const AuthView: React.FC<AuthViewProps> = ({ onAuthSuccess, initialMode = 'login
         setError={controller.setError}
         setResetNotice={controller.setResetNotice}
         setIsResetPasswordMode={controller.setIsResetPasswordMode}
+        setTempPasswordVerified={controller.setTempPasswordVerified}
+        setVerifiedTempPassword={controller.setVerifiedTempPassword}
         handleSubmit={controller.handleSubmit}
         licenseBlocked={controller.licenseBlocked}
         orgName={controller.orgName}
@@ -39,6 +40,7 @@ const AuthView: React.FC<AuthViewProps> = ({ onAuthSuccess, initialMode = 'login
         identifier={controller.identifier}
         setIdentifier={controller.setIdentifier}
         isResetPasswordMode={controller.isResetPasswordMode}
+        loginPasswordStep={controller.loginPasswordStep}
         password={controller.password}
         setPassword={controller.setPassword}
         showPassword={controller.showPassword}
@@ -52,6 +54,7 @@ const AuthView: React.FC<AuthViewProps> = ({ onAuthSuccess, initialMode = 'login
         setSelectedTier={controller.setSelectedTier}
         effectiveSeatCount={controller.effectiveSeatCount}
         selectedPlanLabel={controller.selectedPlan.label}
+        planLocked={Boolean(controller.lockedPlan)}
         setSeatCount={controller.setSeatCount}
         error={controller.error}
         resetNotice={controller.resetNotice}

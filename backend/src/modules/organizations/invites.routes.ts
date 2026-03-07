@@ -7,6 +7,7 @@ import { prisma } from '../../lib/prisma.js';
 import { createId } from '../../lib/ids.js';
 import { enforce } from '../policy/policy.service.js';
 import { HttpError } from '../../lib/httpError.js';
+import { getBackendPermissionMessage } from '../../lib/accessMessages.js';
 import { writeAudit } from '../audit/audit.service.js';
 import { sendInviteByEmail } from './invite-delivery.service.js';
 
@@ -22,7 +23,7 @@ const createInviteSchema = z.object({
 
 const assertOrgAdmin = (role: UserRole) => {
   if (role !== UserRole.admin) {
-    throw new HttpError(403, 'Only workspace admins can manage invites.');
+    throw new HttpError(403, getBackendPermissionMessage('admin_only', 'manage invites'));
   }
 };
 

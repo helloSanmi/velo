@@ -7,6 +7,7 @@ import { projectService } from '../services/projectService';
 import { toastService } from '../services/toastService';
 import { createId } from '../utils/id';
 import { categorizeTasks, collectUniqueTags, filterTasks, getDoneStageIds } from './taskFilters';
+import { getPermissionMessage } from '../services/permissionAccessService';
 
 export const useTasks = (user: User | null, activeProjectId?: string) => {
   const [tasks, setTasks] = useState<Task[]>(() => (user ? taskService.getTasks(user.id, user.orgId) : []));
@@ -260,9 +261,14 @@ export const useTasks = (user: User | null, activeProjectId?: string) => {
     setActiveTaskId(task.id);
     setActiveTaskTitle(task.title);
     setAiLoading(true);
-    const steps = await aiService.breakDownTask(task.title, task.description);
-    setAiSuggestions(steps);
-    setAiLoading(false);
+    try {
+      const steps = await aiService.breakDownTask(task.title, task.description);
+      setAiSuggestions(steps);
+    } catch {
+      toastService.error('AI assist failed', 'Please retry in a moment.');
+    } finally {
+      setAiLoading(false);
+    }
   };
 
   const applyAISuggestions = (finalSteps: string[]) => {
@@ -277,7 +283,7 @@ export const useTasks = (user: User | null, activeProjectId?: string) => {
       : [];
     const canManage = user.role === 'admin' || projectOwnerIds.includes(user.id) || task.userId === user.id;
     if (!canManage) {
-      toastService.warning('Permission denied', 'Only project owners or admins can apply AI-generated subtasks.');
+      toastService.warning('Permission denied', getPermissionMessage('project_owner_or_admin', 'apply AI-generated subtasks'));
       setAiSuggestions(null);
       setActiveTaskId(null);
       return;

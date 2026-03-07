@@ -11,6 +11,7 @@ import {
   getWorkflowOwnerProjectIds,
   getWorkflowVisibleProjects
 } from '../../services/settingsAccessService';
+import { getPlanFeatures, normalizeWorkspacePlan } from '../../services/planFeatureService';
 import { SettingsTabType } from './settingsModal.types';
 
 interface AiUsageRow {
@@ -113,8 +114,12 @@ export const useSettingsModalData = ({ isOpen, initialTab, user, projects, proje
 
   const workflowOwnerProjectIds = useMemo(() => getWorkflowOwnerProjectIds(user, projects), [projects, user]);
   const workflowVisibleProjects = useMemo(() => getWorkflowVisibleProjects(user, projects, projectTasks), [projects, projectTasks, user]);
-  const canAccessWorkflowAutomation = canAccessWorkflowAutomationByRole(user, workflowVisibleProjects);
-  const canManageWorkflowAutomation = canManageWorkflowAutomationByRole(user, workflowOwnerProjectIds);
+  const planFeatures = useMemo(() => getPlanFeatures(normalizeWorkspacePlan(org?.plan)), [org?.plan]);
+  const workflowPlanEnabled = planFeatures.workflows;
+  const integrationsPlanEnabled = planFeatures.integrations;
+  const workflowAccessByRole = canAccessWorkflowAutomationByRole(user, workflowVisibleProjects);
+  const canAccessWorkflowAutomation = workflowPlanEnabled && workflowAccessByRole;
+  const canManageWorkflowAutomation = workflowPlanEnabled && canManageWorkflowAutomationByRole(user, workflowOwnerProjectIds);
 
   return {
     activeTab,
@@ -178,6 +183,9 @@ export const useSettingsModalData = ({ isOpen, initialTab, user, projects, proje
     focusedProject,
     focusedProjectTasks,
     workflowVisibleProjects,
+    workflowAccessByRole,
+    workflowPlanEnabled,
+    integrationsPlanEnabled,
     canAccessWorkflowAutomation,
     canManageWorkflowAutomation
   };

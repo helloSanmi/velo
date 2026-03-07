@@ -7,6 +7,8 @@ type KanbanActionButtonsProps = Pick<
   KanbanHeaderProps,
   | 'activeProject'
   | 'onOptimizeOrder'
+  | 'aiPlanEnabled'
+  | 'aiEnabled'
   | 'isTriaging'
   | 'projectStages'
   | 'canManageStages'
@@ -27,6 +29,8 @@ type KanbanActionButtonsProps = Pick<
 const KanbanActionButtons: React.FC<KanbanActionButtonsProps> = ({
   activeProject,
   onOptimizeOrder,
+  aiPlanEnabled,
+  aiEnabled,
   isTriaging,
   projectStages,
   canManageStages,
@@ -52,7 +56,11 @@ const KanbanActionButtons: React.FC<KanbanActionButtonsProps> = ({
           className="h-9 md:h-7 px-3 md:px-2 rounded-md border border-slate-200 bg-white hover:bg-slate-50 text-xs md:text-[11px] font-medium text-slate-700 transition-colors disabled:opacity-50 inline-flex items-center gap-1 whitespace-nowrap shrink-0"
         >
           {isTriaging ? <Loader2 className="w-3 h-3 animate-spin" /> : <ListOrdered className="w-3 h-3" />}
-          Optimize {projectStages[0]?.name || 'Backlog'}
+          {!aiPlanEnabled
+            ? 'Optimize: Pro'
+            : !aiEnabled
+              ? 'Optimize: Enable AI'
+              : `Optimize ${projectStages[0]?.name || 'Backlog'}`}
         </button>
       ) : null}
       {activeProject && canGenerateTasksWithAI && onOpenGenerateTasksWithAI ? (

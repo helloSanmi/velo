@@ -3,6 +3,7 @@ import { Trash2 } from 'lucide-react';
 import { Task } from '../../types';
 import Button from '../ui/Button';
 import { dialogService } from '../../services/dialogService';
+import { getPermissionMessage } from '../../services/permissionAccessService';
 
 interface TaskDetailFooterProps {
   task: Task;
@@ -20,7 +21,7 @@ const TaskDetailFooter: React.FC<TaskDetailFooterProps> = ({ task, onClose, onDe
         variant="danger"
         className="px-6 disabled:opacity-35"
         disabled={!canDelete}
-        title={canDelete ? 'Delete task' : 'Only project owner/admin can delete'}
+        title={canDelete ? 'Delete task' : getPermissionMessage('project_owner_or_admin', 'delete')}
         onClick={async () => {
           if (!canDelete) return;
           const confirmed = await dialogService.confirm('Delete this task?', { title: 'Delete task', confirmText: 'Delete', danger: true });
